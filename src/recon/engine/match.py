@@ -17,8 +17,14 @@ and are labelled as such.
 
 from __future__ import annotations
 
+import config as cfg
+
 from ..schemas import Payment, ReconInputs
-from . import fees, tier1_reference, tier2_amount_date, tier3_subsetsum
+
+
+def cfg_fs_lower() -> float:
+    return cfg.FS_THRESHOLD_LOWER
+from . import fees, fellegi_sunter as fs, tier1_reference, tier2_amount_date, tier3_subsetsum
 from .normalize import parse
 from .results import Assignment, Candidate, MatchOutput, Refusal, RefusalCategory
 
@@ -40,6 +46,7 @@ def _assignment_from(
     cand: Candidate,
     by_id: dict[str, Payment],
     uniqueness: float = 1.0,
+    fs_weight: float | None = None,
 ) -> Assignment:
     interval = fees.NetInterval(cand.interval_lo, cand.interval_hi, cand.certain)
     return Assignment(
@@ -54,13 +61,14 @@ def _assignment_from(
         # only by being the sole fit in its window. Either way the margin is maximal.
         # Tier 3 passes its measured margin -- how far the next-best subset sat.
         uniqueness_margin=uniqueness,
+        fs_weight=fs_weight,
     )
 
 
 MAX_ROUNDS = 6
 
 
-def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no):
+def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est):
     """
     Run the three tiers against one credit, in descending order of evidence strength.
 
@@ -74,27 +82,27 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no):
         txn, parsed, index, by_id, claimed, invoices_by_no
     )
     if cat is not None:
-        return ("refuse", cands, cat, reason, 1.0)
+        return ("refuse", cands, cat, reason, 1.0, None)
     if cands:
-        return ("assign", cands, None, "", 1.0)
+        return ("assign", cands, None, "", 1.0, None)
 
     cands, cat, reason = tier2_amount_date.match(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
-        return ("refuse", cands, cat, reason, 1.0)
+        return ("refuse", cands, cat, reason, 1.0, None)
     if cands:
-        return ("assign", cands, None, "", 1.0)
+        return ("assign", cands, None, "", 1.0, None)
 
     cands, cat, reason, uniq = tier3_subsetsum.match_with_margin(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
-        return ("refuse", cands, cat, reason, 0.0)
+        return ("refuse", cands, cat, reason, 0.0, None)
     if cands:
-        return ("assign", cands, None, "", uniq)
+        return ("assign", cands, None, "", uniq, None)
 
-    return ("none", [], None, "", 0.0)
+    return ("none", [], None, "", 0.0, None)
 
 
 def match_once(inputs: ReconInputs) -> MatchOutput:
@@ -121,6 +129,7 @@ def match_once(inputs: ReconInputs) -> MatchOutput:
     by_id = {p.id: p for p in payments}
     index = tier1_reference.ReferenceIndex(payments, inputs.invoices)
     invoices_by_no = {i.invoice_no: i for i in inputs.invoices}
+    u_est = fs.estimate_u(payments, inputs.bank_txns)
 
     credits = sorted(
         (t for t in inputs.bank_txns if t.is_credit), key=tier2_amount_date.sort_key
@@ -142,13 +151,41 @@ def match_once(inputs: ReconInputs) -> MatchOutput:
         for txn in credits:
             if txn.id in settled:
                 continue
-            verdict, cands, cat, reason, uniq = _verdict_for(
-                txn, payments, by_id, index, claimed, invoices_by_no
+            verdict, cands, cat, reason, uniq, _ = _verdict_for(
+                txn, payments, by_id, index, claimed, invoices_by_no, u_est
             )
+
             if verdict == "assign":
                 cand = cands[0]
+                # ---- Layer 3: Fellegi-Sunter two-threshold band ----
+                ev = fs.evidence_for(
+                    txn,
+                    parse(txn.narration),
+                    [by_id[pid] for pid in cand.payment_ids if pid in by_id],
+                    u_est,
+                    pool_size=max(2, len(tier2_amount_date.candidate_pool(txn, payments, claimed))),
+                )
+                if ev.contradicts:
+                    # Names and references actively contradict the amount evidence.
+                    # Two independent channels disagree, so neither is trusted alone.
+                    refusals.append(
+                        Refusal(
+                            txn.id, RefusalCategory.AMOUNT_NAME_CONFLICT,
+                            f"amounts reconcile (residual {cand.residual_paise:+d}p) but "
+                            f"non-amount evidence contradicts it: Fellegi-Sunter field "
+                            f"weight {ev.field_weight:+.2f} (total {ev.weight:+.2f}). "
+                            + "; ".join(
+                                f.detail for f in ev.fields if f.level is not None
+                            ),
+                            txn.credit, tuple(cands),
+                        )
+                    )
+                    continue
                 assignments.append(
-                    _assignment_from(txn.id, txn.credit, cand, by_id, uniqueness=uniq)
+                    _assignment_from(
+                        txn.id, txn.credit, cand, by_id,
+                        uniqueness=uniq, fs_weight=ev.weight,
+                    )
                 )
                 claimed.update(cand.payment_ids)
                 settled.add(txn.id)

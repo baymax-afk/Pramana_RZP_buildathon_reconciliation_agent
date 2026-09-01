@@ -602,3 +602,91 @@ any single round the tiers still refuse rather than choose.
 the engine rather than confirming correctness. MR6 needs no ground truth to detect it --
 it compares two executions and observes that they disagree, which is exactly the
 property that makes these checks usable where no answer key exists.
+
+---
+
+## 2026-09-01-12 — Layer 3 refused 86 of 137 credits by treating silence as dissent
+
+**Timestamp:** 2026-09-01, Block 7 (Fellegi-Sunter)
+
+**What broke:** The moment the Fellegi-Sunter gate was wired in, assignments collapsed
+from 125 to 61 and refusals rose to 76. Every many-to-one decomposition Layer 2 had
+earned in the previous block was gone.
+
+**Diagnosis:** Two errors compounding.
+
+*Scoring the blocking variable.* `date` was in the comparison vector. But the candidate
+pool is BUILT by requiring the payment to fall inside the credit's lookback, so every
+pair reaching the model already agrees on date by construction. Scoring it again
+double-counts the blocking. Worse, it meant no comparison was ever fully absent — so a
+settlement batch with no payer name and no quoted reference produced a weight of -0.20
+from the date field and the prior alone, landed below the lower threshold, and was
+refused as a non-match. Excluding blocking variables from the comparison vector is
+standard record-linkage practice; here it is also what makes "nothing to weigh"
+detectable at all.
+
+*Treating absence as evidence against.* A gateway settlement batch carries no payer name
+because it covers many payers, and quotes no invoice because it covers many invoices.
+That is the correct content of those fields, not disagreement. The gate now fires only
+on active contradiction — at least one field must positively DISAGREE and the field
+evidence must net negative. Absence never vetoes; weak-but-positive evidence never
+vetoes.
+
+**Fix:** date removed from the comparison vector; the veto moved from `band ==
+"non_match"` to a new `contradicts` predicate.
+
+**Cost:** ~25 minutes.
+
+---
+
+## 2026-09-01-13 — Whole-string name matching vetoed six correct assignments
+
+**Timestamp:** 2026-09-01, Block 7
+
+**What broke:** With the gate corrected, precision held at 1.0000 but **six correct
+assignments were refused** as `amount_name_conflict`, and one-to-one recall fell from
+105/105 to 99/105. Rs 118,048.74 of correctly-matched money was pushed onto a human's
+desk for no reason.
+
+**Diagnosis:** All six were the same failure. The name comparison tested whole-string
+prefix containment, and real names do not survive a bank statement intact:
+
+| bank narration | ledger | verdict |
+|---|---|---|
+| `NOVA CHEMICALS IND` | `Nova Chemical India Private Limited` | DISAGREE |
+| `PINNACLE STEEL TRA` | `Pinnacle Steels Traders` | DISAGREE |
+| `VERTEX ENGINEERIN` | `VERTEX ENGG` | DISAGREE |
+
+Every one is the same counterparty. Bank field-width truncation and ledger alias
+spellings mean neither normalised string is a prefix of the other, so a string-level
+test calls them a conflict — and the gate, working exactly as designed, refused.
+
+**Fix:** token-level comparison. Two tokens agree when the shorter is a strict prefix of
+the longer, which covers truncation (`TRADERS` -> `TRA`) and inflection (`STEEL` /
+`STEELS`, `CHEMICAL` / `CHEMICALS`).
+
+**What was deliberately NOT done:** the looser rule of accepting any shared
+3-character prefix would have fixed the abbreviation case (`ENGG` / `ENGINEERING`) too.
+It would also merge `SUNRISE` with `SUNLINE` and `ACME` with `ACMI` — and the customer
+registry deliberately contains confusable pairs that are DIFFERENT legal entities.
+A name comparison loose enough to merge those posts money to the wrong customer, which
+is the exact failure this layer exists to price. Abbreviations therefore degrade to
+partial agreement — weak positive evidence — rather than a false identity.
+
+**A second, smaller overclaim, caught by the tests rather than the metrics:** the first
+tokenised version returned EXACT when every token found a prefix-agreeing partner and
+the counts matched. So `PINNACLE STEEL TRA` vs `PINNACLE STEELS TRADERS` scored EXACT
+and drew the full `m/u` weight. That is unearned: complete prefix agreement is
+consistent with the same counterparty and also with a different one sharing a truncated
+prefix. EXACT now requires literal token equality; everything else is PARTIAL.
+
+**Result:** match rate back to 86.08%, one-to-one recall back to 105/105, precision
+1.0000 throughout.
+
+**Cost:** ~30 minutes.
+
+**The pattern across both entries:** Layer 3 is the first component whose failures cost
+*coverage* rather than correctness, and both times the layer behaved exactly as
+specified while the specification was wrong about the data. A gate is only as good as
+its notion of disagreement, and "these strings differ" is not the same proposition as
+"these are different counterparties."

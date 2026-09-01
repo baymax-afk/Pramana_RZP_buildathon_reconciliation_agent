@@ -150,7 +150,13 @@ def render(
     l2_assigned = sc.precision_by_tier.get("tier3_subsetsum", (0, 0))[1]
     add(f"    Layer 2  subset-sum uniqueness      {l2_assigned} unique decomposition(s) "
         f"assigned, {l2_refusals} refused as underdetermined")
-    add("    Layer 3  Fellegi-Sunter two-threshold band  pending (Block 7)")
+    l3 = sc.exceptions_by_category.get("amount_name_conflict", 0)
+    add(f"    Layer 3  Fellegi-Sunter          thresholds "
+        f"{cfg.FS_THRESHOLD_LOWER:.0f}/{cfg.FS_THRESHOLD_UPPER:.0f} (Splink weights), "
+        f"{l3} amount/name conflict(s) refused")
+    add(f"               m from {cfg.FS_M_SOURCE[:52]}")
+    add("               u estimated unsupervised from the batch; date excluded as the")
+    add("               blocking key; absence of a name never counts as disagreement.")
     add("    Layer 4  materiality + projected error      pending (Block 8)")
     add("    calibration curve / ECE                     pending (Block 8b)")
     add("")
