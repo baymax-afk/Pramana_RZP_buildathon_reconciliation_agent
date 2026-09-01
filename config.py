@@ -34,22 +34,32 @@ SEED_SECONDARY = 77771
 # "The density invariant".
 # --------------------------------------------------------------------------
 N_PAYMENTS = 200
-TARGET_POOL_SIZE = 9           # NOMINAL payments placed per settlement window
-SETTLEMENT_WINDOW_DAYS = 3     # a credit on date D may only cover payments in [D-3, D]
-DENSITY_SWEEP = (5, 9, 18)     # nominal densities for the reported sweep
+TARGET_POOL_SIZE = 6           # NOMINAL payments placed per settlement window
+SETTLEMENT_WINDOW_DAYS = 3     # width of the window whose payments settle together
+MAX_SETTLEMENT_DRIFT_DAYS = 2  # T+1/T+2 drift the generator injects on top of that
 
-# NOMINAL density is not the pool the engine actually searches. A credit's lookback
-# [D-3, D] straddles window boundaries, and settlement drift (T+1/T+2) widens it
-# further, so the REALISED pool runs about 1.8x the nominal figure. Measured over 12
-# seeds:
+# The engine's LOOKBACK is the sum, not SETTLEMENT_WINDOW_DAYS alone. A credit can be
+# drifted two days past its window's settle date, so the oldest payment it legitimately
+# covers sits WINDOW + DRIFT days behind it. Using the window width alone as the
+# lookback silently drops every drifted credit: measured on the primary seed, 15 of 25
+# unmatched one-to-one credits were simply outside a too-narrow window, at lags of 4
+# and 5 days. See docs/DEFECT_LOG.md 2026-09-01-07.
+LOOKBACK_DAYS = SETTLEMENT_WINDOW_DAYS + MAX_SETTLEMENT_DRIFT_DAYS
+DENSITY_SWEEP = (3, 6, 12)     # nominal densities for the reported sweep
+
+# NOMINAL density is not the pool the engine actually searches. A credit draws from
+# LOOKBACK_DAYS of history, which spans more than one window, so the REALISED pool runs
+# roughly 2.5x the nominal figure. Measured over 10 seeds against the correct lookback:
 #
-#     nominal   5  ->  realised  9-10     under MAX_POOL, engine searches
-#     nominal   9  ->  realised 15-16     under MAX_POOL, engine searches  <- default
-#     nominal  18  ->  realised 27-29     over MAX_POOL, engine refuses    <- swept
+#     nominal   3  ->  realised  8-10     under MAX_POOL, engine searches
+#     nominal   6  ->  realised 14-17     under MAX_POOL, engine searches  <- default
+#     nominal  12  ->  realised 27-30     over MAX_POOL, engine refuses    <- swept
 #
-# These two constants were originally set independently and never reconciled: a
-# nominal 12 realises as 18-22, which exceeded MAX_POOL on 2 of 12 seeds and failed
-# the build outright. See docs/DEFECT_LOG.md 2026-09-01-06.
+# These constants have now been recalibrated twice, both times because two quantities
+# with different meanings were being read as one. First TARGET_POOL_SIZE was mistaken
+# for the realised pool; then SETTLEMENT_WINDOW_DAYS was used as the engine's lookback
+# when the lookback must also cover settlement drift. See docs/DEFECT_LOG.md
+# 2026-09-01-06 and 2026-09-01-07.
 #
 # MAX_POOL cannot simply be raised to accommodate a higher density, because it is set
 # by SEARCH COST, not by taste: meet-in-the-middle at k<=6 over a pool of 20 is 38,760

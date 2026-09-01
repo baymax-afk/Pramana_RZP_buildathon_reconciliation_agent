@@ -371,3 +371,56 @@ is recorded here rather than left to look like quiet tuning.
 correct on the seeds being looked at and wrong in general — the GST rounding rule, the
 ambiguity guarantee, and now the density calibration. In every case the fix was to
 measure the distribution instead of the instance.
+
+---
+
+## 2026-09-01-07 — Engine lookback used the window width, silently dropping every drifted credit
+
+**Timestamp:** 2026-09-01, Block 3 (matching engine, tiers 1–2)
+
+**What broke:** Tiers 1–2 matched 85 of 138 credits at perfect precision, but 25
+credits that ground truth says are plain `one_to_one` found no candidate at all. A
+clean one-to-one settlement is the easiest case there is; missing 25 of them meant
+something structural was wrong, not something marginal.
+
+**Diagnosis:** Instrumented the misses by cause rather than guessing. Fifteen of the
+25 had their payment sitting **outside the engine's date lookback** — at lags of 4
+days (8 credits) and 5 days (7 credits), against a lookback of 3.
+
+`SETTLEMENT_WINDOW_DAYS = 3` was doing two different jobs. For the generator it is the
+width of the window whose payments settle together. For the engine it was also being
+used as the lookback — how far back a credit may reach for its payments. Those are not
+the same number. A credit can be drifted up to `MAX_SETTLEMENT_DRIFT_DAYS = 2` past
+its window's settle date, so the oldest payment it legitimately covers sits
+`WINDOW + DRIFT = 5` days behind it, not 3.
+
+The engine was therefore structurally incapable of matching any credit carrying T+2
+drift — and settlement drift is one of the nine defects the batch deliberately injects.
+
+**Fix:** `LOOKBACK_DAYS = SETTLEMENT_WINDOW_DAYS + MAX_SETTLEMENT_DRIFT_DAYS`, used by
+tier 2 and by the pool-bound assertion so both measure the same thing.
+
+Widening the lookback widens the candidate pool, so the density calibration had to be
+redone against it: the realised pool is now roughly **2.5x** nominal rather than 1.8x,
+and `TARGET_POOL_SIZE` moves 9 -> 6 with `DENSITY_SWEEP` (5, 9, 18) -> (3, 6, 12).
+Verified across 10 seeds — default realises 14–17 against a cap of 20, the high arm
+realises 27–30 and is meant to exceed it.
+
+**Result:** coverage 61.6% -> 67.9%, precision unchanged at 1.000 (93/93), and
+unmatched `one_to_one` credits fall from 25 to 6.
+
+**Cost:** ~20 minutes.
+
+**The recurring pattern, now three times:** GST rounding, the density calibration, and
+now the lookback. Every one was two distinct quantities being read as a single
+constant, and every one was invisible until something was measured per-cause rather
+than in aggregate. The aggregate here said "coverage 61.6%", which looks like a
+matcher that needs more tiers. The per-cause breakdown said "15 credits are outside a
+window that is the wrong width", which is a one-line fix. **Coverage numbers hide
+their own causes; the fix was cheap only because the misses were bucketed by reason
+before anything was changed.**
+
+**What was NOT done:** the obvious alternative was widening the window until the
+misses went away. That would have "worked" and been indefensible — it is per-record
+tuning wearing a config-shaped hat. The lookback is now derived from two quantities
+that each mean something, and it would be wrong at any other value.

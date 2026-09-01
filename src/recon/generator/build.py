@@ -30,6 +30,7 @@ from ..schemas import (
     Payment,
     ReconInputs,
     TruthLink,
+    date_of,
     paise_to_rupees,
 )
 from . import defects, fees
@@ -467,7 +468,11 @@ def generate(
 
             txn_seq += 1
             utr = defects.make_utr(rng)
-            nar = defects.narrate(rng, utr, cust)
+            # Roughly 55% of payers quote the invoice number in the remittance. The
+            # rest do not, so tier 1 cannot carry the whole batch and tier 2 has real
+            # work to do -- which is the realistic split.
+            quoted = p.notes["invoice_no"] if rng.random() < 0.55 else None
+            nar = defects.narrate(rng, utr, cust, merchant_ref=quoted)
             balance += net
             bank_txns.append(
                 BankTxn(
@@ -514,6 +519,9 @@ def generate(
     amb_id = _ambiguity_id(truth)
     if amb_id:
         payments = _protect_ambiguity_window(payments, bank_txns, truth, amb_id)
+
+    # ---- renumber bank transactions to match on-disk order ----
+    bank_txns, truth = _renumber_bank_txns(bank_txns, truth)
 
     inputs = ReconInputs(
         payments=tuple(payments),
@@ -669,7 +677,7 @@ def _protect_ambiguity_window(
             p.captured
             and p.fee is not None
             and p.id not in crafted
-            and 0 <= (cd - date.fromtimestamp(p.created_at)).days <= lookback
+            and 0 <= (cd - date_of(p.created_at)).days <= lookback
             and (p.amount - p.fee) <= cfg.AMBIGUITY_CREDIT_PAISE
         ):
             out.append(replace(p, created_at=p.created_at + 86_400 * (lookback + 1)))
@@ -682,7 +690,7 @@ def _protect_ambiguity_window(
     # centrepiece case that only appears to hold.
     for p in out:
         if p.captured and p.fee is not None and p.id not in crafted:
-            lag = (cd - date.fromtimestamp(p.created_at)).days
+            lag = (cd - date_of(p.created_at)).days
             if 0 <= lag <= lookback and (p.amount - p.fee) <= cfg.AMBIGUITY_CREDIT_PAISE:
                 raise AssertionError(
                     f"Ambiguity guarantee cannot be enforced: {p.id} nets "
@@ -690,6 +698,32 @@ def _protect_ambiguity_window(
                     f"could join a subset reaching {cfg.AMBIGUITY_CREDIT_PAISE}p."
                 )
     return out
+
+
+def _renumber_bank_txns(
+    bank_txns: list[BankTxn], truth: list[TruthLink]
+) -> tuple[list[BankTxn], list[TruthLink]]:
+    """
+    Sort the statement by date and reassign ids by final position.
+
+    A real bank statement arrives in date order and carries no internal row id, so the
+    loader derives one from position in the file. That only works if the generator's
+    ids agree with the file's final ordering -- otherwise every ground-truth reference
+    points at the wrong row and scoring silently compares unrelated records.
+
+    This is a genuinely nasty class of bug: nothing raises, the engine runs fine, and
+    precision comes out near zero for a reason that looks like a matcher failure. So
+    the two orderings are reconciled once, here, at the point where both are known,
+    and `tests/test_engine_tiers.py` asserts the round trip.
+    """
+    ordered = sorted(bank_txns, key=lambda t: (t.txn_date, t.id))
+    remap = {t.id: f"bank_txn_{i:04d}" for i, t in enumerate(ordered, start=1)}
+    renumbered = [replace(t, id=remap[t.id]) for t in ordered]
+    retruth = [
+        replace(link, bank_txn_id=remap.get(link.bank_txn_id, link.bank_txn_id))
+        for link in truth
+    ]
+    return renumbered, retruth
 
 
 def _ambiguity_id(truth: list[TruthLink]) -> str:
@@ -743,7 +777,7 @@ def _same_window(p: Payment, credit: BankTxn) -> bool:
     from datetime import datetime
 
     cd = datetime.fromisoformat(credit.txn_date).date()
-    pd_ = date.fromtimestamp(p.created_at)
+    pd_ = date_of(p.created_at)
     return timedelta(days=0) <= (cd - pd_) <= timedelta(days=cfg.SETTLEMENT_WINDOW_DAYS + 2)
 
 
@@ -795,13 +829,13 @@ def assert_pool_bound(batch: GeneratedBatch) -> int:
     by_day: Counter[str] = Counter()
     for p in batch.inputs.payments:
         if p.captured:
-            by_day[date.fromtimestamp(p.created_at).isoformat()] += 1
+            by_day[date_of(p.created_at).isoformat()] += 1
     worst = max(
         (
             sum(
                 v for d, v in by_day.items()
                 if 0 <= (date.fromisoformat(c.txn_date) - date.fromisoformat(d)).days
-                <= cfg.SETTLEMENT_WINDOW_DAYS
+                <= cfg.LOOKBACK_DAYS
             )
             for c in batch.inputs.bank_txns if c.is_credit
         ),

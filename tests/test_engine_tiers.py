@@ -1,0 +1,293 @@
+"""
+Matching engine, tiers 1 and 2.
+
+The engine's job at this stage is narrow and should be judged narrowly: match
+one-to-one settlements on exact reference or on amount-plus-date, and decline
+everything else. Coverage is expected to be incomplete — many-to-one decomposition is
+Block 6 — so these tests assert **precision and refusal behaviour**, not coverage.
+
+That split is the whole thesis in miniature: an engine that assigns less but is right
+about what it assigns is more useful than one that assigns everything and is quietly
+wrong about some of it.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+import config as cfg
+from loaders import load_inputs
+from recon.engine import fees, tier2_amount_date
+from recon.engine.match import match_once
+from recon.engine.normalize import needs_llm, normalise_name, parse
+from recon.engine.results import RefusalCategory
+from recon.generator import build
+
+
+@pytest.fixture(scope="module")
+def written(tmp_path_factory):
+    """Generate, write, and load back — exercising the real disk round trip."""
+    out = tmp_path_factory.mktemp("generated")
+    batch = build.generate(seed=cfg.SEED_PRIMARY)
+    build.write(batch, out_dir=out)
+    return batch, load_inputs(out), out
+
+
+# --------------------------------------------------------------------------
+# Round trip
+# --------------------------------------------------------------------------
+def test_bank_txn_ids_survive_the_disk_round_trip(written):
+    """
+    The loader derives row ids from position in the file, so the generator's ids must
+    agree with the file's final ordering. If they drift apart, every ground-truth
+    reference points at the wrong row — and nothing raises. Precision would collapse
+    for a reason that looks like a matcher failure.
+    """
+    batch, inputs, out = written
+    truth = json.loads((out / "_truth" / "ground_truth.json").read_text(encoding="utf-8"))
+    loaded = {t.id for t in inputs.bank_txns}
+    referenced = {l["bank_txn_id"] for l in truth["links"] if l["bank_txn_id"]}
+    assert not (referenced - loaded), "ground truth references rows the loader did not produce"
+
+
+def test_amounts_survive_the_rupee_paise_round_trip(written):
+    batch, inputs, _ = written
+    by_id = {t.id: t for t in inputs.bank_txns}
+    for original in batch.inputs.bank_txns:
+        assert by_id[original.id].credit == original.credit
+        assert by_id[original.id].debit == original.debit
+
+
+# --------------------------------------------------------------------------
+# Narration parsing
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "narration,style,has_merchant_ref,has_name",
+    [
+        ("NEFT-PUNBR67363667630-SUNRISE TEXTILES L-INV-2026-1001-CR", "neft", True, True),
+        ("NEFT-AXISP60587771111-ACME INDUSTRIAL SU-CR", "neft", False, True),
+        ("UPI/98454901578/PAYMENT/ACME INDUSTR/INV-2026-1042", "upi", True, True),
+        ("RTGS-HDFCN12345678901-BHARAT TRADERS-CR", "rtgs", False, True),
+        ("RAZORPAY SETTLEMENT setl_dFGFrGyQBgxjkC 5 TXNS", "settlement", False, False),
+    ],
+)
+def test_narration_parsing(narration, style, has_merchant_ref, has_name):
+    p = parse(narration)
+    assert p.style == style
+    assert bool(p.merchant_ref) is has_merchant_ref
+    assert bool(p.payer_name) is has_name
+
+
+def test_settlement_batch_yields_no_payer_name_and_is_not_sent_to_the_llm():
+    """
+    A settlement batch covers many payers, so having no single name is the CORRECT
+    parse, not a failure. Handing it to the LLM would invite a hallucinated payer —
+    and the trust boundary depends on the LLM never being asked to invent identity.
+    """
+    p = parse("RAZORPAY SETTLEMENT setl_ABCDEFGH12345 7 TXNS")
+    assert p.payer_name is None
+    assert not needs_llm(p)
+
+
+def test_quoted_invoice_is_not_mistaken_for_the_payer_name():
+    p = parse("NEFT-PUNBR67363667630-SUNRISE TEXTILES L-INV-2026-1001-CR")
+    assert p.merchant_ref == "INV-2026-1001"
+    assert "INV-2026" not in (p.payer_name or "")
+
+
+def test_parse_never_raises_on_junk():
+    for junk in ["", "   ", "????", "\x00\x01", "A" * 500]:
+        assert parse(junk) is not None
+
+
+def test_normalise_name_folds_corporate_suffixes():
+    assert normalise_name("Acme Retail Pvt Ltd") == normalise_name("Acme Retail Private Limited")
+    assert normalise_name("Sunrise Textiles Ltd") != normalise_name("Sunline Textiles Ltd")
+
+
+# --------------------------------------------------------------------------
+# The fee band — the engine must stay blind to the exact rate
+# --------------------------------------------------------------------------
+def test_engine_never_imports_the_generator_fee_model():
+    """
+    If the engine used the generator's exact schedule, MR4 conservation would be
+    tautological — the engine would reconcile because it was inverting the very
+    function that produced the data.
+    """
+    import ast
+    import inspect
+
+    tree = ast.parse(inspect.getsource(fees))
+    imported: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported += [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            imported.append(node.module or "")
+    assert not any("generator" in m for m in imported), imported
+
+
+def test_known_fee_gives_a_tight_interval_and_unknown_gives_a_wide_one(written):
+    _, inputs, _ = written
+    priced = next(p for p in inputs.payments if p.fee is not None)
+    tight = fees.net_interval(priced)
+    assert tight.certain and tight.width <= 4
+
+    from dataclasses import replace
+
+    unpriced = replace(priced, fee=None, tax=None)
+    wide = fees.net_interval(unpriced)
+    assert not wide.certain and wide.width > tight.width
+
+
+def test_uncertain_interval_scores_lower_confidence_than_a_certain_one(written):
+    """
+    Landing inside a band the engine could not narrow is weaker evidence than landing
+    on a point it could. Without this penalty an unpriced payment would score
+    identically to a priced one, overstating what is known.
+    """
+    from dataclasses import replace
+
+    _, inputs, _ = written
+    p = next(x for x in inputs.payments if x.fee is not None)
+    credit = p.amount - p.fee
+    certain = fees.residual_tightness(credit, fees.net_interval(p))
+    uncertain = fees.residual_tightness(credit, fees.net_interval(replace(p, fee=None, tax=None)))
+    assert certain > uncertain
+
+
+# --------------------------------------------------------------------------
+# Matching
+# --------------------------------------------------------------------------
+def test_match_is_deterministic(written):
+    _, inputs, _ = written
+    assert match_once(inputs).assignment_map == match_once(inputs).assignment_map
+
+
+def test_no_payment_is_assigned_twice(written):
+    """Double-posting is the worst failure mode available: it moves money twice."""
+    _, inputs, _ = written
+    out = match_once(inputs)
+    seen: set[str] = set()
+    for a in out.assignments:
+        for pid in a.payment_ids:
+            assert pid not in seen, f"{pid} assigned to more than one credit"
+            seen.add(pid)
+
+
+def test_every_credit_gets_exactly_one_verdict(written):
+    _, inputs, _ = written
+    out = match_once(inputs)
+    credits = {t.id for t in inputs.bank_txns if t.is_credit}
+    verdicts = (
+        {a.bank_txn_id for a in out.assignments}
+        | {r.bank_txn_id for r in out.refusals}
+        | set(out.no_candidate)
+    )
+    assert verdicts == credits
+    assert len(out.assignments) + len(out.refusals) + len(out.no_candidate) == len(credits)
+
+
+def test_precision_is_perfect_on_what_tiers_1_and_2_choose_to_assign(written):
+    """
+    THE test for this block. Coverage is deliberately partial; being right about what
+    is assigned is not negotiable. An engine that assigns less and is correct beats one
+    that assigns everything and is quietly wrong.
+    """
+    batch, inputs, _ = written
+    out = match_once(inputs)
+    truth = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
+    wrong = [
+        a for a in out.assignments
+        if a.bank_txn_id not in truth
+        or set(truth[a.bank_txn_id].payment_ids) != set(a.payment_ids)
+        or truth[a.bank_txn_id].expected_verdict != "assign"
+    ]
+    assert not wrong, f"{len(wrong)} incorrect assignments, e.g. {wrong[:2]}"
+
+
+def test_only_one_to_one_relations_are_assigned(written):
+    """
+    Tiers 1–2 cannot decompose a settlement batch. If a many-to-one credit is ever
+    assigned here, something has matched it to a single payment by coincidence — which
+    is exactly the silent error this architecture exists to prevent.
+    """
+    batch, inputs, _ = written
+    out = match_once(inputs)
+    truth = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
+    for a in out.assignments:
+        assert truth[a.bank_txn_id].relation == "one_to_one"
+
+
+def test_reference_match_with_a_wrong_amount_is_refused_not_assigned(written):
+    """
+    Reference and conservation are independent channels. When they disagree the amount
+    channel wins and the engine refuses, rather than letting a matching reference
+    override money that does not balance.
+    """
+    batch, inputs, _ = written
+    out = match_once(inputs)
+    truth = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
+    resid = [r for r in out.refusals if r.category is RefusalCategory.UNEXPLAINED_RESIDUAL]
+    assert resid, "expected at least one reference/amount conflict in this batch"
+    for r in resid:
+        assert truth[r.bank_txn_id].relation in {"partial", "many_to_one"}
+
+
+def test_refusals_carry_candidates_and_rupees_at_risk(written):
+    """An exception a human cannot act on is not an exception, it is a shrug."""
+    _, inputs, _ = written
+    for r in match_once(inputs).refusals:
+        assert r.paise_at_risk > 0
+        assert r.reason.strip()
+        assert r.candidates
+
+
+def test_ambiguity_case_is_never_assigned_by_tiers_1_and_2(written):
+    """
+    The centrepiece case must not be resolved by a lower tier. Its narration carries no
+    payer name and a reference matching no payment, so tier 1 cannot fire; its credit
+    equals no single payment's net, so tier 2 cannot either.
+    """
+    batch, inputs, _ = written
+    out = match_once(inputs)
+    assert batch.ambiguity_bank_txn_id not in out.assignment_map
+
+
+# --------------------------------------------------------------------------
+# The lookback — see DEFECT_LOG 2026-09-01-07
+# --------------------------------------------------------------------------
+def test_lookback_covers_the_window_plus_maximum_drift():
+    """
+    The lookback must span the settlement window AND the drift a credit can carry.
+    Using the window width alone silently drops every T+2-drifted credit — 15 of 25
+    unmatched one-to-one credits, before this was separated.
+    """
+    assert cfg.LOOKBACK_DAYS == cfg.SETTLEMENT_WINDOW_DAYS + cfg.MAX_SETTLEMENT_DRIFT_DAYS
+    assert cfg.LOOKBACK_DAYS > cfg.SETTLEMENT_WINDOW_DAYS
+
+
+def test_no_true_one_to_one_payment_falls_outside_the_lookback(written):
+    """
+    Every genuine one-to-one pairing must be reachable. A miss here is structural — the
+    engine could not match it at any tolerance — rather than a scoring near-miss.
+    """
+    batch, inputs, _ = written
+    by_id = {p.id: p for p in inputs.payments}
+    txns = {t.id: t for t in inputs.bank_txns}
+    from datetime import date
+
+    unreachable = []
+    for link in batch.truth:
+        if link.relation != "one_to_one" or not link.bank_txn_id:
+            continue
+        txn = txns.get(link.bank_txn_id)
+        p = by_id.get(link.payment_ids[0])
+        if not txn or not p:
+            continue
+        lag = (date.fromisoformat(txn.txn_date) - tier2_amount_date.payment_date(p)).days
+        if not 0 <= lag <= cfg.LOOKBACK_DAYS:
+            unreachable.append((link.bank_txn_id, lag))
+    assert not unreachable, f"one-to-one pairings outside the lookback: {unreachable[:5]}"

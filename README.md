@@ -180,7 +180,7 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 0** — repo skeleton, frozen config, architecture and metrics docs
 - [x] **Block 1** — real payment capture: 24 R1 payments (18 captured), 12 R2 orders
 - [x] **Block 2** — generator, ground truth, nine defects, ambiguity case
-- [ ] **Block 3** — matching engine, tiers 1–2
+- [x] **Block 3** — matching engine, tiers 1–2 (76.6% coverage, precision 1.0000)
 - [ ] **Block 4** — scorer, metrics harness, isolation test
 - [ ] **Block 5** — metamorphic harness + runtime permutation gate
 - [ ] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal

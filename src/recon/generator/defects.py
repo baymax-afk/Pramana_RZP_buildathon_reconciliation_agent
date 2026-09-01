@@ -68,6 +68,7 @@ def narrate(
     customer: Customer | None,
     n_txns: int = 1,
     force_style: str | None = None,
+    merchant_ref: str | None = None,
 ) -> Narration:
     """
     Build a realistic Indian bank narration string.
@@ -76,6 +77,13 @@ def narrate(
     with narrations that carry a full payer name, ones that carry a truncated name,
     and ones that carry no name at all. The last kind is where amount evidence has to
     stand alone -- and where the ambiguity case lives.
+
+    `merchant_ref` is the payer quoting the invoice number in the remittance, which
+    real payers do a good deal of the time. It is what makes an EXACT-reference match
+    possible at all. Without it there is no reference linkage between the bank side
+    and the payments side, tier 1 can never fire, and the duplicate-UTR defect has
+    nothing to corrupt -- the statement would look realistic while being trivially
+    easier than reality in the one dimension that matters most.
     """
     name = truncate_for_bank(customer.bank_hint or customer.canonical_name) if customer else ""
     style = force_style or rng.choice(
@@ -90,17 +98,18 @@ def narrate(
             f"RAZORPAY SETTLEMENT {make_settlement_id(rng)} {n_txns} TXNS",
             style, carries_name=False, carries_ref=False,
         )
+
+    ref_part = f"-{merchant_ref}" if merchant_ref else ""
     if style == "neft":
-        return Narration(f"NEFT-{utr}-{name}-CR", style, True, True)
+        return Narration(f"NEFT-{utr}-{name}{ref_part}-CR", style, True, True)
     if style == "rtgs":
-        return Narration(f"RTGS-{utr}-{name}-CR", style, True, True)
+        return Narration(f"RTGS-{utr}-{name}{ref_part}-CR", style, True, True)
     if style == "imps":
-        return Narration(f"IMPS/{utr[5:]}/{name}", style, True, True)
+        return Narration(f"IMPS/{utr[5:]}/{name}{'/' + merchant_ref if merchant_ref else ''}", style, True, True)
     # upi
     short = name[:12].strip()
-    return Narration(
-        f"UPI/{utr[5:]}/PAYMENT/{short}", style, True, True
-    )
+    tail = f"/{merchant_ref}" if merchant_ref else ""
+    return Narration(f"UPI/{utr[5:]}/PAYMENT/{short}{tail}", style, True, True)
 
 
 def anonymous_settlement_narration(rng: random.Random, n_txns: int) -> Narration:

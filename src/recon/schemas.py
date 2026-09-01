@@ -13,12 +13,26 @@ enforcement of the ground-truth isolation boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Literal
 
 Provenance = Literal["R1", "R2", "S"]
 Relation = Literal["one_to_one", "many_to_one", "partial", "unmatched"]
 Verdict = Literal["assign", "refuse"]
+
+
+def date_of(unix_ts: int) -> date:
+    """
+    The calendar date of a unix timestamp, in UTC.
+
+    Every module must agree on this. The generator originally used local time while the
+    engine used UTC, which shifts a payment across a day boundary for anyone east or
+    west of Greenwich -- and a payment that moves one day can fall out of a credit's
+    lookback entirely. A timezone bug here presents as an unmatched payment, not as an
+    error, so it is centralised rather than left to each caller.
+    """
+    return datetime.fromtimestamp(unix_ts, UTC).date()
 
 
 def rupees_to_paise(s: str | Decimal) -> int:
