@@ -157,6 +157,8 @@ def cmd_match(args: argparse.Namespace) -> int:
         captured_payments=sum(1 for p in inputs.payments if p.captured),
         ambiguity_bank_txn_id=raw.get("ambiguity_bank_txn_id", ""),
         throughput=records / elapsed if elapsed else None,
+        credits_by_id={x.id: x.credit for x in inputs.bank_txns},
+        seed=args.seed,
     )
     print(render(sc, args.seed, args.payments_per_window,
                  llm_enabled=not args.no_llm, relations=relations, ensemble=ensemble))

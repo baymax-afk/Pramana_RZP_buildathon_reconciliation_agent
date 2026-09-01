@@ -194,7 +194,8 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 5** — metamorphic harness + runtime permutation gate (MR1–MR6 all pass)
 - [x] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal (86.1% match rate, precision 1.0000)
 - [x] **Block 7** — Layer 3 Fellegi–Sunter (two-threshold band, unsupervised `u`)
-- [ ] **Block 8** — Layer 4 materiality, composite confidence, BenchRec calibration
+- [x] **Block 8** — Layer 4 materiality (AS 2315) + composite confidence
+- [ ] **Block 8b** — BenchRec calibration fit (weights currently UNCALIBRATED)
 - [ ] **Block 9** — LLM tier
 - [ ] **Block 10** — FastAPI + React exception triage UI
 

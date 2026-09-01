@@ -24,7 +24,14 @@ from ..schemas import Payment, ReconInputs
 
 def cfg_fs_lower() -> float:
     return cfg.FS_THRESHOLD_LOWER
-from . import fees, fellegi_sunter as fs, tier1_reference, tier2_amount_date, tier3_subsetsum
+from . import (
+    confidence as conf,
+    fees,
+    fellegi_sunter as fs,
+    tier1_reference,
+    tier2_amount_date,
+    tier3_subsetsum,
+)
 from .normalize import parse
 from .results import Assignment, Candidate, MatchOutput, Refusal, RefusalCategory
 
@@ -62,6 +69,11 @@ def _assignment_from(
         # Tier 3 passes its measured margin -- how far the next-best subset sat.
         uniqueness_margin=uniqueness,
         fs_weight=fs_weight,
+        confidence=conf.score(
+            residual_tightness=fees.residual_tightness(credit, interval),
+            uniqueness_margin=uniqueness,
+            fs_weight=fs_weight,
+        ).confidence,
     )
 
 

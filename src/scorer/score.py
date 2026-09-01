@@ -86,6 +86,9 @@ class Scorecard:
     precision_by_tier: dict[str, tuple[int, int]]
     recall_by_relation: dict[str, tuple[int, int]]
     ambiguity_case_verdict: str
+    materiality: object | None = None
+    confidence_deciles: tuple[tuple[float, int, float], ...] = ()
+    confidence_calibrated: bool = False
     throughput_records_per_s: float | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
 
@@ -101,6 +104,8 @@ def score(
     captured_payments: int,
     ambiguity_bank_txn_id: str = "",
     throughput: float | None = None,
+    credits_by_id: dict[str, int] | None = None,
+    seed: int = 0,
 ) -> Scorecard:
     """
     Score one engine run.
@@ -183,6 +188,51 @@ def score(
     else:
         verdict = "unknown"
 
+    # ---- Layer 4: verification plan, and the projection it implies ----
+    plan = None
+    if credits_by_id is not None:
+        from recon.verify import materiality as mat
+
+        plan = mat.plan_for_assignments(out.assignments, credits_by_id, seed)
+        wrong_set = set(wrong)
+        projections = []
+        for stratum in plan.strata:
+            # The scorer supplies what a human verifier would have found. This is the
+            # ONLY place ground truth enters Layer 4, and it happens offline -- the
+            # runtime layer emits the plan, not the projection.
+            errs = [i for i in stratum.sampled_ids if i in wrong_set]
+            projections.append(
+                mat.project(
+                    stratum,
+                    observed_misstatement_paise=sum(
+                        credits_by_id.get(i, 0) for i in errs
+                    ),
+                    observed_count=len(errs),
+                )
+            )
+        plan = mat.Plan(
+            materiality_paise=plan.materiality_paise,
+            strata=plan.strata,
+            total_paise=plan.total_paise,
+            above_materiality_paise=plan.above_materiality_paise,
+            below_materiality_paise=plan.below_materiality_paise,
+            projections=tuple(projections),
+        )
+
+    # ---- confidence distribution, by decile ----
+    from collections import defaultdict
+
+    buckets: dict[int, list[bool]] = defaultdict(list)
+    correct_set = set(correct)
+    for a in out.assignments:
+        if a.confidence is None:
+            continue
+        buckets[min(9, int(a.confidence * 10))].append(a.bank_txn_id in correct_set)
+    deciles = tuple(
+        (round(d / 10 + 0.05, 2), len(v), sum(v) / len(v))
+        for d, v in sorted(buckets.items())
+    )
+
     return Scorecard(
         total_payments=total_payments,
         captured_payments=captured_payments,
@@ -205,5 +255,14 @@ def score(
         precision_by_tier={k: (v[0], v[1]) for k, v in precision_by_tier.items()},
         recall_by_relation={k: (v[0], v[1]) for k, v in recall.items()},
         ambiguity_case_verdict=verdict,
+        materiality=plan,
+        confidence_deciles=deciles,
+        confidence_calibrated=_calibrated(),
         throughput_records_per_s=throughput,
     )
+
+
+def _calibrated() -> bool:
+    from recon.engine import confidence
+
+    return confidence.is_calibrated()

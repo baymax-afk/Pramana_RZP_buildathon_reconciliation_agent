@@ -690,3 +690,80 @@ prefix. EXACT now requires literal token equality; everything else is PARTIAL.
 specified while the specification was wrong about the data. A gate is only as good as
 its notion of disagreement, and "these strings differ" is not the same proposition as
 "these are different counterparties."
+
+---
+
+## 2026-09-01-14 — The composite confidence score has almost no spread, so it cannot yet be calibrated
+
+**Timestamp:** 2026-09-01, Block 8 (Layer 4 and composite confidence)
+
+**What broke:** Nothing failed. The confidence score works, every assignment carries
+one, and the reliability table came out like this:
+
+| bucket | n | observed accuracy |
+|---|---|---|
+| 0.95 | 125 | 100.0% |
+
+**One bucket.** All 125 assignments score between 0.938 and 0.982 — a spread of 0.044.
+
+**Diagnosis:** This is a structural consequence of the architecture working, not a bug
+in the score. The engine only *reaches* the confidence stage for assignments where
+conservation already holds tightly, uniqueness is already clean, and the permutation
+gate is already open. Everything with weak evidence was refused several layers
+earlier. So by the time the composite score is computed, its inputs have been filtered
+to their high end and there is almost nothing left to discriminate between.
+
+The uncomfortable implication is worth stating plainly: **a calibration curve needs
+variation in the predicted probability, and this engine does not currently produce
+any.** Fitting weights against BenchRec in Block 8b will improve the weights, but it
+cannot manufacture spread that the pipeline has already filtered out. A reliability
+diagram over a single decile is not evidence of calibration; it is one point.
+
+**What was NOT done:** the tempting fix is to loosen the earlier layers so weaker
+matches survive to be scored, producing a nice spread across deciles. That would be
+manufacturing a calibration curve by degrading the engine — trading real precision for
+a better-looking chart. The refusals are doing their job; the score is simply
+downstream of them.
+
+**Recorded, not fixed.** The metrics block prints the reliability table, states that
+the weights are UNCALIBRATED, and says in terms that the scores are an ordering rather
+than probabilities — that 0.9 does not yet mean "right 90% of the time". A test pins
+the narrow spread so it cannot be quietly forgotten if the caveat is ever dropped.
+
+The genuinely useful direction, if there is schedule for it, is to score the REFUSED
+population as well: those assignments span the full range of evidence quality, and a
+confidence score over accept-and-refuse together would have the variation that
+accept-only lacks. That is a design change rather than a fix, and it is out of scope
+for this block.
+
+---
+
+## 2026-09-01-15 — Materiality at Rs 5,000 puts 99% of assigned value into full verification
+
+**Timestamp:** 2026-09-01, Block 8
+
+**What broke:** Layer 4 stratifies correctly and then reports that **104 of 125
+assignments — 99% of assigned value — sit at or above materiality** and require 100%
+verification. Sampling relieves 21 items worth Rs 49,831 out of Rs 3,494,613.
+
+**Diagnosis:** `MATERIALITY_PAISE = 500_000` (Rs 5,000) was set in Block 0 as a
+plausible tolerable-misstatement figure, before any batch existed to set it against.
+The generated batch's payments run to Rs 18,700 each and settlements to Rs 100,000+, so
+most individual items exceed it. The stratification is arithmetically right and
+practically inert.
+
+**Why this is NOT being "fixed":** materiality is a POLICY input, not a tuning
+parameter. It encodes how much misstatement a particular merchant would care about, and
+Rs 5,000 on a Rs 3.5M batch is a conservative but entirely defensible stance. Raising it
+to make the sampling look more impressive would be choosing the answer and then
+choosing the question — precisely the move this project criticises elsewhere.
+
+What the system owes the user is the *consequence*, stated plainly, and the metrics
+block now prints it: at this materiality, sampling relieves almost nothing, so Layer 4
+is providing an audit-standard verification plan rather than an audit-standard
+reduction in work. Both are legitimate outputs; conflating them would not be.
+
+**A related honest number:** the rule-of-three bound on the sampled stratum is
+Rs 29,899 against a stratum worth Rs 49,831 — a 60% upper bound from 5 sampled items.
+That is what five observations actually buy, and reporting the point estimate of
+Rs 0.00 without it would be the single most misleading figure this system could emit.

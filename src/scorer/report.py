@@ -157,8 +157,44 @@ def render(
     add(f"               m from {cfg.FS_M_SOURCE[:52]}")
     add("               u estimated unsupervised from the batch; date excluded as the")
     add("               blocking key; absence of a name never counts as disagreement.")
-    add("    Layer 4  materiality + projected error      pending (Block 8)")
-    add("    calibration curve / ECE                     pending (Block 8b)")
+    if sc.materiality is not None:
+        p = sc.materiality
+        add(f"    Layer 4  materiality Rs {p.materiality_paise / 100:,.0f} "
+            f"(PCAOB AS 2315 .18/.22/.26)")
+        for st in p.strata:
+            add(f"               {st.name:<20} {st.size:>4} items  "
+                f"Rs {st.total_paise / 100:>13,.2f}   sampled {st.sample_size:>3} "
+                f"({st.coverage:.0%} of value)")
+        for pr in p.projections:
+            if pr.sample_size == 0:
+                continue
+            add(f"               projection[{pr.stratum}] {pr.observed_misstatements} "
+                f"misstatement(s) in {pr.sample_size} -> projected "
+                f"Rs {pr.projected_paise / 100:,.2f}, upper bound "
+                f"Rs {pr.upper_bound_paise / 100:,.2f}")
+            add(f"                   {pr.method}")
+        full = p.items_requiring_full_verification
+        pct = (p.above_materiality_paise / p.total_paise) if p.total_paise else 0
+        add(f"               {full} of {sc.total_assignments} assignments sit at or above")
+        add(f"               materiality ({pct:.0%} of assigned value) and require full")
+        add(f"               verification -- sampling relieves only the remainder.")
+    else:
+        add("    Layer 4  materiality + projected error      not run")
+
+    if sc.confidence_deciles:
+        add("")
+        add("  COMPOSITE CONFIDENCE  (Layer 1 x [conservation, uniqueness, Fellegi-Sunter])")
+        add(_THIN)
+        state = "CALIBRATED" if sc.confidence_calibrated else "UNCALIBRATED"
+        add(f"    weights: {state} -- {_weight_source()}")
+        if not sc.confidence_calibrated:
+            add("    These scores are an ORDERING, not probabilities. 0.9 does NOT yet mean")
+            add("    'right 90% of the time'. Fitting happens against BenchRec in Block 8b;")
+            add("    fitting against this run's own ground truth would be circular.")
+        add(f"    {'bucket':>8} {'n':>5} {'observed accuracy':>19}")
+        for mid, n, acc in sc.confidence_deciles:
+            add(f"    {mid:>8.2f} {n:>5} {acc * 100:>18.1f}%")
+        add("    calibration curve / ECE                     pending (Block 8b)")
     add("")
     if ensemble is None:
         add("    Single-pass results only. Assignments have NOT been tested for")
@@ -169,6 +205,12 @@ def render(
     add("")
     add(_RULE)
     return "\n".join(L)
+
+
+def _weight_source() -> str:
+    from recon.engine import confidence
+
+    return confidence.WEIGHT_SOURCE
 
 
 def _ratio(n: int, d: int) -> float:
