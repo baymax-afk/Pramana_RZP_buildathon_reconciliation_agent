@@ -208,17 +208,24 @@ def test_precision_is_perfect_on_what_tiers_1_and_2_choose_to_assign(written):
     assert not wrong, f"{len(wrong)} incorrect assignments, e.g. {wrong[:2]}"
 
 
-def test_only_one_to_one_relations_are_assigned(written):
+def test_many_to_one_is_only_ever_assigned_by_tier_3(written):
     """
-    Tiers 1–2 cannot decompose a settlement batch. If a many-to-one credit is ever
-    assigned here, something has matched it to a single payment by coincidence — which
-    is exactly the silent error this architecture exists to prevent.
+    Tiers 1 and 2 match a credit to a SINGLE payment. If either ever assigns a
+    settlement batch, it matched a multi-payment credit to one payment by coincidence
+    -- a confident wrong answer, the exact failure this architecture exists to prevent.
+    Decomposition is tier 3's job alone.
     """
     batch, inputs, _ = written
     out = match_once(inputs)
     truth = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
     for a in out.assignments:
-        assert truth[a.bank_txn_id].relation == "one_to_one"
+        rel = truth[a.bank_txn_id].relation
+        if rel == "many_to_one":
+            assert a.tier == "tier3_subsetsum", (
+                f"{a.bank_txn_id} is a settlement batch but was assigned by {a.tier}"
+            )
+        if a.tier in {"tier1_reference", "tier2_amount_date"}:
+            assert len(a.payment_ids) == 1
 
 
 def test_reference_match_with_a_wrong_amount_is_refused_not_assigned(written):
@@ -236,13 +243,28 @@ def test_reference_match_with_a_wrong_amount_is_refused_not_assigned(written):
         assert truth[r.bank_txn_id].relation in {"partial", "many_to_one"}
 
 
-def test_refusals_carry_candidates_and_rupees_at_risk(written):
-    """An exception a human cannot act on is not an exception, it is a shrug."""
+def test_refusals_carry_rupees_at_risk_and_an_actionable_reason(written):
+    """
+    An exception a human cannot act on is not an exception, it is a shrug.
+
+    Every refusal must name what is at stake and why. Candidates are required only
+    where candidates EXIST: a `decomposition_out_of_bounds` refusal means nothing fit,
+    and it stays actionable by reporting the closest miss instead -- "no subset comes
+    within Rs 23,653" tells an investigator where to look, while an empty candidate
+    list is simply the truth.
+    """
+    from recon.engine.results import RefusalCategory as RC
+
     _, inputs, _ = written
     for r in match_once(inputs).refusals:
         assert r.paise_at_risk > 0
         assert r.reason.strip()
-        assert r.candidates
+        if r.category in {RC.MULTIPLE_CANDIDATES, RC.SOLUTION_CAP_REACHED}:
+            assert len(r.candidates) >= 2, (
+                f"{r.category.value} must show every candidate it could not choose between"
+            )
+        elif r.category is RC.OUT_OF_BOUNDS:
+            assert "no subset" in r.reason or "MAX_POOL" in r.reason
 
 
 def test_ambiguity_case_is_never_assigned_by_tiers_1_and_2(written):

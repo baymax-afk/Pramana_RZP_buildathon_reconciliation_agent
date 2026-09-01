@@ -474,3 +474,131 @@ real data, and it is not expected to until tier 3 begins enumerating subsets in 
 6, where which subset a credit takes can genuinely depend on enumeration order. It is a
 live safety net, not a demonstrated catch. The metrics block says so rather than
 implying the zero was hard-won.
+
+---
+
+## 2026-09-01-09 — A test silently overwrote the project's real dataset
+
+**Timestamp:** 2026-09-01, Block 6
+
+**What broke:** Immediately after wiring tier 3 in, the engine reported 25 assignments
+against 137 credits. It looked like a catastrophic regression in the new code.
+
+**Diagnosis:** The new code was fine. `test_generator_may_still_write_truth` called
+`build.write(b)` **without an output directory**, so it wrote its 40-payment,
+density-8 batch to the default destination -- the project's real `data/generated/`.
+Every subsequent run matched against a 40-record batch while reporting as though it
+were the 200-record one.
+
+The failure is nasty because nothing errors. The data is valid, the engine runs
+correctly, the tests pass, and only the *numbers* are wrong -- attributed to whatever
+was changed most recently.
+
+**Fix:** the test writes to a pytest `tmp_path`. The real batch was regenerated.
+
+**Cost:** ~10 minutes, and it would have been far more had it landed a block later,
+where the "regression" would have been blamed on subset-sum.
+
+**Lesson:** a test that writes anywhere outside its own temporary directory is a test
+that can corrupt the thing it is testing. Default arguments make that easy to do by
+omission rather than by intent.
+
+---
+
+## 2026-09-01-10 — The 100x tolerance margin was false for large credits, and it produced two confident wrong answers
+
+**Timestamp:** 2026-09-01, Block 6 (subset-sum, Layer 2)
+
+**What broke:** With tier 3 live, precision fell from 1.0000 to 0.9832 -- **two wrong
+assignments out of 119**, both from subset-sum, both reported with full confidence and
+a unique solution.
+
+**Diagnosis:** Tolerance was `TOL_ABS_PAISE + credit * TOL_REL_BPS / 10000`, with
+`TOL_REL_BPS = 2`. The relative term exists so that a fixed rupee tolerance is not
+proportionally tighter on a large settlement batch than a small one -- plausible
+reasoning, and wrong in consequence, because **tolerance grows with the credit**:
+
+| credit | effective tolerance | margin vs smallest payment (20,941p) |
+|---|---|---|
+| Rs 1,000 | 120p | 175x |
+| Rs 10,000 | 300p | 70x |
+| Rs 102,926 | 2,158p | **9.7x** |
+
+The project's stated guarantee is a 100x margin between tolerance and the smallest
+payment, because below that a subset S and the subset S-plus-one-small-payment both
+satisfy the constraint. On the largest settlement in the batch the real margin was
+**9.7x**. At that width a subset of five unrelated payments landed within tolerance by
+pure coincidence.
+
+**And Layer 2 could not save it.** The coincidental subset genuinely *was* the only one
+that fit, so the uniqueness test faithfully reported one answer -- and the answer was
+wrong. Uniqueness testing verifies that the constraint identifies a single solution; it
+cannot detect that the constraint was too loose to be worth solving. That is a real
+limit of the technique and it is worth stating plainly rather than implying Layer 2
+catches everything.
+
+`assert_tolerance_sanity` did not catch this either, because it checked the CONSTANT
+(100p, a 209x margin) rather than the tolerance actually applied at the largest credit.
+
+**Fix:** two changes.
+
+- `TOL_REL_BPS = 0`. The absolute term alone is sufficient on the evidence: the measured
+  fee-model residual is [-1, +2] paise per payment, so even a six-payment decomposition
+  accumulates ~12p of modelling error against 100p of allowance. The relative term was
+  covering a risk that does not exist while creating one that does.
+- `assert_tolerance_sanity` now evaluates the tolerance at the **largest credit in the
+  batch**, so a guarantee that holds only for small transactions fails the build.
+
+Precision returned to 1.0000 across all 125 assignments, including all 20 subset-sum
+decompositions.
+
+**Cost:** ~30 minutes.
+
+**Why this is the most important entry in this log.** Every other defect here produced
+a visible symptom -- a crash, a miss, a failing test. This one produced *confident
+correct-looking output that was wrong*, in the exact component whose purpose is to
+prevent that. The engine assigned five payments to a settlement, reported a unique
+decomposition, and was believed. Only ground-truth scoring caught it, and ground truth
+is precisely what a real deployment does not have.
+
+The honest conclusion: **a verification layer is bounded by the quality of the
+constraint it verifies.** Layer 2 asks "does the constraint identify one answer?" and
+answers correctly. It cannot ask "is this constraint tight enough to mean anything?" --
+that has to be established separately, before the run, and asserted at the worst case
+rather than the typical one.
+
+---
+
+## 2026-09-01-11 — MR6 caught the engine leaving work undone
+
+**Timestamp:** 2026-09-01, Block 6
+
+**What broke:** With tier 3 live, MR6 (idempotence) failed on the reported batch:
+rerunning the engine on its own unassigned residue produced fresh assignments on
+several credits the first pass had declined.
+
+**Diagnosis:** Claiming is greedy and credits are processed in a fixed order. A credit
+examined early can see two viable decompositions and correctly refuse; a later credit
+then claims one of the payments involved, leaving the first credit with exactly one
+viable decomposition. Its refusal was right on the information available at the time
+and stale immediately afterwards -- but nothing revisited it.
+
+The consequence is that the engine's output depended on **how many times it happened to
+be run**, which is not a property any reconciliation system may have.
+
+**Fix:** `match_once` now iterates to a fixpoint, repeating rounds until one completes
+with no new assignment (bounded at `MAX_ROUNDS = 6`). Idempotence then holds by
+construction rather than by luck.
+
+Resolving genuine ambiguity with information that arrives later is correct behaviour,
+not a shortcut. What would not be acceptable is resolving it by *picking*, and within
+any single round the tiers still refuse rather than choose.
+
+**Effect on results:** match rate 54.12% -> 86.08%, precision unchanged at 1.0000.
+
+**Cost:** ~20 minutes.
+
+**Worth noting:** this is the first time a metamorphic relation caught a real defect in
+the engine rather than confirming correctness. MR6 needs no ground truth to detect it --
+it compares two executions and observes that they disagree, which is exactly the
+property that makes these checks usable where no answer key exists.

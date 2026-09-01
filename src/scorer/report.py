@@ -146,7 +146,10 @@ def render(
     else:
         add("    Layer 1  runtime permutation gate (K=8)     not run (pass --verify)")
 
-    add("    Layer 2  subset-sum uniqueness / refusal    pending (Block 6)")
+    l2_refusals = sc.exceptions_by_category.get("multiple_candidates", 0) +         sc.exceptions_by_category.get("solution_cap_reached", 0)
+    l2_assigned = sc.precision_by_tier.get("tier3_subsetsum", (0, 0))[1]
+    add(f"    Layer 2  subset-sum uniqueness      {l2_assigned} unique decomposition(s) "
+        f"assigned, {l2_refusals} refused as underdetermined")
     add("    Layer 3  Fellegi-Sunter two-threshold band  pending (Block 7)")
     add("    Layer 4  materiality + projected error      pending (Block 8)")
     add("    calibration curve / ECE                     pending (Block 8b)")

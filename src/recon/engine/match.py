@@ -18,7 +18,7 @@ and are labelled as such.
 from __future__ import annotations
 
 from ..schemas import Payment, ReconInputs
-from . import fees, tier1_reference, tier2_amount_date
+from . import fees, tier1_reference, tier2_amount_date, tier3_subsetsum
 from .normalize import parse
 from .results import Assignment, Candidate, MatchOutput, Refusal, RefusalCategory
 
@@ -39,6 +39,7 @@ def _assignment_from(
     credit: int,
     cand: Candidate,
     by_id: dict[str, Payment],
+    uniqueness: float = 1.0,
 ) -> Assignment:
     interval = fees.NetInterval(cand.interval_lo, cand.interval_hi, cand.certain)
     return Assignment(
@@ -51,72 +52,117 @@ def _assignment_from(
         certain_fee=cand.certain,
         # Tier 1 needed no search, so nothing competed with it; tier 2 reached here
         # only by being the sole fit in its window. Either way the margin is maximal.
-        uniqueness_margin=1.0,
+        # Tier 3 passes its measured margin -- how far the next-best subset sat.
+        uniqueness_margin=uniqueness,
     )
+
+
+MAX_ROUNDS = 6
+
+
+def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no):
+    """
+    Run the three tiers against one credit, in descending order of evidence strength.
+
+    A tier that finds nothing falls through to the next. A tier that finds AMBIGUITY
+    stops and refuses -- a later, weaker tier cannot resolve what a stronger one has
+    already shown to be underdetermined.
+    """
+    parsed = parse(txn.narration)
+
+    cands, cat, reason = tier1_reference.match(
+        txn, parsed, index, by_id, claimed, invoices_by_no
+    )
+    if cat is not None:
+        return ("refuse", cands, cat, reason, 1.0)
+    if cands:
+        return ("assign", cands, None, "", 1.0)
+
+    cands, cat, reason = tier2_amount_date.match(
+        txn, payments, claimed, invoices_by_no
+    )
+    if cat is not None:
+        return ("refuse", cands, cat, reason, 1.0)
+    if cands:
+        return ("assign", cands, None, "", 1.0)
+
+    cands, cat, reason, uniq = tier3_subsetsum.match_with_margin(
+        txn, payments, claimed, invoices_by_no
+    )
+    if cat is not None:
+        return ("refuse", cands, cat, reason, 0.0)
+    if cands:
+        return ("assign", cands, None, "", uniq)
+
+    return ("none", [], None, "", 0.0)
 
 
 def match_once(inputs: ReconInputs) -> MatchOutput:
     """
-    Run tiers 1 and 2 across every bank credit. Deterministic given `inputs`.
+    Match a batch, iterating to a FIXPOINT.
 
-    Tier 3 (bounded subset-sum with uniqueness testing) is not wired in yet; credits
-    needing a many-to-one decomposition currently fall out as `no_candidate` rather
-    than being guessed at. That is the correct interim behaviour -- the engine declines
-    to assign what it cannot yet justify, and the metrics harness will show the gap
-    honestly as a coverage number rather than hiding it.
+    Deterministic given `inputs`, and idempotent by construction: the loop repeats
+    until a full round produces no new assignment, so rerunning the engine on its own
+    residue can find nothing further.
+
+    **Why iterate at all.** Claiming is greedy and credits are processed in a fixed
+    order, so a credit examined early may see two viable decompositions and refuse --
+    and then a later credit claims one of the payments involved, leaving the first
+    credit with exactly one. Its refusal was correct on the information available at the
+    time and is stale afterwards. A single pass therefore leaves work undone, and MR6
+    caught precisely that: rerunning on the residue produced fresh assignments, meaning
+    the engine's output depended on how many times it happened to be run.
+
+    Resolving genuine ambiguity with information that arrives later is correct
+    behaviour, not a shortcut. What would NOT be acceptable is resolving it by picking,
+    and the tiers still refuse rather than choose within any single round.
     """
     payments = inputs.payments
     by_id = {p.id: p for p in payments}
     index = tier1_reference.ReferenceIndex(payments, inputs.invoices)
     invoices_by_no = {i.invoice_no: i for i in inputs.invoices}
 
-    claimed: set[str] = set()
-    assignments: list[Assignment] = []
-    refusals: list[Refusal] = []
-    no_candidate: list[str] = []
-    tier_counts: dict[str, int] = {}
-
     credits = sorted(
         (t for t in inputs.bank_txns if t.is_credit), key=tier2_amount_date.sort_key
     )
 
-    for txn in credits:
-        parsed = parse(txn.narration)
+    claimed: set[str] = set()
+    assignments: list[Assignment] = []
+    tier_counts: dict[str, int] = {}
+    settled: set[str] = set()
+    refusals: list[Refusal] = []
+    no_candidate: list[str] = []
+    rounds = 0
 
-        # ---- tier 1: exact reference ----
-        cands, refusal_cat, reason = tier1_reference.match(
-            txn, parsed, index, by_id, claimed, invoices_by_no
-        )
-        if refusal_cat is not None:
-            refusals.append(
-                Refusal(txn.id, refusal_cat, reason, txn.credit, tuple(cands))
+    for _ in range(MAX_ROUNDS):
+        rounds += 1
+        progressed = False
+        refusals, no_candidate = [], []
+
+        for txn in credits:
+            if txn.id in settled:
+                continue
+            verdict, cands, cat, reason, uniq = _verdict_for(
+                txn, payments, by_id, index, claimed, invoices_by_no
             )
-            continue
-        if cands:
-            cand = cands[0]
-            assignments.append(_assignment_from(txn.id, txn.credit, cand, by_id))
-            claimed.update(cand.payment_ids)
-            tier_counts[cand.tier] = tier_counts.get(cand.tier, 0) + 1
-            continue
+            if verdict == "assign":
+                cand = cands[0]
+                assignments.append(
+                    _assignment_from(txn.id, txn.credit, cand, by_id, uniqueness=uniq)
+                )
+                claimed.update(cand.payment_ids)
+                settled.add(txn.id)
+                tier_counts[cand.tier] = tier_counts.get(cand.tier, 0) + 1
+                progressed = True
+            elif verdict == "refuse":
+                refusals.append(
+                    Refusal(txn.id, cat, reason, txn.credit, tuple(cands))
+                )
+            else:
+                no_candidate.append(txn.id)
 
-        # ---- tier 2: amount + date window ----
-        cands, refusal_cat, reason = tier2_amount_date.match(
-            txn, payments, claimed, invoices_by_no
-        )
-        if refusal_cat is not None:
-            refusals.append(
-                Refusal(txn.id, refusal_cat, reason, txn.credit, tuple(cands))
-            )
-            continue
-        if cands:
-            cand = cands[0]
-            assignments.append(_assignment_from(txn.id, txn.credit, cand, by_id))
-            claimed.update(cand.payment_ids)
-            tier_counts[cand.tier] = tier_counts.get(cand.tier, 0) + 1
-            continue
-
-        # ---- nothing fits: tier 3 territory ----
-        no_candidate.append(txn.id)
+        if not progressed:
+            break
 
     unassigned = tuple(
         sorted(p.id for p in payments if p.captured and p.id not in claimed)

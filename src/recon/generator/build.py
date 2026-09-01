@@ -783,26 +783,38 @@ def _same_window(p: Payment, credit: BankTxn) -> bool:
 
 def assert_tolerance_sanity(batch: GeneratedBatch) -> tuple[int, int]:
     """
-    Assert the matching tolerance stays far below the smallest payment.
+    Assert the matching tolerance stays far below the smallest payment -- at EVERY
+    credit size, not just at the absolute floor.
 
-    If tolerance ever approaches the smallest payment in a candidate pool, then a
-    subset S and the subset S plus one small payment BOTH satisfy the constraint --
-    every many-to-one result becomes meaningless and the uniqueness test silently
-    degrades into noise. A 100x margin is required.
+    If tolerance approaches the smallest payment in a candidate pool, then a subset S
+    and the subset S plus one small payment BOTH satisfy the constraint. Every
+    many-to-one result becomes meaningless and the uniqueness test degrades into noise
+    while still reporting a single confident answer.
+
+    The check evaluates the tolerance actually applied to the LARGEST credit in the
+    batch. Checking `TOL_ABS_PAISE` alone was the original error: with a relative term
+    the effective tolerance grows with the credit, so the constant looked safe at 209x
+    while the real figure on a large settlement was 9.7x. A guarantee that holds only
+    for small transactions is not the guarantee this engine claims.
     """
+    from ..engine import fees as engine_fees
+
     nets = [
         p.amount - p.fee
         for p in batch.inputs.payments
         if p.captured and p.fee is not None
     ]
     smallest = min(nets)
-    if cfg.TOL_ABS_PAISE * 100 > smallest:
+    largest_credit = max((t.credit for t in batch.inputs.bank_txns), default=0)
+    worst_tol = engine_fees.tolerance_for(largest_credit)
+    if worst_tol * 100 > smallest:
         raise AssertionError(
-            f"Tolerance sanity violated: TOL_ABS_PAISE={cfg.TOL_ABS_PAISE} is within "
-            f"100x of the smallest net payment ({smallest}p). Subset-sum uniqueness "
-            f"cannot be trusted at this setting."
+            f"Tolerance sanity violated: at the largest credit ({largest_credit}p) the "
+            f"effective tolerance is {worst_tol}p, only {smallest / worst_tol:.1f}x "
+            f"below the smallest net payment ({smallest}p). A 100x margin is required "
+            f"or subset-sum uniqueness cannot be trusted."
         )
-    return cfg.TOL_ABS_PAISE, smallest
+    return worst_tol, smallest
 
 
 def assert_pool_bound(batch: GeneratedBatch) -> int:

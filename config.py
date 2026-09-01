@@ -84,7 +84,29 @@ MAX_PAYMENT_PAISE = 5_000_000  # Rs 50,000.00   safely below the smallest paymen
 # tests/test_tolerance_sanity.py asserts this and fails the build if violated.
 # --------------------------------------------------------------------------
 TOL_ABS_PAISE = 100            # Rs 1.00 absolute
-TOL_REL_BPS = 2                # 2 basis points, additive, for large credits
+TOL_REL_BPS = 0                # DISABLED -- see below
+
+# The relative term is set to ZERO, deliberately, and this is the single most important
+# tolerance decision in the project.
+#
+# It was originally 2 bps on the reasoning that a fixed rupee tolerance is
+# proportionally tighter on a large settlement batch than on a small one. That
+# reasoning is plausible and the consequence was not: tolerance GROWS with the credit,
+# so on a Rs 102,926 settlement it reached 2,158p -- only 9.7x the smallest payment in
+# the batch, not the 100x the uniqueness guarantee requires. At that width a subset of
+# five unrelated payments landed within tolerance by coincidence and was assigned as
+# unique, because it genuinely was the only subset that fit. Uniqueness testing cannot
+# save a tolerance that is too loose: it faithfully reports one answer, and the answer
+# is wrong.
+#
+# The absolute term alone is sufficient on the evidence. The measured fee-model residual
+# is [-1, +2] paise per payment, so even a six-payment decomposition accumulates at most
+# ~12p of modelling error against 100p of allowance. The relative term was covering a
+# risk that does not exist while creating one that does.
+#
+# assert_tolerance_sanity now checks the MAXIMUM effective tolerance -- evaluated at the
+# largest credit in the batch -- rather than the absolute constant, so this class of
+# error cannot return unnoticed. See docs/DEFECT_LOG.md 2026-09-01-10.
 
 assert TOL_ABS_PAISE * 100 <= MIN_PAYMENT_PAISE, (
     "Tolerance is within 100x of the smallest payment; subset-sum uniqueness "

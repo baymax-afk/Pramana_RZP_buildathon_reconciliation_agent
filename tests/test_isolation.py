@@ -108,19 +108,26 @@ def test_audit_hook_blocks_an_engine_module_from_reading_truth(tmp_path):
         probe.unlink(missing_ok=True)
 
 
-def test_generator_may_still_write_truth():
+def test_generator_may_still_write_truth(tmp_path):
     """
     The guard must not be so broad that it breaks the generator, which has to write
     the answer key. A boundary that blocks legitimate writes would get switched off.
+
+    Writes to a TEMPORARY directory. An earlier version called `build.write(b)` with
+    its default destination and silently overwrote the project's real 200-record batch
+    with a 40-record one, so the next engine run reported 25 assignments and looked
+    like a catastrophic regression. See docs/DEFECT_LOG.md 2026-09-01-09.
     """
+    out_dir = (tmp_path / "gen").as_posix()
     script = (
         "import sys; sys.path.insert(0, r'%s'); sys.path.insert(0, r'%s')\n"
         "import recon, config as cfg\n"
+        "from pathlib import Path\n"
         "from recon.generator import build\n"
         "b = build.generate(seed=cfg.SEED_PRIMARY, n_payments=40, payments_per_window=8)\n"
-        "build.write(b)\n"
+        "build.write(b, out_dir=Path(r'%s'))\n"
         "print('WROTE')\n"
-    ) % (str(ROOT), str(ROOT / "src"))
+    ) % (str(ROOT), str(ROOT / "src"), out_dir)
     out = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True, cwd=ROOT
     )
