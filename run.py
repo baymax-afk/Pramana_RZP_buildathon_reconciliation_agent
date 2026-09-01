@@ -116,8 +116,20 @@ def cmd_match(args: argparse.Namespace) -> int:
     """
     inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
 
+    relations = ensemble = None
     t0 = time.perf_counter()
-    out = match_once(inputs)
+    if args.verify:
+        # The engine's PRIMARY path: match under the permutation gate, so any
+        # assignment decided by iteration order rather than by the data is refused
+        # before it is ever reported.
+        from recon.verify import metamorphic as mm
+        from recon.verify.stability import match_gated
+
+        k = cfg.PERMUTATION_K_FAST if args.fast else cfg.PERMUTATION_K
+        out, ensemble = match_gated(inputs, k=k)
+        relations = mm.run_all(inputs, out, fast=args.fast)
+    else:
+        out = match_once(inputs)
     elapsed = time.perf_counter() - t0
     records = len(inputs.payments) + len(inputs.bank_txns) + len(inputs.invoices)
 
@@ -146,7 +158,8 @@ def cmd_match(args: argparse.Namespace) -> int:
         ambiguity_bank_txn_id=raw.get("ambiguity_bank_txn_id", ""),
         throughput=records / elapsed if elapsed else None,
     )
-    print(render(sc, args.seed, args.payments_per_window, llm_enabled=not args.no_llm))
+    print(render(sc, args.seed, args.payments_per_window,
+                 llm_enabled=not args.no_llm, relations=relations, ensemble=ensemble))
     return 0
 
 
@@ -173,6 +186,11 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--payments-per-window", type=int, default=cfg.TARGET_POOL_SIZE)
     m.add_argument("--no-score", dest="score", action="store_false", default=True,
                    help="match only; do not load ground truth at all")
+    m.add_argument("--verify", action="store_true", default=False,
+                   help="run the permutation gate and the six metamorphic relations")
+    m.add_argument("--fast", action="store_true", default=False,
+                   help=f"dev loop only: K={cfg.PERMUTATION_K_FAST} and skip multi-run "
+                        f"relations. Never used for reported numbers.")
     m.add_argument("--no-llm", action="store_true", default=False,
                    help="disable the LLM narration tier and report precision without it")
     m.set_defaults(func=cmd_match)

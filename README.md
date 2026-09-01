@@ -163,10 +163,11 @@ python run.py --seed 77771 --verify --score
 Second seed, demonstrating the numbers aren't cherry-picked.
 
 ```bash
-python run.py match --seed 20260905
+python run.py match --seed 20260905 --verify
 ```
 
-Runs the engine and prints the metrics block. The engine runs to completion from
+Runs the engine **under the permutation gate** and prints the metrics block with all
+six metamorphic relations. Drop `--verify` for a single unguarded pass. The engine runs to completion from
 `ReconInputs` alone; ground truth is loaded afterwards, by a different package.
 
 ```bash
@@ -190,7 +191,7 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 2** — generator, ground truth, nine defects, ambiguity case
 - [x] **Block 3** — matching engine, tiers 1–2 (76.6% coverage, precision 1.0000)
 - [x] **Block 4** — scorer, metrics harness, isolation test  ← **metrics block lands here**
-- [ ] **Block 5** — metamorphic harness + runtime permutation gate
+- [x] **Block 5** — metamorphic harness + runtime permutation gate (MR1–MR6 all pass)
 - [ ] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal
 - [ ] **Block 7** — Layer 3 Fellegi–Sunter
 - [ ] **Block 8** — Layer 4 materiality, composite confidence, BenchRec calibration

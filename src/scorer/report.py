@@ -25,7 +25,14 @@ def _pct(x: float) -> str:
     return f"{x * 100:6.2f}%"
 
 
-def render(sc: Scorecard, seed: int, payments_per_window: int, llm_enabled: bool) -> str:
+def render(
+    sc: Scorecard,
+    seed: int,
+    payments_per_window: int,
+    llm_enabled: bool,
+    relations=None,
+    ensemble=None,
+) -> str:
     L: list[str] = []
     add = L.append
 
@@ -112,16 +119,43 @@ def render(sc: Scorecard, seed: int, payments_per_window: int, llm_enabled: bool
     add("")
     add("  VERIFICATION LAYERS")
     add(_THIN)
-    add("    Layer 1  metamorphic relations MR1-MR6      pending (Block 5)")
-    add("    Layer 1  runtime permutation gate (K=8)     pending (Block 5)")
+    if relations is not None:
+        total_v = sum(len(r.violations) for r in relations)
+        add(f"    Layer 1  metamorphic relations   "
+            f"{sum(1 for r in relations if r.passed)}/{len(relations)} pass, "
+            f"{total_v} violation(s)")
+        for rel in relations:
+            mark = "pass" if rel.passed else f"FAIL x{len(rel.violations)}"
+            add(f"               {rel.name}  {rel.kind:<12} checked={rel.checked:<5} {mark}")
+            for v in rel.violations[:3]:
+                add(f"                   ! {v.subject}: {v.detail[:88]}")
+    else:
+        add("    Layer 1  metamorphic relations MR1-MR6      not run (pass --verify)")
+
+    if ensemble is not None:
+        e = ensemble.summary()
+        add(f"    Layer 1  runtime permutation gate  K={e['passes']}   "
+            f"unstable {e['unstable']}/{e['txns_observed']}   "
+            f"min stability {e['min_stability']:.3f}")
+        if e["unstable"] == 0:
+            add("               no assignment changed under reordering. The matcher sorts")
+            add("               credits and refuses rather than choosing on ties, so it is")
+            add("               order-independent by construction -- the gate is a live")
+            add("               safety net, verified against a deliberately order-dependent")
+            add("               matcher in tests/test_verification.py, not an unfired check.")
+    else:
+        add("    Layer 1  runtime permutation gate (K=8)     not run (pass --verify)")
+
     add("    Layer 2  subset-sum uniqueness / refusal    pending (Block 6)")
     add("    Layer 3  Fellegi-Sunter two-threshold band  pending (Block 7)")
     add("    Layer 4  materiality + projected error      pending (Block 8)")
     add("    calibration curve / ECE                     pending (Block 8b)")
     add("")
-    add("    Single-pass results only. Assignments have NOT yet been tested for")
-    add("    order-dependence, so they are provisional: an assignment that would")
-    add("    change under a different input ordering is not yet detected or refused.")
+    if ensemble is None:
+        add("    Single-pass results only. Assignments have NOT been tested for")
+        add("    order-dependence -- pass --verify to run the permutation gate.")
+    else:
+        add(f"    Assignments below survived the permutation gate at K={ensemble.passes}.")
 
     add("")
     add(_RULE)

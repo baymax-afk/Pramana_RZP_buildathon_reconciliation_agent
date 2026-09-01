@@ -424,3 +424,53 @@ before anything was changed.**
 misses went away. That would have "worked" and been indefensible — it is per-record
 tuning wearing a config-shaped hat. The lookback is now derived from two quantities
 that each mean something, and it would be wrong at any other value.
+
+---
+
+## 2026-09-01-08 — The order-dependence detector could not detect order dependence
+
+**Timestamp:** 2026-09-01, Block 5 (metamorphic harness, permutation gate)
+
+**What broke:** The runtime permutation gate reported stability 1.0 across all 105
+assignments, zero unstable, on every seed. That is the *expected* result for this
+matcher — but "the detector found nothing" and "the detector does not work" produce
+byte-identical output, so the number was worth exactly nothing until the gate had been
+shown to fire.
+
+Writing the negative control found the problem immediately. A deliberately
+order-dependent matcher — one that picks the first candidate instead of refusing when
+several fit — was still reported as **perfectly stable**.
+
+**Diagnosis:** The mutant took `candidates[0]` from tier 2's returned list. But tier 2
+*sorts* its candidates by `(abs(residual), payment_ids)` before returning them, so
+`candidates[0]` is deterministic regardless of how the input was shuffled. The mutant
+was not actually order-dependent; it inherited the real code's sort. The test proved
+nothing and would have passed forever.
+
+**Fix:** the mutant now walks `candidate_pool` directly and takes the first payment
+that fits in genuine iteration order, which is what the naive bug actually looks like.
+With that, the ensemble sees two different assignments across shuffled passes, the gate
+strips the assignment, and emits `order_dependent_assignment` naming both variants and
+the rupees at risk.
+
+**Cost:** ~20 minutes.
+
+**Why this entry matters more than its size suggests.** The project's central claim is
+that verification must work where no ground truth exists. A verification layer that
+cannot fail is not verification — it is decoration that produces a reassuring number.
+The gate now reports "unstable 0/105" *and* the metrics block says, in the same
+paragraph, that the figure was validated against a deliberately broken matcher. A zero
+means something only when it was possible for it to be non-zero.
+
+There is a second, quieter lesson. The reason the real engine is stable is that
+`match_once` sorts credits into a total order and both tiers refuse rather than choose
+on ties. Those are good properties. But they are also exactly what made the naive test
+pass — **the same design decision that makes the system correct also masks whether the
+check for that correctness works.** Testing the check against something known-broken is
+the only way to tell those apart.
+
+**Still true and worth stating plainly:** on this engine the gate has never fired on
+real data, and it is not expected to until tier 3 begins enumerating subsets in Block
+6, where which subset a credit takes can genuinely depend on enumeration order. It is a
+live safety net, not a demonstrated catch. The metrics block says so rather than
+implying the zero was hard-won.

@@ -1,34 +1,70 @@
 {
  "seed": 20260905,
- "ambiguity_bank_txn_id": "bank_txn_0065",
+ "ambiguity_bank_txn_id": "bank_txn_0012",
  "stats": {
   "seed": 20260905,
-  "payments": 200,
-  "captured": 194,
-  "bank_txns": 137,
-  "invoices": 200,
-  "windows": 34,
-  "payments_per_window": 6,
+  "payments": 40,
+  "captured": 37,
+  "bank_txns": 29,
+  "invoices": 40,
+  "windows": 5,
+  "payments_per_window": 8,
   "provenance": {
-   "R1": 24,
-   "S": 164,
-   "R2": 12
+   "R1": 8,
+   "S": 29,
+   "R2": 3
   },
   "defect_labels": {
-   "mdr_fee": 137,
-   "paisa_rounding": 13,
-   "settlement_drift": 73,
-   "near_duplicate_name": 48,
-   "tds_deduction": 22,
-   "many_to_one": 24,
-   "refund_netted": 3,
-   "partial_payment": 8,
-   "unsettled": 5,
-   "duplicate_utr": 1
+   "mdr_fee": 29,
+   "near_duplicate_name": 11,
+   "many_to_one": 3,
+   "tds_deduction": 3,
+   "paisa_rounding": 3,
+   "settlement_drift": 12,
+   "partial_payment": 2,
+   "duplicate_utr": 1,
+   "refund_netted": 1
   },
-  "refusals_expected": 6
+  "refusals_expected": 1
  },
  "links": [
+  {
+   "bank_txn_id": "bank_txn_0001",
+   "payment_ids": [
+    "pay_TWekRsHFrjfEBU"
+   ],
+   "invoice_nos": [
+    "INV-2026-1004"
+   ],
+   "defect_labels": [
+    "mdr_fee",
+    "near_duplicate_name"
+   ],
+   "relation": "one_to_one",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0002",
+   "payment_ids": [
+    "pay_SYN000064749",
+    "pay_SYN000026282",
+    "pay_R2XTWf0WFGa87HEom",
+    "pay_SYN000057233"
+   ],
+   "invoice_nos": [
+    "INV-2026-1006",
+    "INV-2026-1002",
+    "INV-2026-1008",
+    "INV-2026-1005"
+   ],
+   "defect_labels": [
+    "many_to_one",
+    "mdr_fee",
+    "tds_deduction"
+   ],
+   "relation": "many_to_one",
+   "expected_verdict": "assign"
+  },
   {
    "bank_txn_id": "bank_txn_0003",
    "payment_ids": [
@@ -47,102 +83,15 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0001",
-   "payment_ids": [
-    "pay_SYN000026282"
-   ],
-   "invoice_nos": [
-    "INV-2026-1002"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0002",
-   "payment_ids": [
-    "pay_TWekRsHFrjfEBU"
-   ],
-   "invoice_nos": [
-    "INV-2026-1004"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
    "bank_txn_id": "bank_txn_0004",
    "payment_ids": [
-    "pay_SYN000057233",
-    "pay_SYN000064749",
     "pay_TWetruAwIULxPh"
    ],
    "invoice_nos": [
-    "INV-2026-1005",
-    "INV-2026-1006",
     "INV-2026-1001"
    ],
    "defect_labels": [
-    "many_to_one",
     "mdr_fee",
-    "tds_deduction",
-    "refund_netted",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0007",
-   "payment_ids": [
-    "pay_SYN000123038"
-   ],
-   "invoice_nos": [
-    "INV-2026-1012"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0005",
-   "payment_ids": [
-    "pay_R2XTWf0WFGa87HEom",
-    "pay_SYN000099241"
-   ],
-   "invoice_nos": [
-    "INV-2026-1010",
-    "INV-2026-1009"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0006",
-   "payment_ids": [
-    "pay_SYN000071351"
-   ],
-   "invoice_nos": [
-    "INV-2026-1007"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction",
     "settlement_drift",
     "near_duplicate_name"
    ],
@@ -150,73 +99,12 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0013",
+   "bank_txn_id": "bank_txn_0005",
    "payment_ids": [
-    "pay_TWdq5H4Wj5FiW1"
+    "pay_SYN000095661"
    ],
    "invoice_nos": [
-    "INV-2026-1014"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0008",
-   "payment_ids": [
-    "pay_SYN000153970"
-   ],
-   "invoice_nos": [
-    "INV-2026-1015"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0011",
-   "payment_ids": [
-    "pay_SYN000179497"
-   ],
-   "invoice_nos": [
-    "INV-2026-1017"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0009",
-   "payment_ids": [
-    "pay_SYN000189765"
-   ],
-   "invoice_nos": [
-    "INV-2026-1018"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0010",
-   "payment_ids": [
-    "pay_SYN000169067"
-   ],
-   "invoice_nos": [
-    "INV-2026-1016"
+    "INV-2026-1009"
    ],
    "defect_labels": [
     "mdr_fee",
@@ -226,27 +114,28 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0012",
+   "bank_txn_id": "bank_txn_0011",
    "payment_ids": [
-    "pay_SYN000133151"
+    "pay_SYN000103086"
    ],
    "invoice_nos": [
-    "INV-2026-1013"
+    "INV-2026-1010"
    ],
    "defect_labels": [
     "mdr_fee",
+    "tds_deduction",
     "settlement_drift"
    ],
    "relation": "one_to_one",
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0014",
+   "bank_txn_id": "bank_txn_0006",
    "payment_ids": [
-    "pay_SYN000245518"
+    "pay_SYN000138928"
    ],
    "invoice_nos": [
-    "INV-2026-1024"
+    "INV-2026-1013"
    ],
    "defect_labels": [
     "mdr_fee"
@@ -255,24 +144,92 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0015",
+   "bank_txn_id": "bank_txn_0009",
    "payment_ids": [
-    "pay_TWejZoTi8Hv8v7"
+    "pay_SYN000165058"
    ],
    "invoice_nos": [
-    "INV-2026-1019"
+    "INV-2026-1016"
    ],
    "defect_labels": [
     "mdr_fee",
+    "settlement_drift"
+   ],
+   "relation": "one_to_one",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0010",
+   "payment_ids": [
+    "pay_SYN000128527"
+   ],
+   "invoice_nos": [
+    "INV-2026-1012"
+   ],
+   "defect_labels": [
+    "mdr_fee",
+    "settlement_drift",
     "near_duplicate_name"
    ],
    "relation": "one_to_one",
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0016",
+   "bank_txn_id": "bank_txn_0007",
    "payment_ids": [
-    "pay_SYN000216411"
+    "pay_TWdq5H4Wj5FiW1"
+   ],
+   "invoice_nos": [
+    "INV-2026-1015"
+   ],
+   "defect_labels": [
+    "mdr_fee",
+    "partial_payment"
+   ],
+   "relation": "partial",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0008",
+   "payment_ids": [
+    "pay_SYN000114070"
+   ],
+   "invoice_nos": [
+    "INV-2026-1011"
+   ],
+   "defect_labels": [
+    "mdr_fee",
+    "paisa_rounding",
+    "near_duplicate_name"
+   ],
+   "relation": "one_to_one",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0012",
+   "payment_ids": [
+    "pay_AMBIG0896506",
+    "pay_AMBIG1906063",
+    "pay_AMBIG2387552",
+    "pay_AMBIG3537785"
+   ],
+   "invoice_nos": [
+    "INV-2026-1017",
+    "INV-2026-1018",
+    "INV-2026-1019",
+    "INV-2026-1020"
+   ],
+   "defect_labels": [
+    "many_to_one",
+    "mdr_fee"
+   ],
+   "relation": "many_to_one",
+   "expected_verdict": "refuse"
+  },
+  {
+   "bank_txn_id": "bank_txn_0013",
+   "payment_ids": [
+    "pay_SYN900002131"
    ],
    "invoice_nos": [
     "INV-2026-1021"
@@ -284,39 +241,51 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0018",
+   "bank_txn_id": "bank_txn_0014",
    "payment_ids": [
-    "pay_R2XTWezgoQXbP9bak"
+    "pay_SYN900011625"
    ],
    "invoice_nos": [
     "INV-2026-1022"
    ],
    "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
+    "mdr_fee"
    ],
    "relation": "one_to_one",
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0017",
+   "bank_txn_id": "bank_txn_0015",
    "payment_ids": [
-    "pay_SYN000235982"
+    "pay_SYN900027619"
    ],
    "invoice_nos": [
     "INV-2026-1023"
    ],
    "defect_labels": [
-    "mdr_fee",
-    "tds_deduction"
+    "mdr_fee"
    ],
    "relation": "one_to_one",
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0020",
+   "bank_txn_id": "bank_txn_0016",
    "payment_ids": [
-    "pay_SYN000295977"
+    "pay_SYN900031262"
+   ],
+   "invoice_nos": [
+    "INV-2026-1024"
+   ],
+   "defect_labels": [
+    "mdr_fee"
+   ],
+   "relation": "one_to_one",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0022",
+   "payment_ids": [
+    "pay_R2XTWf04vEnwQt5kM"
    ],
    "invoice_nos": [
     "INV-2026-1029"
@@ -329,9 +298,69 @@
    "expected_verdict": "assign"
   },
   {
+   "bank_txn_id": "bank_txn_0017",
+   "payment_ids": [
+    "pay_R2XTWezgoQXbP9bak"
+   ],
+   "invoice_nos": [
+    "INV-2026-1027"
+   ],
+   "defect_labels": [
+    "mdr_fee",
+    "duplicate_utr"
+   ],
+   "relation": "one_to_one",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0018",
+   "payment_ids": [
+    "pay_SYN000245796"
+   ],
+   "invoice_nos": [
+    "INV-2026-1032"
+   ],
+   "defect_labels": [
+    "mdr_fee"
+   ],
+   "relation": "one_to_one",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0023",
+   "payment_ids": [
+    "pay_SYN000202978"
+   ],
+   "invoice_nos": [
+    "INV-2026-1028"
+   ],
+   "defect_labels": [
+    "mdr_fee",
+    "settlement_drift"
+   ],
+   "relation": "one_to_one",
+   "expected_verdict": "assign"
+  },
+  {
    "bank_txn_id": "bank_txn_0019",
    "payment_ids": [
-    "pay_TWewgg8dNUUSrb"
+    "pay_SYN000181616"
+   ],
+   "invoice_nos": [
+    "INV-2026-1026"
+   ],
+   "defect_labels": [
+    "mdr_fee",
+    "partial_payment",
+    "near_duplicate_name"
+   ],
+   "relation": "partial",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0020",
+   "payment_ids": [
+    "pay_TWejZoTi8Hv8v7"
    ],
    "invoice_nos": [
     "INV-2026-1025"
@@ -346,46 +375,24 @@
   {
    "bank_txn_id": "bank_txn_0021",
    "payment_ids": [
-    "pay_TWduDqnDXXGXQO",
-    "pay_TWdsbW2RO6NDwB",
-    "pay_SYN000309169"
+    "pay_SYN000233207"
    ],
    "invoice_nos": [
-    "INV-2026-1027",
-    "INV-2026-1026",
-    "INV-2026-1030"
+    "INV-2026-1031"
    ],
    "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
+    "mdr_fee"
    ],
-   "relation": "many_to_one",
+   "relation": "one_to_one",
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0022",
+   "bank_txn_id": "bank_txn_0027",
    "payment_ids": [
-    "pay_SYN000282450"
+    "pay_SYN000329551"
    ],
    "invoice_nos": [
-    "INV-2026-1028"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "partial_payment",
-    "settlement_drift"
-   ],
-   "relation": "partial",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0025",
-   "payment_ids": [
-    "pay_SYN000369551"
-   ],
-   "invoice_nos": [
-    "INV-2026-1036"
+    "INV-2026-1040"
    ],
    "defect_labels": [
     "mdr_fee",
@@ -396,24 +403,61 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0026",
+   "bank_txn_id": "bank_txn_0025",
    "payment_ids": [
-    "pay_SYN000326360"
+    "pay_SYN000304222"
    ],
    "invoice_nos": [
-    "INV-2026-1032"
+    "INV-2026-1038"
    ],
    "defect_labels": [
     "mdr_fee",
-    "settlement_drift"
+    "settlement_drift",
+    "near_duplicate_name"
    ],
    "relation": "one_to_one",
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0027",
+   "bank_txn_id": "bank_txn_0028",
    "payment_ids": [
-    "pay_SYN000354724"
+    "pay_SYN000268787",
+    "pay_SYN000314724",
+    "pay_SYN000294150"
+   ],
+   "invoice_nos": [
+    "INV-2026-1034",
+    "INV-2026-1039",
+    "INV-2026-1037"
+   ],
+   "defect_labels": [
+    "many_to_one",
+    "mdr_fee",
+    "refund_netted",
+    "settlement_drift"
+   ],
+   "relation": "many_to_one",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0024",
+   "payment_ids": [
+    "pay_SYN000286360"
+   ],
+   "invoice_nos": [
+    "INV-2026-1036"
+   ],
+   "defect_labels": [
+    "mdr_fee",
+    "paisa_rounding"
+   ],
+   "relation": "one_to_one",
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0029",
+   "payment_ids": [
+    "pay_SYN000278620"
    ],
    "invoice_nos": [
     "INV-2026-1035"
@@ -426,1889 +470,18 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0023",
+   "bank_txn_id": "bank_txn_0026",
    "payment_ids": [
-    "pay_SYN000344222"
-   ],
-   "invoice_nos": [
-    "INV-2026-1034"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0028",
-   "payment_ids": [
-    "pay_SYN000334150"
+    "pay_SYN000255744"
    ],
    "invoice_nos": [
     "INV-2026-1033"
    ],
    "defect_labels": [
     "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0024",
-   "payment_ids": [
-    "pay_SYN000315964"
-   ],
-   "invoice_nos": [
-    "INV-2026-1031"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0029",
-   "payment_ids": [
-    "pay_TWSzxog1eMrPK6"
-   ],
-   "invoice_nos": [
-    "INV-2026-1041"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0030",
-   "payment_ids": [
-    "pay_SYN000424814",
-    "pay_TWepdP13N0bTCU"
-   ],
-   "invoice_nos": [
-    "INV-2026-1042",
-    "INV-2026-1038"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0031",
-   "payment_ids": [
-    "pay_R2XTWf04vEnwQt5kM",
-    "pay_SYN000398193",
-    "pay_SYN000374620"
-   ],
-   "invoice_nos": [
-    "INV-2026-1040",
-    "INV-2026-1039",
-    "INV-2026-1037"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0035",
-   "payment_ids": [
-    "pay_TWdwqHrmklQ6gJ"
-   ],
-   "invoice_nos": [
-    "INV-2026-1045"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0032",
-   "payment_ids": [
-    "pay_TWdvT67dIiHFxk"
-   ],
-   "invoice_nos": [
-    "INV-2026-1047"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0033",
-   "payment_ids": [
-    "pay_TWercCkkQwdC7l"
-   ],
-   "invoice_nos": [
-    "INV-2026-1048"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0034",
-   "payment_ids": [
-    "pay_SYN000466792"
-   ],
-   "invoice_nos": [
-    "INV-2026-1046"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0036",
-   "payment_ids": [
-    "pay_SYN000442413"
-   ],
-   "invoice_nos": [
-    "INV-2026-1044"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0037",
-   "payment_ids": [
-    "pay_R2XTWezmeqK3RKRWG"
-   ],
-   "invoice_nos": [
-    "INV-2026-1043"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0038",
-   "payment_ids": [
-    "pay_TWdulPFK9A74yH",
-    "pay_SYN000539711",
-    "pay_SYN000544745",
-    "pay_SYN000518111",
-    "pay_SYN000523649"
-   ],
-   "invoice_nos": [
-    "INV-2026-1049",
-    "INV-2026-1053",
-    "INV-2026-1054",
-    "INV-2026-1051",
-    "INV-2026-1052"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0039",
-   "payment_ids": [
-    "pay_SYN000507469"
-   ],
-   "invoice_nos": [
-    "INV-2026-1050"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0042",
-   "payment_ids": [
-    "pay_SYN000578462",
-    "pay_TWelWouB7zHFHE"
-   ],
-   "invoice_nos": [
-    "INV-2026-1057",
-    "INV-2026-1056"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0040",
-   "payment_ids": [
-    "pay_SYN000558108",
-    "pay_SYN000604041",
-    "pay_TWeiUJBUtXCNYn"
-   ],
-   "invoice_nos": [
-    "INV-2026-1055",
-    "INV-2026-1060",
-    "INV-2026-1059"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0041",
-   "payment_ids": [
-    "pay_SYN000588791"
-   ],
-   "invoice_nos": [
-    "INV-2026-1058"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0044",
-   "payment_ids": [
-    "pay_SYN000668777"
-   ],
-   "invoice_nos": [
-    "INV-2026-1066"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "partial_payment",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "partial",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0043",
-   "payment_ids": [
-    "pay_TWdoUNOlyGqTcU"
-   ],
-   "invoice_nos": [
-    "INV-2026-1062"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0045",
-   "payment_ids": [
-    "pay_SYN000632863",
-    "pay_R2XTWf0C6cAlonQiD",
-    "pay_SYN000652142",
-    "pay_R2XTWf0RhohFHzTTe"
-   ],
-   "invoice_nos": [
-    "INV-2026-1063",
-    "INV-2026-1061",
-    "INV-2026-1065",
-    "INV-2026-1064"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0048",
-   "payment_ids": [
-    "pay_TWT0VdkziW7AEd"
-   ],
-   "invoice_nos": [
-    "INV-2026-1072"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0046",
-   "payment_ids": [
-    "pay_R2XTWf0ZuwMZJXKs9"
-   ],
-   "invoice_nos": [
-    "INV-2026-1070"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0047",
-   "payment_ids": [
-    "pay_SYN000715835"
-   ],
-   "invoice_nos": [
-    "INV-2026-1071"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0051",
-   "payment_ids": [
-    "pay_SYN000744292"
-   ],
-   "invoice_nos": [
-    "INV-2026-1074"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0049",
-   "payment_ids": [
-    "pay_SYN000762819"
-   ],
-   "invoice_nos": [
-    "INV-2026-1076"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "",
-   "payment_ids": [
-    "pay_R2XTWf0F3FTnj0xHu"
-   ],
-   "invoice_nos": [
-    "INV-2026-1073"
-   ],
-   "defect_labels": [
-    "unsettled"
-   ],
-   "relation": "unmatched",
-   "expected_verdict": "refuse"
-  },
-  {
-   "bank_txn_id": "bank_txn_0050",
-   "payment_ids": [
-    "pay_SYN000778127"
-   ],
-   "invoice_nos": [
-    "INV-2026-1077"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0052",
-   "payment_ids": [
-    "pay_SYN000781614"
-   ],
-   "invoice_nos": [
-    "INV-2026-1078"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0053",
-   "payment_ids": [
-    "pay_SYN000754735"
-   ],
-   "invoice_nos": [
-    "INV-2026-1075"
-   ],
-   "defect_labels": [
-    "mdr_fee",
     "tds_deduction",
     "settlement_drift",
     "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0055",
-   "payment_ids": [
-    "pay_SYN000818765",
-    "pay_SYN000809103",
-    "pay_SYN000824187",
-    "pay_SYN000797213"
-   ],
-   "invoice_nos": [
-    "INV-2026-1081",
-    "INV-2026-1080",
-    "INV-2026-1082",
-    "INV-2026-1079"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0056",
-   "payment_ids": [
-    "pay_SYN000849137"
-   ],
-   "invoice_nos": [
-    "INV-2026-1084"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0054",
-   "payment_ids": [
-    "pay_SYN000835637"
-   ],
-   "invoice_nos": [
-    "INV-2026-1083"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "",
-   "payment_ids": [
-    "pay_R2XTWf07xIRgP3mLt"
-   ],
-   "invoice_nos": [
-    "INV-2026-1090"
-   ],
-   "defect_labels": [
-    "unsettled"
-   ],
-   "relation": "unmatched",
-   "expected_verdict": "refuse"
-  },
-  {
-   "bank_txn_id": "bank_txn_0059",
-   "payment_ids": [
-    "pay_SYN000855547",
-    "pay_SYN000868661",
-    "pay_SYN000885006"
-   ],
-   "invoice_nos": [
-    "INV-2026-1085",
-    "INV-2026-1086",
-    "INV-2026-1088"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0057",
-   "payment_ids": [
-    "pay_SYN000891738"
-   ],
-   "invoice_nos": [
-    "INV-2026-1089"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0058",
-   "payment_ids": [
-    "pay_SYN000877870"
-   ],
-   "invoice_nos": [
-    "INV-2026-1087"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0062",
-   "payment_ids": [
-    "pay_R2XTWezvJtsDu6wUk"
-   ],
-   "invoice_nos": [
-    "INV-2026-1091"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0060",
-   "payment_ids": [
-    "pay_SYN000923959",
-    "pay_SYN000961848",
-    "pay_R2XTWf0NyLDE22k5f",
-    "pay_SYN000953434"
-   ],
-   "invoice_nos": [
-    "INV-2026-1092",
-    "INV-2026-1096",
-    "INV-2026-1093",
-    "INV-2026-1095"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "refund_netted",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0061",
-   "payment_ids": [
-    "pay_SYN000946505"
-   ],
-   "invoice_nos": [
-    "INV-2026-1094"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "partial_payment",
-    "settlement_drift"
-   ],
-   "relation": "partial",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0063",
-   "payment_ids": [
-    "pay_R2XTWezr1QLvMKR6K"
-   ],
-   "invoice_nos": [
-    "INV-2026-1098"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0064",
-   "payment_ids": [
-    "pay_SYN000996180",
-    "pay_SYN001027962",
-    "pay_SYN000974467",
-    "pay_SYN001016676",
-    "pay_SYN001006769"
-   ],
-   "invoice_nos": [
-    "INV-2026-1099",
-    "INV-2026-1102",
-    "INV-2026-1097",
-    "INV-2026-1101",
-    "INV-2026-1100"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0065",
-   "payment_ids": [
-    "pay_AMBIG0603786",
-    "pay_AMBIG1700862",
-    "pay_AMBIG2372550",
-    "pay_AMBIG3180856"
-   ],
-   "invoice_nos": [
-    "INV-2026-1103",
-    "INV-2026-1104",
-    "INV-2026-1105",
-    "INV-2026-1106"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "refuse"
-  },
-  {
-   "bank_txn_id": "bank_txn_0066",
-   "payment_ids": [
-    "pay_SYN900004758"
-   ],
-   "invoice_nos": [
-    "INV-2026-1107"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0067",
-   "payment_ids": [
-    "pay_SYN900017672"
-   ],
-   "invoice_nos": [
-    "INV-2026-1108"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0069",
-   "payment_ids": [
-    "pay_SYN001075082"
-   ],
-   "invoice_nos": [
-    "INV-2026-1113"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "partial_payment",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "partial",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0068",
-   "payment_ids": [
-    "pay_SYN001047550"
-   ],
-   "invoice_nos": [
-    "INV-2026-1110"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0070",
-   "payment_ids": [
-    "pay_SYN001089586",
-    "pay_SYN001058911",
-    "pay_SYN001061383",
-    "pay_SYN001035901"
-   ],
-   "invoice_nos": [
-    "INV-2026-1114",
-    "INV-2026-1111",
-    "INV-2026-1112",
-    "INV-2026-1109"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0071",
-   "payment_ids": [
-    "pay_SYN001105153"
-   ],
-   "invoice_nos": [
-    "INV-2026-1116"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "partial_payment",
-    "near_duplicate_name"
-   ],
-   "relation": "partial",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0075",
-   "payment_ids": [
-    "pay_SYN001135784"
-   ],
-   "invoice_nos": [
-    "INV-2026-1119"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0072",
-   "payment_ids": [
-    "pay_SYN001116143"
-   ],
-   "invoice_nos": [
-    "INV-2026-1117"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0074",
-   "payment_ids": [
-    "pay_SYN001143707"
-   ],
-   "invoice_nos": [
-    "INV-2026-1120"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0073",
-   "payment_ids": [
-    "pay_SYN001128511"
-   ],
-   "invoice_nos": [
-    "INV-2026-1118"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "",
-   "payment_ids": [
-    "pay_SYN001092686"
-   ],
-   "invoice_nos": [
-    "INV-2026-1115"
-   ],
-   "defect_labels": [
-    "unsettled"
-   ],
-   "relation": "unmatched",
-   "expected_verdict": "refuse"
-  },
-  {
-   "bank_txn_id": "bank_txn_0076",
-   "payment_ids": [
-    "pay_SYN001174160"
-   ],
-   "invoice_nos": [
-    "INV-2026-1123"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0077",
-   "payment_ids": [
-    "pay_SYN001204847"
-   ],
-   "invoice_nos": [
-    "INV-2026-1126"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0078",
-   "payment_ids": [
-    "pay_SYN001199450"
-   ],
-   "invoice_nos": [
-    "INV-2026-1125"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0079",
-   "payment_ids": [
-    "pay_SYN001163274"
-   ],
-   "invoice_nos": [
-    "INV-2026-1122"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0081",
-   "payment_ids": [
-    "pay_SYN001159243"
-   ],
-   "invoice_nos": [
-    "INV-2026-1121"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0080",
-   "payment_ids": [
-    "pay_SYN001188151"
-   ],
-   "invoice_nos": [
-    "INV-2026-1124"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0082",
-   "payment_ids": [
-    "pay_SYN001254955"
-   ],
-   "invoice_nos": [
-    "INV-2026-1131"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0085",
-   "payment_ids": [
-    "pay_SYN001231794",
-    "pay_SYN001227455"
-   ],
-   "invoice_nos": [
-    "INV-2026-1129",
-    "INV-2026-1128"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0083",
-   "payment_ids": [
-    "pay_SYN001241166"
-   ],
-   "invoice_nos": [
-    "INV-2026-1130"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0084",
-   "payment_ids": [
-    "pay_SYN001263914"
-   ],
-   "invoice_nos": [
-    "INV-2026-1132"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0086",
-   "payment_ids": [
-    "pay_SYN001213537"
-   ],
-   "invoice_nos": [
-    "INV-2026-1127"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0087",
-   "payment_ids": [
-    "pay_SYN001317488"
-   ],
-   "invoice_nos": [
-    "INV-2026-1137"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0088",
-   "payment_ids": [
-    "pay_SYN001282865"
-   ],
-   "invoice_nos": [
-    "INV-2026-1134"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0092",
-   "payment_ids": [
-    "pay_SYN001325813"
-   ],
-   "invoice_nos": [
-    "INV-2026-1138"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0091",
-   "payment_ids": [
-    "pay_SYN001309687"
-   ],
-   "invoice_nos": [
-    "INV-2026-1136"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0089",
-   "payment_ids": [
-    "pay_SYN001277189"
-   ],
-   "invoice_nos": [
-    "INV-2026-1133"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0090",
-   "payment_ids": [
-    "pay_SYN001298204"
-   ],
-   "invoice_nos": [
-    "INV-2026-1135"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0096",
-   "payment_ids": [
-    "pay_SYN001346795",
-    "pay_SYN001368610"
-   ],
-   "invoice_nos": [
-    "INV-2026-1140",
-    "INV-2026-1142"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0093",
-   "payment_ids": [
-    "pay_SYN001372722"
-   ],
-   "invoice_nos": [
-    "INV-2026-1143"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0094",
-   "payment_ids": [
-    "pay_SYN001381274"
-   ],
-   "invoice_nos": [
-    "INV-2026-1144"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0097",
-   "payment_ids": [
-    "pay_SYN001331386"
-   ],
-   "invoice_nos": [
-    "INV-2026-1139"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0095",
-   "payment_ids": [
-    "pay_SYN001353950"
-   ],
-   "invoice_nos": [
-    "INV-2026-1141"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "partial_payment",
-    "settlement_drift"
-   ],
-   "relation": "partial",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0099",
-   "payment_ids": [
-    "pay_SYN001401982"
-   ],
-   "invoice_nos": [
-    "INV-2026-1146"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0098",
-   "payment_ids": [
-    "pay_SYN001411763",
-    "pay_SYN001394456",
-    "pay_SYN001438464",
-    "pay_SYN001424179",
-    "pay_SYN001447371"
-   ],
-   "invoice_nos": [
-    "INV-2026-1147",
-    "INV-2026-1145",
-    "INV-2026-1149",
-    "INV-2026-1148",
-    "INV-2026-1150"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0100",
-   "payment_ids": [
-    "pay_SYN001502522"
-   ],
-   "invoice_nos": [
-    "INV-2026-1156"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0101",
-   "payment_ids": [
-    "pay_SYN001486488",
-    "pay_SYN001467855",
-    "pay_SYN001453393"
-   ],
-   "invoice_nos": [
-    "INV-2026-1154",
-    "INV-2026-1152",
-    "INV-2026-1151"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "",
-   "payment_ids": [
-    "pay_SYN001473386"
-   ],
-   "invoice_nos": [
-    "INV-2026-1153"
-   ],
-   "defect_labels": [
-    "unsettled"
-   ],
-   "relation": "unmatched",
-   "expected_verdict": "refuse"
-  },
-  {
-   "bank_txn_id": "bank_txn_0102",
-   "payment_ids": [
-    "pay_SYN001492528"
-   ],
-   "invoice_nos": [
-    "INV-2026-1155"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0103",
-   "payment_ids": [
-    "pay_SYN001512123",
-    "pay_SYN001568633",
-    "pay_SYN001521552"
-   ],
-   "invoice_nos": [
-    "INV-2026-1157",
-    "INV-2026-1162",
-    "INV-2026-1158"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0104",
-   "payment_ids": [
-    "pay_SYN001539055"
-   ],
-   "invoice_nos": [
-    "INV-2026-1159"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0106",
-   "payment_ids": [
-    "pay_SYN001557346"
-   ],
-   "invoice_nos": [
-    "INV-2026-1161"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0105",
-   "payment_ids": [
-    "pay_SYN001546861"
-   ],
-   "invoice_nos": [
-    "INV-2026-1160"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "tds_deduction"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0110",
-   "payment_ids": [
-    "pay_SYN001575089"
-   ],
-   "invoice_nos": [
-    "INV-2026-1163"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "",
-   "payment_ids": [
-    "pay_SYN001607427"
-   ],
-   "invoice_nos": [
-    "INV-2026-1166"
-   ],
-   "defect_labels": [
-    "unsettled"
-   ],
-   "relation": "unmatched",
-   "expected_verdict": "refuse"
-  },
-  {
-   "bank_txn_id": "bank_txn_0107",
-   "payment_ids": [
-    "pay_SYN001611463"
-   ],
-   "invoice_nos": [
-    "INV-2026-1167"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0111",
-   "payment_ids": [
-    "pay_SYN001593334"
-   ],
-   "invoice_nos": [
-    "INV-2026-1165"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0108",
-   "payment_ids": [
-    "pay_SYN001585163"
-   ],
-   "invoice_nos": [
-    "INV-2026-1164"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0109",
-   "payment_ids": [
-    "pay_SYN001623466"
-   ],
-   "invoice_nos": [
-    "INV-2026-1168"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0113",
-   "payment_ids": [
-    "pay_SYN001633818",
-    "pay_SYN001647429"
-   ],
-   "invoice_nos": [
-    "INV-2026-1169",
-    "INV-2026-1170"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0112",
-   "payment_ids": [
-    "pay_SYN001683340"
-   ],
-   "invoice_nos": [
-    "INV-2026-1174"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0114",
-   "payment_ids": [
-    "pay_SYN001656377",
-    "pay_SYN001662091",
-    "pay_SYN001678928"
-   ],
-   "invoice_nos": [
-    "INV-2026-1171",
-    "INV-2026-1172",
-    "INV-2026-1173"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0116",
-   "payment_ids": [
-    "pay_SYN001701500"
-   ],
-   "invoice_nos": [
-    "INV-2026-1176"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0118",
-   "payment_ids": [
-    "pay_SYN001734713"
-   ],
-   "invoice_nos": [
-    "INV-2026-1179"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "partial_payment",
-    "settlement_drift"
-   ],
-   "relation": "partial",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0115",
-   "payment_ids": [
-    "pay_SYN001717567"
-   ],
-   "invoice_nos": [
-    "INV-2026-1177"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0119",
-   "payment_ids": [
-    "pay_SYN001741436"
-   ],
-   "invoice_nos": [
-    "INV-2026-1180"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0117",
-   "payment_ids": [
-    "pay_SYN001692663"
-   ],
-   "invoice_nos": [
-    "INV-2026-1175"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "partial_payment",
-    "paisa_rounding",
-    "settlement_drift"
-   ],
-   "relation": "partial",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0120",
-   "payment_ids": [
-    "pay_SYN001722014"
-   ],
-   "invoice_nos": [
-    "INV-2026-1178"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0121",
-   "payment_ids": [
-    "pay_SYN001751506"
-   ],
-   "invoice_nos": [
-    "INV-2026-1181"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0122",
-   "payment_ids": [
-    "pay_SYN001783291"
-   ],
-   "invoice_nos": [
-    "INV-2026-1184"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0123",
-   "payment_ids": [
-    "pay_SYN001803525",
-    "pay_SYN001794272",
-    "pay_SYN001767406"
-   ],
-   "invoice_nos": [
-    "INV-2026-1186",
-    "INV-2026-1185",
-    "INV-2026-1182"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee",
-    "tds_deduction",
-    "refund_netted",
-    "settlement_drift"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0124",
-   "payment_ids": [
-    "pay_SYN001776188"
-   ],
-   "invoice_nos": [
-    "INV-2026-1183"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0125",
-   "payment_ids": [
-    "pay_SYN001849381"
-   ],
-   "invoice_nos": [
-    "INV-2026-1190"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0126",
-   "payment_ids": [
-    "pay_SYN001837161"
-   ],
-   "invoice_nos": [
-    "INV-2026-1189"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0127",
-   "payment_ids": [
-    "pay_SYN001866523"
-   ],
-   "invoice_nos": [
-    "INV-2026-1192"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0130",
-   "payment_ids": [
-    "pay_SYN001828343"
-   ],
-   "invoice_nos": [
-    "INV-2026-1188"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0129",
-   "payment_ids": [
-    "pay_SYN001855229"
-   ],
-   "invoice_nos": [
-    "INV-2026-1191"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0128",
-   "payment_ids": [
-    "pay_SYN001815610"
-   ],
-   "invoice_nos": [
-    "INV-2026-1187"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0133",
-   "payment_ids": [
-    "pay_SYN001886592"
-   ],
-   "invoice_nos": [
-    "INV-2026-1194"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "duplicate_utr"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0134",
-   "payment_ids": [
-    "pay_SYN001901210"
-   ],
-   "invoice_nos": [
-    "INV-2026-1196"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "settlement_drift",
-    "near_duplicate_name"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0135",
-   "payment_ids": [
-    "pay_SYN001892592"
-   ],
-   "invoice_nos": [
-    "INV-2026-1195"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0131",
-   "payment_ids": [
-    "pay_SYN001927817",
-    "pay_SYN001871480"
-   ],
-   "invoice_nos": [
-    "INV-2026-1198",
-    "INV-2026-1193"
-   ],
-   "defect_labels": [
-    "many_to_one",
-    "mdr_fee"
-   ],
-   "relation": "many_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0132",
-   "payment_ids": [
-    "pay_SYN001911987"
-   ],
-   "invoice_nos": [
-    "INV-2026-1197"
-   ],
-   "defect_labels": [
-    "mdr_fee"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0137",
-   "payment_ids": [
-    "pay_SYN001946619"
-   ],
-   "invoice_nos": [
-    "INV-2026-1200"
-   ],
-   "defect_labels": [
-    "mdr_fee",
-    "paisa_rounding",
-    "settlement_drift"
-   ],
-   "relation": "one_to_one",
-   "expected_verdict": "assign"
-  },
-  {
-   "bank_txn_id": "bank_txn_0136",
-   "payment_ids": [
-    "pay_SYN001936453"
-   ],
-   "invoice_nos": [
-    "INV-2026-1199"
-   ],
-   "defect_labels": [
-    "mdr_fee"
    ],
    "relation": "one_to_one",
    "expected_verdict": "assign"
