@@ -34,9 +34,32 @@ SEED_SECONDARY = 77771
 # "The density invariant".
 # --------------------------------------------------------------------------
 N_PAYMENTS = 200
-TARGET_POOL_SIZE = 12          # payments per settlement window
+TARGET_POOL_SIZE = 9           # NOMINAL payments placed per settlement window
 SETTLEMENT_WINDOW_DAYS = 3     # a credit on date D may only cover payments in [D-3, D]
-DENSITY_SWEEP = (6, 12, 24)    # payments_per_window settings for the reported sweep
+DENSITY_SWEEP = (5, 9, 18)     # nominal densities for the reported sweep
+
+# NOMINAL density is not the pool the engine actually searches. A credit's lookback
+# [D-3, D] straddles window boundaries, and settlement drift (T+1/T+2) widens it
+# further, so the REALISED pool runs about 1.8x the nominal figure. Measured over 12
+# seeds:
+#
+#     nominal   5  ->  realised  9-10     under MAX_POOL, engine searches
+#     nominal   9  ->  realised 15-16     under MAX_POOL, engine searches  <- default
+#     nominal  18  ->  realised 27-29     over MAX_POOL, engine refuses    <- swept
+#
+# These two constants were originally set independently and never reconciled: a
+# nominal 12 realises as 18-22, which exceeded MAX_POOL on 2 of 12 seeds and failed
+# the build outright. See docs/DEFECT_LOG.md 2026-09-01-06.
+#
+# MAX_POOL cannot simply be raised to accommodate a higher density, because it is set
+# by SEARCH COST, not by taste: meet-in-the-middle at k<=6 over a pool of 20 is 38,760
+# subsets per credit, over 28 it is 376,740 -- ten times the work, multiplied by ~138
+# credits and by K=8 permutation passes. So density is calibrated to fit the cap,
+# rather than the cap being widened to fit the density.
+#
+# The high sweep arm deliberately exceeds the cap. That is the condition under study:
+# the engine must refuse those credits rather than guess, and the refusal rate rising
+# while precision holds flat is the project's central empirical claim.
 
 MIN_PAYMENT_PAISE = 10_000     # Rs 100.00 -- floor exists to keep TOL_ABS_PAISE
 MAX_PAYMENT_PAISE = 5_000_000  # Rs 50,000.00   safely below the smallest payment

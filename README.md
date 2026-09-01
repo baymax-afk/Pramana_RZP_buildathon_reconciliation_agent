@@ -90,7 +90,10 @@ would be worth less than an accurate account of what is real.
 |---|---|---|
 | **R1 — captured payments** | Genuinely completed Razorpay test-mode payments. Real `id`, `fee`, `tax`, `created_at`, `bank`, `bank_transaction_id`. **The only tier with a real fee/tax pair.** | **18 captured + 6 failed = 24** |
 | **R2 — Razorpay-issued orders** | Real orders created through the API. Genuine Razorpay-issued IDs, receipts, notes and server timestamps. **Never completed — no `fee`, no `tax`, not `captured`.** | **12** |
-| **S — synthetic** | Schema-conformant records generated locally, carrying the injected defects. | *to 200+, pending Block 2* |
+| **S — synthetic** | Schema-conformant records generated locally, carrying the injected defects. | **164** |
+
+Total batch: **200 payments**, 136 bank transactions, 200 invoices, across 23
+settlement windows.
 
 The R1 slice spans **7 distinct payer contacts**, **7 banks** (BARB_R, CNRB, DEUT,
 IBKL, KVBL, PUNB_R, UTBI), two payment methods (netbanking, wallet), and ₹215 to
@@ -136,10 +139,22 @@ verdict.
 ## Running it
 
 ```bash
-python run.py --seed 20260905 --verify --score
+python run.py generate --seed 20260905
 ```
 
-One command, one metrics block, fixed seed printed, identical numbers on repeat.
+Builds all three sides plus the ground truth, and runs the three anti-accident
+assertions: the ambiguity case has exactly two candidates, tolerance sits 209x below
+the smallest payment, and no settlement window exceeds the search bound. These fail
+the build; they do not warn.
+
+```bash
+python run.py generate --density-sweep
+```
+
+Generates at each swept density. The high arm deliberately exceeds the search bound —
+that is the condition under study, not a fault.
+
+Matching, verification and scoring subcommands land with those blocks.
 
 ```bash
 python run.py --seed 77771 --verify --score
@@ -164,7 +179,7 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 
 - [x] **Block 0** — repo skeleton, frozen config, architecture and metrics docs
 - [x] **Block 1** — real payment capture: 24 R1 payments (18 captured), 12 R2 orders
-- [ ] **Block 2** — generator, ground truth, nine defects, ambiguity case
+- [x] **Block 2** — generator, ground truth, nine defects, ambiguity case
 - [ ] **Block 3** — matching engine, tiers 1–2
 - [ ] **Block 4** — scorer, metrics harness, isolation test
 - [ ] **Block 5** — metamorphic harness + runtime permutation gate

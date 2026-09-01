@@ -235,3 +235,139 @@ The abandoned wallet attempt is itself useful data: it produced a genuine
 `payment_cancelled` failed payment (`pay_TWeoZtllDCQlDt`) against the same order as
 its successful retry, which is exactly the retry-after-failure pattern real
 reconciliation data contains.
+
+---
+
+## 2026-09-01-04 — Ambiguity guarantee held by luck, not by construction
+
+**Timestamp:** 2026-09-01, Block 2 (generator)
+
+**What broke:** `test_filler_payments_cannot_participate` failed on the first full run
+of the suite. A payment netting 27,371p sat inside the ambiguity credit's candidate
+pool, small enough to join a subset reaching the 80,000p credit.
+
+**Diagnosis:** The structural guarantee was written as "every *other payment placed in
+the ambiguity window* nets more than the credit", and that is what the generator
+enforced. But settlement windows overlap at their boundaries. The ambiguity credit is
+dated on its window's settle date, and payments belonging to the **following** window
+can be dated on exactly that day — lag 0, squarely inside the credit's lookback. The
+guarantee covered the wrong set.
+
+The uncomfortable part: `assert_ambiguity_is_exact` still passed. Exactly two subsets
+still fit, because no second payment happened to net the 52,629p that would have
+completed a third. **The case was correct by luck.** Had the seed differed, the
+centrepiece demo case could have silently acquired a third candidate — or, worse, the
+generator could have shipped a case that resolved cleanly and made the demo a lie.
+
+**Fix:** `_protect_ambiguity_window`, a post-generation pass that enforces the
+invariant globally rather than per-window. Any captured payment inside the credit's
+lookback that is small enough to participate, and is not one of the crafted four, is
+shifted one lookback-width later — out of the pool. Its own settlement credit is dated
+strictly later, so the shift cannot orphan it.
+
+Shifting the date rather than raising the amount was deliberate: raising the amount
+would cascade through the payment's invoice, its net, and the bank credit derived from
+that net. Moving the date touches one field with nothing downstream of it.
+
+The pass ends with a post-condition that re-checks every payment and **raises** if any
+interloper remains, so a case the shift cannot fix fails generation rather than
+shipping.
+
+**Cost:** ~25 minutes.
+
+**Why the test was stricter than the assertion, and why that was right:**
+`assert_ambiguity_is_exact` asks "are there exactly two candidates?" —
+an *outcome*. The test asks "could there ever be a third?" — a *property*. The outcome
+check passed while the property was violated, which is precisely the gap between a
+system that happens to be right and one that cannot be wrong. Writing the stricter
+test first is what surfaced this at all.
+
+---
+
+## 2026-09-01-05 — Density-bound assertion would have made the density sweep impossible
+
+**Timestamp:** 2026-09-01, Block 2 (generator)
+
+**What broke:** `assert_pool_bound` failed generation outright whenever a settlement
+window exceeded `MAX_POOL = 20`. At the top sweep density (`payments_per_window = 24`)
+the worst pool is 36, so the generator refused to build the batch at all.
+
+**Diagnosis:** Two different meanings of "pool too large" had been collapsed into one
+rule. At the **default** density, an oversized pool means the date range was derived
+wrongly and the density invariant has broken — a generator bug that must fail loudly.
+Above the default density, an oversized pool is not a bug at all: it is the
+phenomenon the sweep exists to study. Crowding the windows is the *point*, and the
+engine is supposed to respond by refusing (`decomposition_out_of_bounds`) rather than
+guessing.
+
+Left as written, the assertion would have deleted the project's central empirical
+result — refusal rate climbing with density while precision holds flat — by making the
+high-density arm of the sweep unbuildable.
+
+**Fix:** the assertion now hard-fails only when `payments_per_window <=
+TARGET_POOL_SIZE`, and otherwise reports the worst pool for the metrics block. Crowded
+windows at high density are data; crowded windows at default density are a defect.
+
+**Cost:** ~15 minutes, all of it before any engine existed to be blocked by it.
+
+**Lesson:** an invariant worth asserting still needs its scope stated. "Pools must not
+exceed MAX_POOL" was true of the configuration being shipped and false of the
+experiment being run, and the assertion could not tell the two apart.
+
+---
+
+## 2026-09-01-06 — Density and search-bound constants were never reconciled; default config failed on 2 of 12 seeds
+
+**Timestamp:** 2026-09-01, Block 2 (generator)
+
+**What broke:** At the default density the worst settlement-window pool came out at
+20 — exactly `MAX_POOL`. Sweeping twelve seeds showed the real picture: pools ranged
+18 to 22, and **2 of 12 seeds exceeded the cap and failed generation outright.** The
+two seeds this project actually reports on, 20260905 and 77771, happened to land at
+20 and 19. They passed by luck.
+
+**Diagnosis:** `TARGET_POOL_SIZE` is named as though it were the pool the engine
+searches. It is not. It controls how many payments the generator *places* per window,
+while the engine's candidate pool is everything inside a credit's lookback `[D-3, D]`
+— which straddles window boundaries, and which settlement drift (T+1/T+2) widens
+further. Measured across seeds, the realised pool runs about **1.8x** the nominal
+figure:
+
+| nominal | realised | vs MAX_POOL = 20 |
+|---|---|---|
+| 5 | 9–10 | under — engine searches |
+| 9 | 15–16 | under — engine searches |
+| 12 | 18–22 | **straddles the cap** |
+| 18 | 27–29 | over — engine refuses |
+| 24 | 38–40 | over — engine refuses |
+
+The two constants had been set independently, from different considerations, and never
+checked against each other. `MAX_POOL = 20` came from search cost; `TARGET_POOL_SIZE
+= 12` came from wanting a realistic-looking window. Nothing had ever measured what the
+second implied for the first.
+
+**Fix:** recalibrate density to fit the cap, `TARGET_POOL_SIZE = 12 -> 9` and
+`DENSITY_SWEEP = (6, 12, 24) -> (5, 9, 18)`. Verified across 12 seeds: the default arm
+now realises 15–16 against a cap of 20, with genuine headroom, and the high arm
+realises 27–29, comfortably over — which is what the sweep needs it to be.
+
+**Why the cap was not simply raised instead:** `MAX_POOL` is set by search cost, not by
+preference. Meet-in-the-middle at `k <= 6` over a pool of 20 is 38,760 subsets per
+credit; over 28 it is 376,740 — ten times the work, multiplied by ~138 credits and by
+`K = 8` permutation passes. Raising the cap to fit the density would have made the
+runtime permutation gate unaffordable, and that gate is the one thing the plan says
+must never be cut.
+
+**Cost:** ~20 minutes.
+
+**On changing a "frozen" constant:** `config.py` says its values are set once and never
+tuned. That discipline is about not moving thresholds in response to disappointing
+*metrics*, and no metric exists yet — nothing has been matched, scored or reported.
+This was a miscalibration between two constants, found by measurement rather than by
+preference, and fixed before any number was produced. The distinction matters, so it
+is recorded here rather than left to look like quiet tuning.
+
+**The recurring shape of the last three entries:** each was a case where something was
+correct on the seeds being looked at and wrong in general — the GST rounding rule, the
+ambiguity guarantee, and now the density calibration. In every case the fix was to
+measure the distribution instead of the instance.
