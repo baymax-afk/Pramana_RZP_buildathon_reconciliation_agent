@@ -25,6 +25,8 @@ for _p in (str(ROOT), str(ROOT / "src")):
         sys.path.insert(0, _p)
 
 import config as cfg  # noqa: E402
+from loaders import load_inputs  # noqa: E402
+from recon.engine.match import match_once  # noqa: E402
 from recon.generator import build  # noqa: E402
 
 
@@ -103,6 +105,51 @@ def cmd_generate(args: argparse.Namespace) -> int:
     return rc
 
 
+def cmd_match(args: argparse.Namespace) -> int:
+    """
+    Match a generated batch and, unless --no-score, score it against ground truth.
+
+    Note the ordering here: the engine runs to completion FIRST, producing a
+    MatchOutput from `ReconInputs` alone, and only then is ground truth loaded -- by a
+    different package, into a different object. There is no point in this function at
+    which the engine could see the answer key.
+    """
+    inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+
+    t0 = time.perf_counter()
+    out = match_once(inputs)
+    elapsed = time.perf_counter() - t0
+    records = len(inputs.payments) + len(inputs.bank_txns) + len(inputs.invoices)
+
+    if not args.score:
+        _print_block("MATCHED (unscored)", list(out.summary().items()) + [
+            ("by tier", out.tier_counts),
+            ("wall clock", f"{elapsed:.2f}s"),
+        ])
+        return 0
+
+    from scorer.report import render
+    from scorer.score import load_truth, score
+
+    truth_path = cfg.TRUTH_DIR / "ground_truth.json"
+    if not truth_path.exists():
+        print("\n  No ground truth present -- run `python run.py generate` first.")
+        print("  (The engine ran fine without it; only scoring needs it.)")
+        return 1
+
+    raw, links = load_truth(truth_path)
+    sc = score(
+        out,
+        links,
+        total_payments=len(inputs.payments),
+        captured_payments=sum(1 for p in inputs.payments if p.captured),
+        ambiguity_bank_txn_id=raw.get("ambiguity_bank_txn_id", ""),
+        throughput=records / elapsed if elapsed else None,
+    )
+    print(render(sc, args.seed, args.payments_per_window, llm_enabled=not args.no_llm))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="run.py", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -120,6 +167,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     g.add_argument("--no-write", dest="write", action="store_false", default=True)
     g.set_defaults(func=cmd_generate)
+
+    m = sub.add_parser("match", help="run the matching engine and print the metrics block")
+    m.add_argument("--seed", type=int, default=cfg.SEED_PRIMARY)
+    m.add_argument("--payments-per-window", type=int, default=cfg.TARGET_POOL_SIZE)
+    m.add_argument("--no-score", dest="score", action="store_false", default=True,
+                   help="match only; do not load ground truth at all")
+    m.add_argument("--no-llm", action="store_true", default=False,
+                   help="disable the LLM narration tier and report precision without it")
+    m.set_defaults(func=cmd_match)
 
     args = ap.parse_args(argv)
     return args.func(args)

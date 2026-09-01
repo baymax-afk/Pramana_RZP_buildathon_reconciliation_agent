@@ -147,3 +147,74 @@ def test_truth_file_is_not_needed_to_construct_engine_inputs(batch):
         "truth" in str(getattr(inputs, f.name)).lower() for f in fields(ReconInputs)
         if f.name not in {"payments", "bank_txns", "invoices"}
     )
+
+
+# --------------------------------------------------------------------------
+# The end-to-end form, now that an engine exists
+# --------------------------------------------------------------------------
+def test_engine_produces_identical_output_with_ground_truth_deleted(tmp_path):
+    """
+    THE test the whole architecture exists to pass.
+
+    Generate a batch, write it, then run the engine twice: once with the truth
+    directory present and once with it **deleted from disk entirely**. The outputs must
+    be identical, byte for byte in the assignment map.
+
+    If the engine were reading the answer key -- even incidentally, even as a
+    tie-breaker -- deleting it would change the result or raise. That this passes is
+    what licenses the project's central claim: the matching works on data where no
+    ground truth exists, which is the only situation that matters on a merchant's own
+    books.
+    """
+    import shutil
+
+    from loaders import load_inputs
+    from recon.engine.match import match_once
+    from recon.generator import build
+
+    src = tmp_path / "with_truth"
+    batch = build.generate(seed=cfg.SEED_PRIMARY)
+    build.write(batch, out_dir=src)
+    assert (src / "_truth" / "ground_truth.json").exists()
+
+    with_truth = match_once(load_inputs(src))
+
+    stripped = tmp_path / "no_truth"
+    shutil.copytree(src, stripped)
+    shutil.rmtree(stripped / "_truth")
+    assert not (stripped / "_truth").exists()
+
+    without_truth = match_once(load_inputs(stripped))
+
+    assert without_truth.assignment_map == with_truth.assignment_map
+    assert without_truth.summary() == with_truth.summary()
+    assert [r.category for r in without_truth.refusals] == [
+        r.category for r in with_truth.refusals
+    ]
+    assert without_truth.no_candidate == with_truth.no_candidate
+
+
+def test_scorer_is_the_only_thing_that_needs_the_truth_file(tmp_path):
+    """
+    Scoring must fail loudly without ground truth while matching succeeds without it.
+
+    If the scorer silently produced numbers with no answer key, those numbers would be
+    meaningless and nothing would say so.
+    """
+    import shutil
+
+    import pytest as _pytest
+
+    from loaders import load_inputs
+    from recon.engine.match import match_once
+    from recon.generator import build
+    from scorer.score import load_truth
+
+    src = tmp_path / "gen"
+    build.write(build.generate(seed=cfg.SEED_PRIMARY), out_dir=src)
+    shutil.rmtree(src / "_truth")
+
+    match_once(load_inputs(src))  # must not raise
+
+    with _pytest.raises(FileNotFoundError):
+        load_truth(src / "_truth" / "ground_truth.json")

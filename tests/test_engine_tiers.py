@@ -291,3 +291,78 @@ def test_no_true_one_to_one_payment_falls_outside_the_lookback(written):
         if not 0 <= lag <= cfg.LOOKBACK_DAYS:
             unreachable.append((link.bank_txn_id, lag))
     assert not unreachable, f"one-to-one pairings outside the lookback: {unreachable[:5]}"
+
+
+# --------------------------------------------------------------------------
+# Scoring
+# --------------------------------------------------------------------------
+def test_scorecard_metrics_are_internally_consistent(written):
+    """
+    Every credit that had a candidate is either assigned or refused, and the four
+    headline numbers must agree with their own numerators and denominators. A metrics
+    block whose parts do not add up is worse than none.
+    """
+    from scorer.score import score
+
+    batch, inputs, _ = written
+    out = match_once(inputs)
+    sc = score(
+        out, batch.truth,
+        total_payments=len(inputs.payments),
+        captured_payments=sum(1 for p in inputs.payments if p.captured),
+        ambiguity_bank_txn_id=batch.ambiguity_bank_txn_id,
+    )
+    assert sc.credits_with_candidates == sc.total_assignments + sc.total_refusals
+    assert sc.correct_assignments + len(sc.wrong_assignments) == sc.total_assignments
+    assert sc.correct_refusals + sc.conservative_refusals == sc.total_refusals
+    assert sc.match_precision == pytest.approx(
+        sc.correct_assignments / sc.total_assignments
+    )
+    assert 0.0 <= sc.match_rate <= 1.0
+    assert 0.0 <= sc.refusal_rate <= 1.0
+
+
+def test_refusing_everything_would_not_flatter_precision():
+    """
+    Precision alone is gameable: refuse everything and it is 1.0 over an empty set.
+    The scorecard must expose that by reporting match rate alongside it -- a run with
+    no assignments has an undefined-but-zero precision AND a zero match rate, and the
+    pair is obviously bad where either alone is not.
+    """
+    from recon.engine.results import MatchOutput
+    from scorer.score import score
+
+    empty = MatchOutput((), (), (), (), {})
+    sc = score(empty, (), total_payments=100, captured_payments=100)
+    assert sc.match_rate == 0.0
+    assert sc.match_precision == 0.0
+
+
+def test_conservative_refusals_are_counted_separately_from_correct_ones(written):
+    """
+    A refusal ground truth wanted assigned is a MISS, not an ERROR -- no money moved.
+    Collapsing the two would treat caution and error as equivalent.
+    """
+    from scorer.score import score
+
+    batch, inputs, _ = written
+    sc = score(
+        match_once(inputs), batch.truth,
+        total_payments=len(inputs.payments),
+        captured_payments=sum(1 for p in inputs.payments if p.captured),
+    )
+    assert sc.correct_refusals + sc.conservative_refusals == sc.total_refusals
+
+
+def test_ambiguity_case_is_never_reported_as_assigned(written):
+    """The one verdict that must never appear for the centrepiece case."""
+    from scorer.score import score
+
+    batch, inputs, _ = written
+    sc = score(
+        match_once(inputs), batch.truth,
+        total_payments=len(inputs.payments),
+        captured_payments=sum(1 for p in inputs.payments if p.captured),
+        ambiguity_bank_txn_id=batch.ambiguity_bank_txn_id,
+    )
+    assert "WRONG" not in sc.ambiguity_case_verdict

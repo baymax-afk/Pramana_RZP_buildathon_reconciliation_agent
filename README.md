@@ -163,10 +163,18 @@ python run.py --seed 77771 --verify --score
 Second seed, demonstrating the numbers aren't cherry-picked.
 
 ```bash
+python run.py match --seed 20260905
+```
+
+Runs the engine and prints the metrics block. The engine runs to completion from
+`ReconInputs` alone; ground truth is loaded afterwards, by a different package.
+
+```bash
 pytest tests/
 ```
 
-Includes the ground-truth isolation test, the ambiguity guard, and tolerance sanity.
+58 tests, including the end-to-end isolation test — which deletes the ground-truth
+directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*
 
@@ -181,7 +189,7 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 1** — real payment capture: 24 R1 payments (18 captured), 12 R2 orders
 - [x] **Block 2** — generator, ground truth, nine defects, ambiguity case
 - [x] **Block 3** — matching engine, tiers 1–2 (76.6% coverage, precision 1.0000)
-- [ ] **Block 4** — scorer, metrics harness, isolation test
+- [x] **Block 4** — scorer, metrics harness, isolation test  ← **metrics block lands here**
 - [ ] **Block 5** — metamorphic harness + runtime permutation gate
 - [ ] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal
 - [ ] **Block 7** — Layer 3 Fellegi–Sunter
