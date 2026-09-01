@@ -1,0 +1,247 @@
+# Metrics
+
+Every number this project reports, defined precisely: numerator, denominator,
+tolerances, and how it is computed. All figures come from a **single run** at a fixed,
+printed seed, and repeat identically.
+
+Monetary values are integer **paise** throughout. Rupee-denominated inputs are
+converted at ingest and never handled as floats.
+
+---
+
+## Why the headline metric is a triple, not a number
+
+Once an engine is allowed to **refuse**, precision alone is manipulable: refuse
+everything and precision is 1.0 by construction. Coverage alone is equally
+manipulable in the other direction. Neither number means anything without the other,
+and neither means anything without knowing how often refusal was the *right* call.
+
+So the headline is always reported as four numbers together:
+
+```
+match rate · match precision · refusal rate · refusal correctness
+```
+
+This follows the framing of the only public benchmark in this domain, which requires
+match rate to be *"optimized subject to the match precision meeting the required
+level"* rather than reported on its own.
+
+Every bank transaction receives exactly one of three verdicts — **assign**,
+**refuse**, or **no candidate** — and the metrics below partition on that.
+
+---
+
+## Core metrics
+
+### Match rate
+
+```
+                number of payments assigned to some bank transaction
+match rate  =  ─────────────────────────────────────────────────────
+                          total payments in the batch
+```
+
+Counts payments, not bank transactions, so a many-to-one settlement covering six
+payments contributes six to the numerator. Refused and unmatched payments are
+excluded from the numerator and included in the denominator.
+
+### Match precision
+
+```
+                       assignments that agree with ground truth
+match precision  =  ──────────────────────────────────────────────
+                              total assignments made
+```
+
+Scored by `src/scorer/`, the only module permitted to read
+`data/generated/_truth/`. An assignment is **correct** only if the assigned payment
+set exactly equals the ground-truth payment set for that bank transaction — a subset
+or superset is wrong, not partially right.
+
+Refusals are **not** in either term. They are scored separately, below.
+
+### Refusal rate
+
+```
+                  bank transactions the engine refused to assign
+refusal rate  =  ───────────────────────────────────────────────
+                  bank transactions with at least one candidate
+```
+
+The denominator excludes transactions with no candidate at all, because declining to
+assign where nothing fits is not a refusal — it is an empty result. Refusals are
+counted by cause: `order_dependent_assignment` (Layer 1), `multiple_candidates` and
+`solution_cap_reached` (Layer 2), `fs_below_lower_threshold` (Layer 3),
+`decomposition_out_of_bounds` (search bounds exceeded).
+
+### Refusal correctness
+
+```
+                          refusals where ground truth says expected_verdict = "refuse"
+refusal correctness  =  ─────────────────────────────────────────────────────────────────
+                                          total refusals
+```
+
+This is what stops refusal from being free. The hand-placed ambiguity case is
+labelled `expected_verdict: "refuse"` in ground truth, so **refusing it scores as
+correct and assigning either candidate subset scores as a false match.**
+
+---
+
+## Tolerances
+
+Fixed in `config.py` before the run, identical for every record, never tuned
+per-record. Printed in the metrics block so any reported number can be read against
+the tolerance that produced it.
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `TOL_ABS_PAISE` | 100 | ₹1.00 absolute tolerance on any residual |
+| `TOL_REL_BPS` | 2 | 2 basis points, additive, for large credits |
+| `MDR_RATE_BAND` | (0.018, 0.025) | The band the **engine** may assume; it never learns a record's true rate |
+| `GST_RATE` / `GST_ROUNDING` | 0.18 / floor | GST on the MDR base. Floor, not round — established empirically, see `DEFECT_LOG.md` 2026-09-01-01 |
+
+A subset `S` satisfies a credit `C` when
+
+```
+Σ net_lo(S) − ε  ≤  C_adjusted  ≤  Σ net_hi(S) + ε        where ε = TOL_ABS_PAISE + TOL_REL_BPS·C/10000
+```
+
+with `C_adjusted` being the credit less known ledger-side TDS, and `net_lo`/`net_hi`
+the per-payment net interval — collapsed to ±1 paisa where Razorpay's genuine `fee`
+field is populated, and derived from `MDR_RATE_BAND` otherwise.
+
+**Tolerance sanity is asserted, not assumed.** `TOL_ABS_PAISE` must stay far below
+the smallest payment in any candidate pool. If it approaches it, a subset `S` and the
+subset `S ∪ {one tiny payment}` both satisfy the constraint, and every many-to-one
+result — along with the uniqueness test built on it — silently becomes noise.
+`tests/test_tolerance_sanity.py` enforces a 100× margin and fails the build otherwise.
+
+---
+
+## Metamorphic violations
+
+Reported **by relation**, as a first-class metric alongside precision — not as a
+test-suite pass/fail.
+
+| Relation | Kind | What a violation proves |
+|---|---|---|
+| MR1 permutation invariance | true metamorphic | An assignment depended on input row order |
+| MR2 split invariance | true metamorphic | Settlement grouping changed under a fee-neutral split |
+| MR3 augmentation stability | true metamorphic | An unrelated record perturbed existing matches |
+| MR4 conservation | single-run invariant | Money appeared or vanished beyond tolerance |
+| MR5 residual closure | single-run invariant | Unassigned totals fail to reconcile |
+| MR6 idempotence | true metamorphic | Rerunning on the residue produced new assignments |
+
+**MR1, MR2, MR3 and MR6 are true metamorphic relations** — they compare multiple
+executions, and a violation proves a defect without knowing any correct output.
+**MR4 and MR5 are conservation invariants** over a single run. The distinction is
+reported honestly rather than presenting all six as metamorphic relations.
+
+MR1 has a second, non-test role: it is the **runtime refusal gate**. The engine runs
+`K = 8` shuffled passes and refuses any assignment not stable across all of them. So
+MR1 violations at the reported `K` should be zero *by construction* — the value of the
+number is that it is checked independently at `K′ = 16` with fresh seeds, where a
+non-zero count would mean the gate itself is leaking.
+
+---
+
+## Calibration
+
+The composite confidence score is binned into 10 deciles. For each bin, the observed
+accuracy is compared against the mean predicted confidence.
+
+**Expected calibration error:**
+
+```
+ECE = Σ_bins  (n_bin / N) · | accuracy(bin) − mean_confidence(bin) |
+```
+
+Reported with the reliability diagram and with **`N` stated**, because a calibration
+curve without its sample size is not interpretable.
+
+**Fitted on BenchRec, evaluated on the reported run.** The composite weights and the
+calibration map come from BenchRec (external, labelled, ~69k rows, CC BY 4.0) — never
+from the run being reported on. Calibrating on this project's own generated batch
+would be circular: the model would be calibrated against defects the generator itself
+injected. A single 200-record batch also yields only ~15 accepted matches per decile,
+which is too thin to support the claim regardless of circularity.
+
+Calibration, not raw precision, is the claim intended to transfer to a merchant's own
+books. Precision is a fact about this batch; calibration is a property of the method.
+
+---
+
+## Exception rate, by category
+
+Counts and total rupees at risk per category. Categories are assigned by the
+deterministic engine; the LLM tier only writes the prose describing them.
+
+| Category | Raised when |
+|---|---|
+| `order_dependent_assignment` | Layer 1 — assignment unstable across shuffled passes |
+| `multiple_candidates` | Layer 2 — two or more subsets fit within tolerance |
+| `solution_cap_reached` | Layer 2 — `MAX_SOLUTIONS` candidates found; ambiguity is worse, not better |
+| `decomposition_out_of_bounds` | Pool exceeds `MAX_POOL`, or no subset fits at `k ≤ MAX_SUBSET_K` |
+| `amount_name_conflict` | Conservation tight but FS weight low — layers disagree |
+| `unexplained_residual` | FS weight high but conservation loose — layers disagree |
+| `fs_review_band` | Layer 3 — match weight between the two thresholds |
+
+---
+
+## Projected error (Layer 4)
+
+Following PCAOB AS 2315. Exceptions at or above `MATERIALITY_PAISE` (₹5,000) are
+verified in full. Below it, a `SAMPLING_RATE_BELOW_MATERIALITY` (25%) sample is drawn
+and its misstatement projected over the unsampled remainder:
+
+```
+projected error = observed misstatement in sample × (stratum size / sample size)
+```
+
+Strata are projected separately and summed (¶.26 fn. 5), and reported with a
+`PROJECTION_CONFIDENCE` (95%) bound. This supports a defensible statement about the
+whole batch without verifying every row.
+
+---
+
+## Throughput
+
+```
+throughput = total records across all three sides ÷ wall-clock seconds
+```
+
+Timed inside the run. Reported alongside `K`, because the engine's primary path runs
+the matching core `K = 8` times — throughput at `K = 8` and throughput at `K = 1` are
+different numbers and the reported one always states its `K`. `--fast` (`K = 3`)
+exists for the development loop and its numbers are never reported.
+
+---
+
+## Density sweep
+
+Search cost and, more importantly, **accidental tolerance collisions** scale with
+payments per settlement window, not with total `n`. Since the generator takes density
+as a parameter, it is swept deliberately at `payments_per_window ∈ {6, 12, 24}` with
+`n` held at 200+, reporting match precision and refusal rate at each.
+
+**The expected result: as density rises, refusal rate climbs while precision holds
+roughly flat.** That is what a working refusal mechanism looks like — the engine
+recognises rising genuine ambiguity and declines rather than guessing. A naive matcher
+holds coverage flat and quietly loses precision instead.
+
+If precision degrades as density rises, the refusal mechanism is not doing its job.
+That is the most important negative result this project could surface, and it is
+reported either way.
+
+---
+
+## Reproducibility
+
+- Seeds `SEED_PRIMARY = 20260905` and `SEED_SECONDARY = 77771`, both printed.
+- The full metrics block is produced at both seeds, so the reported numbers can be
+  shown not to be cherry-picked.
+- Permutation shuffles derive from the seed, so even the randomised verification
+  layer is deterministic and reproducible.
+- Precision is reported **with and without the LLM tier** (`--no-llm`). If the LLM
+  tier makes precision worse, the metrics block says so.

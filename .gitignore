@@ -1,0 +1,28 @@
+# The Razorpay MCP server is a separate upstream clone with its own .git.
+# Never vendor it into this repository -- see docs/DEFECT_LOG.md entry 2026-08-31-01.
+razorpay-mcp-server/
+
+# BenchRec is external data, CC BY 4.0, ~26 MB. Downloaded, never committed.
+# Provenance and attribution: docs/ARCHITECTURE.md, README.md.
+data/benchrec/
+
+# Secrets. The LLM tier and the Razorpay MCP both read from here.
+.env
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node / Vite
+node_modules/
+ui/dist/
+ui/.vite/
+
+# OS
+desktop.ini
+.DS_Store

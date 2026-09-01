@@ -1,0 +1,24 @@
+{
+  "_provenance": {
+    "tier": "R2",
+    "description": "Real Razorpay TEST-MODE orders created through the API via the Razorpay MCP server (create_order). Genuine Razorpay-issued order IDs, receipts, notes and server-side created_at timestamps. Every one is inspectable in the Razorpay test dashboard.",
+    "important": "These were NEVER completed. status is 'created', amount_paid is 0, and there is NO fee and NO tax, because nothing was captured. An uncaptured order is not a payment. R2 records must never be presented as reconcilable revenue -- the generator derives synthetic fee/tax for them from the R1 rate model and labels them as such.",
+    "created_at": "2026-09-01",
+    "count": 12,
+    "name_families": ["acme", "bharat", "sunrise", "meridian", "kaveri", "nova", "deccan"]
+  },
+  "items": [
+    {"id":"order_TWezgoQXbP9bak","amount":412500,"receipt":"INV-2026-0101","status":"created","amount_paid":0,"created_at":1788241161,"notes":{"customer_name":"Meridian Logistics LLP","invoice_no":"INV-2026-0101","name_family":"meridian","tier":"R2"}},
+    {"id":"order_TWezmeqK3RKRWG","amount":1094300,"receipt":"INV-2026-0102","status":"created","amount_paid":0,"created_at":1788241167,"notes":{"customer_name":"Kaveri Agro Exports","invoice_no":"INV-2026-0102","name_family":"kaveri","tier":"R2"}},
+    {"id":"order_TWezr1QLvMKR6K","amount":237800,"receipt":"INV-2026-0103","status":"created","amount_paid":0,"created_at":1788241171,"notes":{"customer_name":"Acme Retail Private Limited","invoice_no":"INV-2026-0103","name_family":"acme","tier":"R2"}},
+    {"id":"order_TWezvJtsDu6wUk","amount":658900,"receipt":"INV-2026-0104","status":"created","amount_paid":0,"created_at":1788241175,"notes":{"customer_name":"Sunrise Textiles Ltd","invoice_no":"INV-2026-0104","name_family":"sunrise","tier":"R2"}},
+    {"id":"order_TWf04vEnwQt5kM","amount":1523400,"receipt":"INV-2026-0105","status":"created","amount_paid":0,"created_at":1788241183,"notes":{"customer_name":"Nova Chemicals India Pvt Ltd","invoice_no":"INV-2026-0105","name_family":"nova","tier":"R2"}},
+    {"id":"order_TWf07xIRgP3mLt","amount":89600,"receipt":"INV-2026-0106","status":"created","amount_paid":0,"created_at":1788241186,"notes":{"customer_name":"Bharat Traders","invoice_no":"INV-2026-0106","name_family":"bharat","tier":"R2"}},
+    {"id":"order_TWf0C6cAlonQiD","amount":743200,"receipt":"INV-2026-0107","status":"created","amount_paid":0,"created_at":1788241190,"notes":{"customer_name":"Deccan Pharma Distributors","invoice_no":"INV-2026-0107","name_family":"deccan","tier":"R2"}},
+    {"id":"order_TWf0F3FTnj0xHu","amount":316700,"receipt":"INV-2026-0108","status":"created","amount_paid":0,"created_at":1788241193,"notes":{"customer_name":"ACME Retails Pvt Ltd","invoice_no":"INV-2026-0108","name_family":"acme","tier":"R2"}},
+    {"id":"order_TWf0NyLDE22k5f","amount":1187500,"receipt":"INV-2026-0109","status":"created","amount_paid":0,"created_at":1788241201,"notes":{"customer_name":"Sunrise Textile Limited","invoice_no":"INV-2026-0109","name_family":"sunrise","tier":"R2"}},
+    {"id":"order_TWf0RhohFHzTTe","amount":54900,"receipt":"INV-2026-0110","status":"created","amount_paid":0,"created_at":1788241204,"notes":{"customer_name":"Meridian Logistic LLP","invoice_no":"INV-2026-0110","name_family":"meridian","tier":"R2"}},
+    {"id":"order_TWf0WFGa87HEom","amount":981200,"receipt":"INV-2026-0111","status":"created","amount_paid":0,"created_at":1788241208,"notes":{"customer_name":"Kaveri Agro Export","invoice_no":"INV-2026-0111","name_family":"kaveri","tier":"R2"}},
+    {"id":"order_TWf0ZuwMZJXKs9","amount":427300,"receipt":"INV-2026-0112","status":"created","amount_paid":0,"created_at":1788241212,"notes":{"customer_name":"Nova Chemical India Private Limited","invoice_no":"INV-2026-0112","name_family":"nova","tier":"R2"}}
+  ]
+}
