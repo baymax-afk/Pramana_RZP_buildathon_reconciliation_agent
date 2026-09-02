@@ -331,7 +331,8 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
     """
     from recon.llm import select as select_llm
     from recon.llm.compare import (
-        Comparison, diff_verdicts, measure_parse_yield, tier_is_measurable,
+        Comparison, diff_verdicts, measure_parse_yield, split_changes,
+        tier_is_measurable,
     )
     from scorer.score import load_truth, score
 
@@ -372,14 +373,24 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
     print(f"    contradicted the regex tier      {yields.disagreed_with_regex}"
           "   (must be 0: the tier fills gaps, it never overrides)")
 
+    outcome_changes, reason_changes = split_changes(changes)
     print("\n  VERDICT DELTAS  (the only thing that licenses a claim about output)")
     print("  " + "-" * 74)
-    if not changes:
-        print("    0 credits changed verdict between the two arms.")
+    if not outcome_changes:
+        print("    0 credits changed DECISION (assign / refuse / no candidate).")
     else:
-        print(f"    {len(changes)} credit(s) changed verdict:")
-        for txn_id, off, on in changes[:20]:
+        print(f"    {len(outcome_changes)} credit(s) changed DECISION:")
+        for txn_id, off, on in outcome_changes[:20]:
             print(f"      {txn_id}   off={off}   ->   on={on}")
+    if reason_changes:
+        print(f"\n    {len(reason_changes)} credit(s) kept the same decision and changed")
+        print("    only the REASON given to the operator:")
+        for txn_id, off, on in reason_changes[:20]:
+            print(f"      {txn_id}   off={off}   ->   on={on}")
+        print("")
+        print("    Same money, same place, same precision and match rate. A better")
+        print("    sentence for a human is a real contribution and a much weaker one")
+        print("    than moving a verdict, so it is not reported under that heading.")
 
     truth_path = cfg.TRUTH_DIR / "ground_truth.json"
     if truth_path.exists():
@@ -414,8 +425,8 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
     if valid:
         print("    VALID. The tier above is a live model, so the arms differ in what a")
         print("    model contributed and the comparison means what it says.")
-        if not changes:
-            print("    The measured contribution to VERDICTS is zero. That is a result,")
+        if not outcome_changes:
+            print("    The measured contribution to DECISIONS is zero. That is a result,")
             print("    not an absence of one: the trust boundary holds and the")
             print("    deterministic tiers were already sufficient on this batch.")
     else:

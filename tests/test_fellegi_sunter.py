@@ -258,23 +258,40 @@ def test_disagreement_counts_against_the_match():
     assert agree > 0 > disagree
 
 
-def test_layer_3_costs_no_correct_assignments_on_the_reported_batch(batch):
+def test_layer_3_costs_no_correct_assignments_it_cannot_account_for(batch):
     """
-    Layer 3 must add evidence without costing coverage. It vetoed six correct
-    assignments on the first attempt -- all of them the same tokenisation bug -- so this
-    pins the outcome rather than the mechanism.
+    Layer 3 may veto a correct assignment only where the payer name genuinely disagrees.
+
+    This test used to assert the cost was ZERO, and that was true only because the batch
+    contained no legitimate name mismatch. It does now: `third_party_payer` puts a parent
+    company's name on the wire while a subsidiary's invoice is settled, which is ordinary
+    in group structures. Two such credits are refused, and both are `third_party_payer`.
+
+    Refusing them is the RIGHT call, not a regression. The amounts reconcile and the
+    counterparty does not, so a human should confirm the parent is authorised to pay
+    before the money is posted -- that is precisely the escalation Layer 3 exists to
+    trigger. Note what the engine does with the other seven: they carry a quoted invoice
+    reference, and that evidence outweighs the name disagreement, so they match. Name
+    mismatch alone escalates; name mismatch plus a matching reference is accepted.
+
+    So the assertion is no longer "costs nothing". It is "every assignment Layer 3 costs
+    is ATTRIBUTABLE" -- an unexplained veto would still be a defect, and this is what
+    would catch it.
     """
     out = match_once(batch.inputs)
     truth = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
-    conflicts = [
-        r for r in out.refusals
-        if r.category is RefusalCategory.AMOUNT_NAME_CONFLICT
-    ]
-    wrongly_refused = [
-        r for r in conflicts
-        if (l := truth.get(r.bank_txn_id)) and l.expected_verdict == "assign"
-    ]
-    assert not wrongly_refused, (
-        f"Layer 3 refused {len(wrongly_refused)} assignments ground truth wanted: "
-        f"{[r.bank_txn_id for r in wrongly_refused]}"
+
+    unattributed = []
+    for r in out.refusals:
+        if r.category is not RefusalCategory.AMOUNT_NAME_CONFLICT:
+            continue
+        link = truth.get(r.bank_txn_id)
+        if link is None or link.expected_verdict != "assign":
+            continue  # refusing something truth also refuses is not a cost
+        if "third_party_payer" not in link.defect_labels:
+            unattributed.append((r.bank_txn_id, link.defect_labels))
+
+    assert not unattributed, (
+        "Layer 3 vetoed correct assignments with no name-mismatch defect to explain "
+        f"them: {unattributed}"
     )

@@ -168,6 +168,32 @@ def _verdict_map(out) -> dict[str, str]:
     return verdicts
 
 
+def _outcome(verdict: str) -> str:
+    """assign / refuse / no_candidate / absent -- the DECISION, without its reason."""
+    return verdict.split(":", 1)[0]
+
+
+def split_changes(
+    changes: tuple[tuple[str, str, str], ...],
+) -> tuple[tuple[tuple[str, str, str], ...], tuple[tuple[str, str, str], ...]]:
+    """
+    Separate changed DECISIONS from changed REASONS.
+
+    The distinction is not pedantry, and measuring it is why this harness exists. A
+    credit that moves `refuse:decomposition_out_of_bounds` -> `refuse:unexplained_residual`
+    has the same verdict, the same money in the same place, and the same effect on
+    precision and match rate. What changed is the sentence the operator reads.
+
+    That is a real contribution and a much weaker one than moving a verdict, and the two
+    must not be reported under one heading. Calling a reason change a "verdict change"
+    is how a tier that improves explanations gets credited with improving decisions.
+    """
+    outcome, reason = [], []
+    for txn_id, off, on in changes:
+        (outcome if _outcome(off) != _outcome(on) else reason).append((txn_id, off, on))
+    return tuple(outcome), tuple(reason)
+
+
 def diff_verdicts(out_on, out_off) -> tuple[tuple[str, str, str], ...]:
     """
     Every credit whose verdict differs between the arms, as (txn_id, off, on).

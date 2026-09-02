@@ -125,6 +125,32 @@ def render(
     if sc.no_candidate:
         add(f"    no candidate found:   {sc.no_candidate}   {sc.no_candidate_by_relation}")
 
+    # ---- the finer cut: what the engine does with each KIND of hard case ----
+    if sc.outcome_by_defect:
+        add("")
+        add("  OUTCOME BY DEFECT  (a credit carrying several is counted under each)")
+        add(_THIN)
+        add(f"    {'defect':<22}{'matched':>9}{'missed':>8}{'refused':>9}"
+            f"{'WRONGLY':>9}   note")
+        add(f"    {'':<22}{'':>9}{'':>8}{'(correct)':>9}{'assigned':>9}")
+        for label, (ok, miss, ref_ok, ref_bad) in sorted(
+            sc.outcome_by_defect.items(), key=lambda kv: (-kv[1][3], -kv[1][1], kv[0])
+        ):
+            note = ""
+            if ref_bad:
+                note = "POSTED money truth says to refuse"
+            elif miss:
+                note = "conservative -- refused, no money posted"
+            elif ref_ok and not ok:
+                note = "unmatchable by construction; refusing is correct"
+            add(f"    {label:<22}{ok:>9}{miss:>8}{ref_ok:>9}{ref_bad:>9}   {note}")
+        add("")
+        add("    'missed' and 'refused (correct)' are deliberately separate columns. A")
+        add("    defect the engine declines is not a failure when ground truth also")
+        add("    expects a refusal -- bank_charge is unmatchable by construction, and")
+        add("    declining it IS the right answer. One recall figure would score the")
+        add("    engine down for being right.")
+
     # ---- exceptions ----
     add("")
     add("  EXCEPTIONS BY CATEGORY  (rupee-ranked)")

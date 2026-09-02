@@ -24,6 +24,36 @@ The nine, and why each is hard:
 9. `refund_netted`     -- a refund is subtracted inside a settlement batch, so the
                           credit is smaller than the payments it covers and naive
                           subset-sum cannot close.
+
+Five more, added later. The first four are ORDINARY -- every merchant sees them monthly
+-- and the batch was unrealistically clean without them. The fifth is where the engine's
+own model runs out.
+
+10. `overpayment`      -- the customer pays MORE than the invoice, usually by rounding
+                          up or by clearing an old balance in the same transfer. The
+                          mirror of `partial_payment`, and the invoice ends
+                          over-settled rather than open.
+11. `advance_payment`  -- money arrives against no invoice at all (payment on account).
+                          Every payment in this batch used to carry an invoice number,
+                          which made tier 1 available far more often than reality
+                          allows. With no invoice there is no reference and no TDS, and
+                          the amount channel has to stand alone.
+12. `bank_charge`      -- the BANK deducts its own NEFT/RTGS handling fee from the
+                          credit. Unlike MDR this appears nowhere: not on the payment,
+                          not in the ledger, and not in the narration. At Rs 5-50
+                          against a Rs 1 tolerance it is arithmetically unmatchable, so
+                          this defect is labelled `refuse` -- it is a case the engine
+                          SHOULD decline, and it exists to prove the engine declines it
+                          rather than absorbing it by widening a band.
+13. `third_party_payer` -- a parent company settles a subsidiary's invoice, so the
+                          bank narration carries a name that legitimately does not
+                          match the invoice customer. The amount channel is right and
+                          the name channel is wrong, which is exactly the disagreement
+                          Layer 3 must not resolve by vetoing a correct match.
+14. `weekend_bunching` -- Friday, Saturday and Sunday payments all settle on Monday, so
+                          realised drift reaches 3 days on top of the settlement window.
+                          It is the ordinary reason a lookback has to be generous, and
+                          it stresses LOOKBACK_DAYS rather than any tier.
 """
 
 from __future__ import annotations
@@ -202,3 +232,24 @@ def messy_narration(
         ref_slash=merchant_ref.replace("-", "/"),
     )
     return Narration(text, "messy", carries_name=True, carries_ref=True)
+
+
+# --------------------------------------------------------------------------
+# Bank-side charges
+# --------------------------------------------------------------------------
+def bank_charge_for(rng: random.Random) -> int:
+    """
+    The bank's own handling fee on an inbound transfer, in paise.
+
+    NEFT and RTGS charges are small, banded by amount, and levied by the RECEIVING
+    bank -- so unlike MDR they appear on no Razorpay object and in no ledger the
+    merchant controls. Rs 5-50 covers the published retail bands.
+
+    The number matters because of what it is measured against. It is 5-50x the Rs 1
+    matching tolerance, so a credit carrying one cannot be reconciled to its payment by
+    arithmetic. That is the point of including it: an engine that quietly widened its
+    tolerance to absorb bank charges would also start absorbing genuine coincidences,
+    and the whole subset-sum uniqueness argument rests on tolerance staying far below
+    the smallest payment.
+    """
+    return rng.choice([500, 1_000, 1_180, 2_360, 3_000, 5_000])

@@ -101,6 +101,19 @@ def _load_r2_orders(path: Path) -> list[dict]:
 # --------------------------------------------------------------------------
 # Synthetic payment construction
 # --------------------------------------------------------------------------
+def _invoice_nos(p: Payment) -> tuple[str, ...]:
+    """
+    The invoice(s) a payment settles -- empty for a payment on account.
+
+    Every payment used to carry an invoice number, which made tier 1 (exact reference)
+    available far more often than reality allows and left the invoice-less path
+    completely untested. `advance_payment` exists to fix that, and this helper is what
+    stops the ten places that assumed an invoice from raising KeyError on it.
+    """
+    no = p.notes.get("invoice_no")
+    return (no,) if no else ()
+
+
 def _synth_payment(
     rng: random.Random,
     idx: int,
@@ -304,7 +317,7 @@ def generate(
                     TruthLink(
                         bank_txn_id=f"bank_txn_{txn_seq:04d}",
                         payment_ids=(p.id,),
-                        invoice_nos=(p.notes["invoice_no"],),
+                        invoice_nos=_invoice_nos(p),
                         defect_labels=("mdr_fee",),
                         relation="one_to_one",
                         expected_verdict="assign",
@@ -363,7 +376,49 @@ def generate(
 
             cust = rng.choice(REGISTRY)
             gross = rng.randrange(cfg.MIN_PAYMENT_PAISE, cfg.MAX_PAYMENT_PAISE, 100)
+
+            # --- advance_payment: money against no invoice at all ---
+            #
+            # A payment on account. Ordinary -- a customer pays a retainer, or wires
+            # against a proforma, or simply pays early. It matters here because EVERY
+            # payment used to carry an invoice number, which made tier 1 available far
+            # more often than reality allows and left the invoice-less path untested.
+            # With no invoice there is no reference to quote and no TDS to deduct, so
+            # the amount channel has to stand on its own.
+            if rng.random() < 0.05:
+                window_payments.append(
+                    _synth_payment(
+                        rng, pay_seq, cust, "", gross, _ts(pay_date, rng)
+                    )
+                )
+                continue
+
             with_tds = rng.random() < 0.18
+
+            # --- overpayment: the customer pays MORE than the invoice ---
+            #
+            # The mirror of `partial_payment`, and just as ordinary: a payer rounds up
+            # to a whole rupee, or clears a small outstanding balance in the same
+            # transfer. Modelled the same way and for the same reason -- the PAYMENT is
+            # what changes, so payment, fee and credit still agree exactly, and the
+            # invoice ends over-settled rather than open. No TDS, for the same
+            # apportionment reason partial payments carry none.
+            over = rng.random() < 0.05
+            if over:
+                with_tds = False
+                inv = next_invoice(cust, gross, pay_date, with_tds=False)
+                paid = gross + rng.randrange(5_000, 60_000, 100)
+                invoices[:] = [
+                    replace(x, status="over_settled") if x.invoice_no == inv.invoice_no else x
+                    for x in invoices
+                ]
+                window_payments.append(
+                    _synth_payment(
+                        rng, pay_seq, cust, inv.invoice_no, paid, _ts(pay_date, rng)
+                    )
+                )
+                continue
+
             inv = next_invoice(cust, gross, pay_date, with_tds)
             window_payments.append(
                 _synth_payment(rng, pay_seq, cust, inv.invoice_no, gross, _ts(pay_date, rng))
@@ -390,7 +445,9 @@ def generate(
                 tds_total = sum(
                     inv.tds_amount
                     for inv in invoices
-                    if inv.invoice_no in {p.notes["invoice_no"] for p in group}
+                    if inv.invoice_no in {
+                        n for q in group for n in _invoice_nos(q)
+                    }
                 )
                 credit = gross_net - tds_total
                 if tds_total:
@@ -449,7 +506,9 @@ def generate(
                     TruthLink(
                         bank_txn_id=f"bank_txn_{txn_seq:04d}",
                         payment_ids=tuple(p.id for p in group),
-                        invoice_nos=tuple(p.notes["invoice_no"] for p in group),
+                        invoice_nos=tuple(
+                            n for q in group for n in _invoice_nos(q)
+                        ),
                         defect_labels=tuple(labels),
                         relation="many_to_one",
                         expected_verdict="assign",
@@ -462,11 +521,12 @@ def generate(
             i += 1
             cust = BY_KEY.get(p.notes.get("name_family", ""), REGISTRY[0])
             inv = next(
-                (x for x in invoices if x.invoice_no == p.notes["invoice_no"]), None
+                (x for x in invoices if x.invoice_no == p.notes.get("invoice_no")), None
             )
             net = p.amount - (p.fee or 0)
             labels = ["mdr_fee"]
             relation = "one_to_one"
+            verdict = "assign"
 
             if inv and inv.tds_amount:
                 net -= inv.tds_amount
@@ -505,10 +565,17 @@ def generate(
             #     asserts the two against each other at import. Shrinking a payment
             #     through it would quietly invalidate the subset-sum uniqueness argument
             #     for the whole batch -- a far worse outcome than one fewer defect.
+            #   * NOT ALREADY AN OVERPAYMENT. `overpayment` and `partial_payment` are
+            #     contradictory by definition -- a customer cannot both under- and
+            #     over-pay one invoice -- and without this guard the generator produced
+            #     records carrying both labels and an invoice marked `part_settled`
+            #     while ground truth called it an overpayment. Caught by a test asserting
+            #     the property rather than by reading the output.
             if (
                 p.provenance == "S"
                 and inv is not None
                 and not inv.tds_amount
+                and p.amount <= inv.gross_amount
                 and rng.random() < 0.08
             ):
                 part_amount = int(p.amount * rng.uniform(0.35, 0.75))
@@ -525,6 +592,38 @@ def generate(
                     labels.append("partial_payment")
                     relation = "partial"
 
+            # --- bank_charge: the RECEIVING BANK takes its own cut ---
+            #
+            # NEFT and RTGS handling fees are levied by the bank, so unlike MDR they
+            # appear on no Razorpay object, in no ledger the merchant controls, and in
+            # no narration. Rs 5-50 against a Rs 1 tolerance is arithmetically
+            # unmatchable.
+            #
+            # So this one is labelled **refuse**, deliberately, and that is the whole
+            # point of including it. An engine that widened its tolerance to absorb
+            # bank charges would also start absorbing genuine coincidences, and the
+            # subset-sum uniqueness argument rests on tolerance staying far below the
+            # smallest payment. This defect exists to prove the engine declines the
+            # case rather than swallowing it -- the money really is unaccounted for,
+            # and saying so is the correct output.
+            if rng.random() < 0.04:
+                net -= defects.bank_charge_for(rng)
+                labels.append("bank_charge")
+                verdict = "refuse"
+
+            # --- third_party_payer: a parent company settles a subsidiary's invoice ---
+            #
+            # The amount channel is right and the name channel is wrong, which is
+            # exactly the disagreement Layer 3 must NOT resolve by vetoing a correct
+            # match. Ordinary in group structures, and the reason `contradicts` requires
+            # the field evidence to net negative rather than merely to disagree.
+            third_party = None
+            if rng.random() < 0.05:
+                others = [c for c in REGISTRY if c.key != cust.key]
+                if others:
+                    third_party = rng.choice(others)
+                    labels.append("third_party_payer")
+
             # paisa-level rounding
             if rng.random() < 0.15:
                 net, _ = defects.apply_paisa_rounding(rng, net)
@@ -536,7 +635,7 @@ def generate(
                     TruthLink(
                         bank_txn_id="",
                         payment_ids=(p.id,),
-                        invoice_nos=(p.notes["invoice_no"],),
+                        invoice_nos=_invoice_nos(p),
                         defect_labels=("unsettled",),
                         relation="unmatched",
                         expected_verdict="refuse",
@@ -549,22 +648,54 @@ def generate(
                 labels.append("settlement_drift")
             sd = settle_date + timedelta(days=drift)
 
+            # --- weekend_bunching: Fri/Sat/Sun all settle on Monday ---
+            #
+            # Banks do not post on weekends, so a run of payments bunches onto the next
+            # working day and realised drift reaches three days on top of the settlement
+            # window. It is the ordinary reason a lookback has to be generous, and it
+            # stresses LOOKBACK_DAYS rather than any tier -- which is why it is capped
+            # at the lookback rather than allowed to run past it. A credit the engine
+            # provably cannot see is missing data, not a defect (DEFECT_LOG
+            # 2026-09-02-08).
+            if sd.weekday() >= 5:
+                shifted = sd + timedelta(days=7 - sd.weekday())
+                if (shifted - date_of(p.created_at)).days <= cfg.LOOKBACK_DAYS:
+                    sd = shifted
+                    labels.append("weekend_bunching")
+
             if cust.key in {a for a, _ in CONFUSABLE_PAIRS} | {b for _, b in CONFUSABLE_PAIRS}:
                 labels.append("near_duplicate_name")
+
+            # Labels read off the record as it FINALLY stands, after every mutation
+            # above. Deciding them earlier let a payment be labelled `overpayment` and
+            # then shrunk by the partial-payment defect, so the label described a record
+            # that no longer existed. A label that can disagree with the data it
+            # describes is worse than no label.
+            if not p.notes.get("invoice_no"):
+                labels.append("advance_payment")
+            elif inv is not None and p.amount > inv.gross_amount:
+                labels.append("overpayment")
 
             txn_seq += 1
             utr = defects.make_utr(rng)
             # Roughly 55% of payers quote the invoice number in the remittance. The
             # rest do not, so tier 1 cannot carry the whole batch and tier 2 has real
             # work to do -- which is the realistic split.
-            quoted = p.notes["invoice_no"] if rng.random() < 0.55 else None
+            # A payment on account has no invoice number to quote.
+            quoted = (
+                p.notes.get("invoice_no") if rng.random() < 0.55 else None
+            )
             # ~18% of credits arrive in a shape the regex tier cannot parse. Real
             # statements contain these; a batch without them makes narration parsing
             # look solved and leaves the LLM tier with nothing to do.
             if rng.random() < 0.18:
-                nar = defects.messy_narration(rng, cust, p.notes["invoice_no"])
+                nar = defects.messy_narration(rng, cust, p.notes.get("invoice_no") or "")
             else:
-                nar = defects.narrate(rng, utr, cust, merchant_ref=quoted)
+                # A third-party payer puts the PARENT's name on the wire, not the
+                # invoice customer's.
+                nar = defects.narrate(
+                    rng, utr, third_party or cust, merchant_ref=quoted
+                )
             balance += net
             bank_txns.append(
                 BankTxn(
@@ -582,10 +713,10 @@ def generate(
                 TruthLink(
                     bank_txn_id=f"bank_txn_{txn_seq:04d}",
                     payment_ids=(p.id,),
-                    invoice_nos=(p.notes["invoice_no"],),
+                    invoice_nos=_invoice_nos(p),
                     defect_labels=tuple(labels),
                     relation=relation,  # type: ignore[arg-type]
-                    expected_verdict="assign",
+                    expected_verdict=verdict,  # type: ignore[arg-type]
                 )
             )
 

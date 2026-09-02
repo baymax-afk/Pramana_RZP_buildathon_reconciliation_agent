@@ -127,10 +127,34 @@ No real card, account, or credential was used at any point.
 
 ### Injected defects
 
-Nine categories, each ground-truth labelled: MDR/gateway fee deduction · TDS
-deduction · T+1 and T+2 settlement date drift · one bank credit covering N payments ·
-partial payment · duplicate UTR · near-duplicate payer names · paisa-level rounding ·
-refund netted inside a settlement batch.
+**Fourteen categories**, each ground-truth labelled.
+
+The original nine: MDR/gateway fee deduction · TDS deduction · T+1 and T+2 settlement
+date drift · one bank credit covering N payments · partial payment · duplicate UTR ·
+near-duplicate payer names · paisa-level rounding · refund netted inside a settlement
+batch.
+
+Five more, added because the batch was unrealistically clean without them — most
+visibly in that *every* payment carried an invoice number, which made exact-reference
+matching available far more often than reality allows:
+
+| Defect | What it is | Why it is hard |
+|---|---|---|
+| **overpayment** | The customer pays more than the invoice | Mirror of partial payment; the invoice ends over-settled |
+| **advance payment** | Money against no invoice at all | No reference, no TDS — the amount channel stands alone |
+| **bank charge** | The receiving bank takes its own NEFT/RTGS fee | Appears on no Razorpay object and in no ledger. **Labelled `refuse`**: at ₹5–50 against a ₹1 tolerance it is unmatchable, and declining it is the correct output |
+| **third-party payer** | A parent company settles a subsidiary's invoice | The amount channel is right and the name channel is wrong |
+| **weekend bunching** | Fri/Sat/Sun payments all settle Monday | Realised drift reaches 3 days on top of the window |
+
+**`bank_charge` is the one deliberately labelled unmatchable.** An engine that widened
+its tolerance to absorb bank charges would also start absorbing genuine coincidences,
+and the whole subset-sum uniqueness argument rests on tolerance staying far below the
+smallest payment. It is there to prove the engine declines the case rather than
+swallowing it — measured, it refuses 7 of 7 and posts none.
+
+The metrics block reports **outcome by defect**, with `missed` and `refused (correct)`
+as separate columns. A defect the engine declines is not a failure when ground truth
+also expects a refusal; one recall figure would score the engine down for being right.
 
 Plus one **hand-placed ambiguity case**: a bank credit where two different payment
 subsets both sum within tolerance, constructed so that no amount, date, method, or
@@ -207,7 +231,7 @@ would be worse than none.
 pytest tests/
 ```
 
-232 tests, including the end-to-end isolation test — which deletes the ground-truth
+251 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*

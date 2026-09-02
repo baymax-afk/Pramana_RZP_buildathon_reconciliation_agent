@@ -168,15 +168,29 @@ def test_a_changed_assignment_is_reported_as_a_delta(batch):
     assert off.startswith("assign:") and on == "absent"
 
 
-def test_the_offline_arms_agree_which_is_a_property_of_the_standin(batch):
+def test_the_offline_arms_differ_only_in_REASON_never_in_DECISION(batch):
     """
-    The recorded tier and the disabled tier produce identical verdicts. That is the
-    measurement W2 declines to report as a result: the stand-in shares the regex
-    parser's logic, so its agreement says nothing about a model. The agreement is
-    asserted here so that if it ever STOPS holding, someone finds out.
+    The recorded tier and the disabled tier used to produce identical verdicts, and this
+    test asserted that "so that if it ever STOPS holding, someone finds out".
+
+    It stopped holding, and this is the finding. With `advance_payment` in the batch
+    there are more narrations the regex tier cannot read, the stand-in recovers a
+    merchant reference on some of them, and two credits change refusal category --
+    `decomposition_out_of_bounds` becomes `unexplained_residual`, because the recovered
+    reference lets tier 1 speak.
+
+    What did NOT change is any decision. Same verdict, same money in the same place,
+    same precision and match rate. So the assertion is now the sharper one: the tier may
+    improve the sentence an operator reads and must not move a verdict, which is the
+    trust boundary restated as a measurement rather than a promise.
     """
     from recon.engine.match import match_once
+    from recon.llm.compare import split_changes
 
     on = match_once(batch.inputs, llm=RecordedTier())
     off = match_once(batch.inputs, llm=NullTier())
-    assert diff_verdicts(on, off) == ()
+    outcome_changes, _reason_changes = split_changes(diff_verdicts(on, off))
+    assert outcome_changes == (), (
+        "the offline stand-in changed a DECISION, not just a reason: "
+        f"{outcome_changes}"
+    )
