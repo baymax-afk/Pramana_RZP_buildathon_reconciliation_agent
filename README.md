@@ -185,6 +185,13 @@ Runs the engine **under the permutation gate** and prints the metrics block with
 six metamorphic relations. Drop `--verify` for a single unguarded pass. The engine runs to completion from
 `ReconInputs` alone; ground truth is loaded afterwards, by a different package.
 
+The headline reports **two densities** — the reported `ppw=6` and a `ppw=12` second arm —
+because one density there reads as a property of the engine rather than of the engine at
+one crowding level, and density is the parameter the argument turns on. The second arm is
+generated in-process and never written to disk; everything below the headline describes
+the `ppw=6` run. `--compare-density 0` turns it off, `--compare-density 24` points it at
+the crowded arm. See `docs/METRICS.md` for what that comparison does and does not show.
+
 ```bash
 uvicorn api.main:app --port 8000     # read-only API
 cd ui && npm install && npm run dev  # triage UI on :5173
@@ -200,7 +207,7 @@ would be worse than none.
 pytest tests/
 ```
 
-230 tests, including the end-to-end isolation test — which deletes the ground-truth
+232 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*

@@ -226,12 +226,23 @@ Not oversights — decisions, recorded so they are not mistaken for gaps.
 3. **W1** — download BenchRec and complete the calibration, or state the limitation in the submission and move on.
 4. **C2** — conflict-resolution matching, which would retire an entire class of order-dependence rather than detecting it.
 
-### O6. The batch is now almost too clean to demonstrate the refusal machinery
-With one exception left at the primary seed, a reader cannot see Layers 2–4 doing much.
-The density sweep is now the only place the refusal behaviour is visible, which makes it
-load-bearing for the argument rather than supporting evidence. Worth considering a
-deliberately harder reported arm — not by breaking the data, but by reporting ppw=12
-alongside ppw=6.
+### O6. The batch is still too clean to demonstrate the refusal machinery
+**Partially addressed, and the fix did not do what this item predicted.**
+
+The headline now reports `ppw=12` beside `ppw=6` (`--compare-density`, default 12). That
+is worth having on its own terms: one density in the headline reads as a property of the
+engine rather than of the engine at one crowding level.
+
+But it does **not** achieve what this item wanted. At seed 20260905, `ppw=12` produces
+the *same single exception* as `ppw=6` — one, the hand-placed ambiguity case — even
+though the worst pool grows 15 → 27 and crosses `MAX_POOL`. Refusal rate moves 0.7% →
+0.8%. Refusals only rise materially at **ppw=24** (4.9%).
+
+So the density sweep remains the only place the refusal behaviour is actually visible,
+and it stays load-bearing for the argument. Reporting `ppw=24` as the second arm would
+demonstrate it, at the cost of a headline arm whose match rate (86.6%) is not
+representative of the reported configuration. That trade is a presentation decision, not
+a defect, and it is left open deliberately.
 
 ### ~~O7. `assert_truth_is_satisfiable` should also run inside the sweep~~ — **done**
 The sweep now asserts every batch it builds. That is exactly where the orphaning defect

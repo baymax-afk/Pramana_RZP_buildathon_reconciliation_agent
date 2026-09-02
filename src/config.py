@@ -164,6 +164,12 @@ MAX_ROUNDS = 6
 # concurrently changes only wall time, never an answer. Results are collected by pass
 # index, so determinism does not depend on which worker finishes first. Set False to
 # force the sequential path when debugging; the output is identical either way.
+# The headline reports this density alongside the primary one. A single density there
+# invites reading the numbers as a property of the engine rather than of the engine at
+# one crowding level, and density is the parameter the whole argument turns on. Set 0 to
+# report one arm only.
+HEADLINE_COMPARE_DENSITY = 12
+
 PERMUTATION_PARALLEL = True
 PERMUTATION_MAX_WORKERS = 4
 

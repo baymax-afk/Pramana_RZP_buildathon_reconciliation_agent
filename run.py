@@ -199,8 +199,43 @@ def cmd_match(args: argparse.Namespace) -> int:
     )
     written = run_output.write(payload)
 
+    # ---- the comparison arm ----
+    #
+    # A single density in the headline invites the reading that these numbers are a
+    # property of the ENGINE, when they are a property of the engine at one crowding
+    # level. Density is the parameter the whole argument turns on -- coverage is meant
+    # to degrade under ambiguity while precision holds -- and that is only visible with
+    # more than one arm in front of you.
+    #
+    # The second arm is generated IN-PROCESS and never written to disk. It must not
+    # touch `data/generated/`, which holds the reported batch that the exception list,
+    # the API and the UI all read; overwriting that from a display option would make the
+    # headline and the artefacts disagree.
+    compare = None
+    if args.compare_density:
+        from recon.generator import build as _build
+
+        cmp_batch = _build.generate(
+            seed=args.seed, payments_per_window=args.compare_density
+        )
+        _build.assert_truth_is_satisfiable(cmp_batch)
+        cmp_out = match_once(cmp_batch.inputs, llm=llm)
+        compare = (
+            score(
+                cmp_out,
+                cmp_batch.truth,
+                total_payments=len(cmp_batch.inputs.payments),
+                captured_payments=sum(1 for p in cmp_batch.inputs.payments if p.captured),
+                ambiguity_bank_txn_id=cmp_batch.ambiguity_bank_txn_id or "",
+                credits_by_id={x.id: x.credit for x in cmp_batch.inputs.bank_txns},
+                seed=args.seed,
+            ),
+            args.compare_density,
+        )
+
     print(render(sc, args.seed, args.payments_per_window,
-                 llm_enabled=llm.name, relations=relations, ensemble=ensemble))
+                 llm_enabled=llm.name, relations=relations, ensemble=ensemble,
+                 compare=compare))
     return 0
 
 
@@ -434,6 +469,10 @@ def main(argv: list[str] | None = None) -> int:
                         f"relations. Never used for reported numbers.")
     m.add_argument("--no-llm", action="store_true", default=False,
                    help="disable the LLM narration tier and report precision without it")
+    m.add_argument("--compare-density", type=int, default=cfg.HEADLINE_COMPARE_DENSITY,
+                   help="report a second density beside the reported one in the "
+                        "headline (generated in-process, never written to disk). "
+                        "0 disables.")
     m.set_defaults(func=cmd_match)
 
     c = sub.add_parser(

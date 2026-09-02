@@ -291,6 +291,37 @@ reported either way.
   tier makes precision worse, the metrics block says so.
 
 
+## Why the headline reports two densities
+
+`python run.py match` prints the reported density (`ppw=6`) and a second arm (`ppw=12`)
+side by side. A single density in the headline invites reading the numbers as a property
+of the **engine**, when they are a property of the engine **at one crowding level** —
+and candidate-pool density is the parameter this project's whole argument turns on.
+
+The second arm is generated in-process, is never written to disk, and does not feed the
+exception list, the API or the UI. Everything below the headline block describes the
+reported `ppw=6` run only. `--compare-density 0` turns it off; `--compare-density 24`
+points it at the crowded arm.
+
+**A finding that goes with it, recorded because it cuts against why this was added.**
+The second arm was introduced to make the refusal machinery visible — at `ppw=6` the
+primary seed leaves exactly one exception, the hand-placed ambiguity case, so Layers 2–4
+have nothing to show. **`ppw=12` does not fix that.** At seed 20260905 it produces the
+same single exception, even though the worst pool grows 15 → 27 and crosses
+`MAX_POOL = 20`:
+
+| | ppw=6 | ppw=12 | ppw=24 |
+|---|---|---|---|
+| match precision | 1.0000 | 1.0000 | 1.0000 |
+| refusal rate | 0.7% | 0.8% | **4.9%** |
+| exceptions at seed 20260905 | 1 | 1 | — |
+
+Refusals only rise materially at `ppw=24`. So the two-density headline is worth having
+for the reason stated at the top — one number reads as a property of the engine — but it
+is **not** evidence that the refusal layers are exercised, and the density sweep remains
+the only place that is demonstrated. Saying so here rather than letting the second column
+imply otherwise.
+
 ## LLM tier: reported as unmeasured
 
 `docs/ARCHITECTURE.md` requires precision to be reported with the LLM tier on and off.

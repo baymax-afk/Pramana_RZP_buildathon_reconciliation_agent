@@ -336,3 +336,67 @@ def test_ensemble_falls_back_to_sequential_when_the_llm_tier_cannot_be_pickled(b
     ens = stability.run_with_permutations(batch.inputs, k=2, seed=7, llm=Unpicklable())
     assert ens.passes == 2
     assert ens.base is not None
+
+
+# --------------------------------------------------------------------------
+# The two-density headline
+# --------------------------------------------------------------------------
+
+def test_headline_reports_both_densities_when_a_comparison_is_supplied(batch):
+    """
+    A single density in the headline invites reading the numbers as a property of the
+    ENGINE, when they are a property of the engine at one crowding level. Density is the
+    parameter the whole argument turns on.
+    """
+    import config as cfg
+    from recon.engine.match import match_once
+    from recon.generator import build
+    from scorer.report import render
+    from scorer.score import score
+
+    def scored(b, seed):
+        o = match_once(b.inputs)
+        return score(
+            o, b.truth, total_payments=len(b.inputs.payments),
+            captured_payments=sum(1 for p in b.inputs.payments if p.captured),
+            ambiguity_bank_txn_id=b.ambiguity_bank_txn_id or "",
+            credits_by_id={t.id: t.credit for t in b.inputs.bank_txns}, seed=seed,
+        )
+
+    primary = scored(batch, cfg.SEED_PRIMARY)
+    other_ppw = 12
+    other = scored(
+        build.generate(seed=cfg.SEED_PRIMARY, payments_per_window=other_ppw),
+        cfg.SEED_PRIMARY,
+    )
+
+    text = render(
+        primary, cfg.SEED_PRIMARY, cfg.TARGET_POOL_SIZE,
+        llm_enabled=False, compare=(other, other_ppw),
+    )
+    assert f"density={cfg.TARGET_POOL_SIZE} vs {other_ppw}" in text
+    assert f"ppw={cfg.TARGET_POOL_SIZE}" in text and f"ppw={other_ppw}" in text
+    assert "delta" in text
+    # The detail sections below the headline must still describe the PRIMARY arm only.
+    assert f"Everything below this block is the ppw={cfg.TARGET_POOL_SIZE} run" in text
+
+
+def test_headline_without_a_comparison_is_unchanged(batch):
+    """The second arm is opt-in; the single-density block must not change shape."""
+    import config as cfg
+    from recon.engine.match import match_once
+    from scorer.report import render
+    from scorer.score import score
+
+    o = match_once(batch.inputs)
+    sc = score(
+        o, batch.truth, total_payments=len(batch.inputs.payments),
+        captured_payments=sum(1 for p in batch.inputs.payments if p.captured),
+        ambiguity_bank_txn_id=batch.ambiguity_bank_txn_id or "",
+        credits_by_id={t.id: t.credit for t in batch.inputs.bank_txns},
+        seed=cfg.SEED_PRIMARY,
+    )
+    text = render(sc, cfg.SEED_PRIMARY, cfg.TARGET_POOL_SIZE, llm_enabled=False)
+    assert " vs " not in text.splitlines()[1]
+    assert "match rate            " in text
+    assert "Everything below this block" not in text
