@@ -170,6 +170,50 @@ which is too thin to support the claim regardless of circularity.
 Calibration, not raw precision, is the claim intended to transfer to a merchant's own
 books. Precision is a fact about this batch; calibration is a property of the method.
 
+### Measured result: the calibration claim is NOT made
+
+Three attempts, escalating in sample size and difficulty:
+
+| population | n | occupied bins | base rate |
+|---|---|---|---|
+| accepted assignments only | 125 | 1 / 10 | 1.000 |
+| accepted + refused, held-out seeds | 777 | 1 / 10 | 0.991 |
+| accepted + refused, 5 densities x 6 seeds | 3,705 | 1 / 10 | 0.992 |
+
+**A reliability diagram needs a spread of outcomes, and this engine produces one.** The
+layered refusal architecture removes essentially every error before the confidence stage
+is reached, so what survives is correct ~99.2% of the time whatever its features say.
+The resulting ECE of 0.0002 is the arithmetic of a single bucket, not evidence that the
+score means what it says, and it is reported with its bin count precisely so it cannot
+be quoted as though it were.
+
+The implication is stated rather than buried: **on this data the composite confidence
+score is decorative.** It adds no measurable information beyond the accept/refuse
+decision that precedes it. The four layers demonstrably do real work -- see the density
+sweep -- but their scalar summary does not.
+
+Settling this needs data containing errors to calibrate against. BenchRec is the right
+source and could not be fetched here (Kaggle requires authentication);
+`src/external/benchrec_ingest.py` will use it when present and reports its absence
+rather than substituting silently. Until then the claim is withheld.
+
+### Density sweep -- the result that IS supported
+
+Mean over five held-out seeds, disjoint from both reported runs:
+
+| payments/window | realised pool | match rate | match precision | refusal rate |
+|---|---|---|---|---|
+| 3 | 8.8 | 86.1% | 1.0000 | 7.7% |
+| 6 | 15.4 | 83.2% | 1.0000 | 9.8% |
+| 12 | 27.8 | 80.7% | 1.0000 | 11.6% |
+| 24 | 53.0 | 63.3% | 0.9978 | 18.2% |
+
+As the candidate pool grows six-fold, **refusal rate rises 2.4x while precision stays
+flat** and coverage is what degrades. That is the behaviour the architecture was built
+to produce: the engine declines work it cannot justify instead of guessing at it.
+
+Reproduce with `python run.py sweep`.
+
 ---
 
 ## Exception rate, by category

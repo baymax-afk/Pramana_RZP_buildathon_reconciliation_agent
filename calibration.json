@@ -1,0 +1,22 @@
+{
+  "weights": {
+    "residual_tightness": 1.0169665237274257,
+    "uniqueness_margin": 2.3089335122549524,
+    "fs_scaled": 0.5440165038583381,
+    "bias": 1.5780459701403862
+  },
+  "source": "generated batches at held-out seeds (11111, 22222, 33333, 44444, 55555, 66666)",
+  "fallback": true,
+  "ece": 0.0001793396889329113,
+  "n": 3705,
+  "occupied_bins": 1,
+  "meaningful": false,
+  "fit_seeds": [
+    11111,
+    22222,
+    33333,
+    44444,
+    55555,
+    66666
+  ]
+}

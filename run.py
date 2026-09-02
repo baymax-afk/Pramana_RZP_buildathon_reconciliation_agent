@@ -165,6 +165,77 @@ def cmd_match(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sweep(args: argparse.Namespace) -> int:
+    """
+    The density sweep -- this project's central empirical claim, measured.
+
+    Candidate-pool crowding is the thing that makes reconciliation genuinely hard, and
+    it is a dial the generator exposes. As it is turned up, a correct engine should
+    REFUSE MORE while holding precision flat; a naive one holds coverage flat and
+    quietly loses precision instead. Coverage is what should degrade, not correctness.
+
+    Reported over held-out seeds, disjoint from the two reported runs.
+    """
+    from recon.generator import build as _build
+
+    seeds = tuple(args.seeds)
+    densities = tuple(args.densities)
+    print("=" * 78)
+    print("  DENSITY SWEEP -- refusal rate vs precision")
+    print(f"  mean over {len(seeds)} held-out seeds {seeds}")
+    print("=" * 78)
+    print(f"\n  {'ppw':>5} {'pool':>7} {'match rate':>11} {'precision':>10} "
+          f"{'refusal rate':>13} {'assigned':>9}")
+    print("  " + "-" * 62)
+
+    rows = []
+    for ppw in densities:
+        mr = pr = rr = pool = 0.0
+        assigned = 0
+        for seed in seeds:
+            batch = _build.generate(seed=seed, payments_per_window=ppw)
+            try:
+                worst = _build.assert_pool_bound(batch)
+            except AssertionError as e:
+                worst = int(str(e).split("holds ")[1].split(" ")[0])
+            out = match_once(batch.inputs)
+            truth = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
+            n = len(out.assignments)
+            correct = sum(
+                1 for a in out.assignments
+                if (l := truth.get(a.bank_txn_id))
+                and l.expected_verdict == "assign"
+                and set(l.payment_ids) == set(a.payment_ids)
+            )
+            captured = sum(1 for p in batch.inputs.payments if p.captured)
+            mr += sum(len(a.payment_ids) for a in out.assignments) / max(1, captured)
+            pr += correct / max(1, n)
+            rr += len(out.refusals) / max(1, n + len(out.refusals))
+            pool += worst
+            assigned += n
+        k = len(seeds)
+        rows.append((ppw, pool / k, mr / k, pr / k, rr / k))
+        print(f"  {ppw:>5} {pool / k:>7.1f} {mr / k:>10.1%} {pr / k:>10.4f} "
+              f"{rr / k:>12.1%} {assigned // k:>9}")
+
+    lo, hi = rows[0], rows[-1]
+    print(f"\n  refusal rate  {lo[4]:.1%} -> {hi[4]:.1%}   "
+          f"({hi[4] / max(1e-9, lo[4]):.1f}x as the pool grows {lo[1]:.0f} -> {hi[1]:.0f})")
+    print(f"  precision     {lo[3]:.4f} -> {hi[3]:.4f}")
+    print(f"  match rate    {lo[2]:.1%} -> {hi[2]:.1%}")
+    if hi[3] >= lo[3] - 0.01 and hi[4] > lo[4]:
+        print("\n  As ambiguity rises the engine declines more work rather than getting")
+        print("  it wrong. COVERAGE degrades; CORRECTNESS does not. That is the whole")
+        print("  claim, and it is the chart no vendor publishes -- producing it requires")
+        print("  reporting precision, which none of them do.")
+    else:
+        print("\n  PRECISION DEGRADED WITH DENSITY. The refusal mechanism is not doing")
+        print("  its job: the engine is guessing where it should decline. This is the")
+        print("  most important negative result the project can surface, and it is")
+        print("  reported rather than suppressed.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="run.py", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -196,6 +267,11 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--no-llm", action="store_true", default=False,
                    help="disable the LLM narration tier and report precision without it")
     m.set_defaults(func=cmd_match)
+
+    w = sub.add_parser("sweep", help="density sweep: refusal rate vs precision")
+    w.add_argument("--seeds", type=int, nargs="+", default=[11111, 22222, 33333, 44444, 55555])
+    w.add_argument("--densities", type=int, nargs="+", default=[3, 6, 12, 24])
+    w.set_defaults(func=cmd_sweep)
 
     args = ap.parse_args(argv)
     return args.func(args)

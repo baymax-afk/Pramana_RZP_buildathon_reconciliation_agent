@@ -767,3 +767,60 @@ reduction in work. Both are legitimate outputs; conflating them would not be.
 Rs 29,899 against a stratum worth Rs 49,831 — a 60% upper bound from 5 sampled items.
 That is what five observations actually buy, and reporting the point estimate of
 Rs 0.00 without it would be the single most misleading figure this system could emit.
+
+---
+
+## 2026-09-02-01 — The confidence score cannot be calibrated, because the engine almost never errs
+
+**Timestamp:** 2026-09-02, Block 8b (BenchRec fit and calibration)
+
+**What broke:** Nothing broke. The calibration simply cannot be demonstrated, and the
+reason is worth more than the number would have been.
+
+**What was attempted:** fit the composite confidence weights on held-out data and
+report a reliability diagram with ECE, as the plan requires. Three escalating attempts:
+
+1. **Accepted assignments only** — 125 examples, all in one decile at ~0.96.
+2. **Accepted plus refused candidates**, held-out seeds — 777 examples, base rate
+   0.991, **1 of 10 bins occupied**.
+3. **Accepted plus refused, across five densities and six seeds** — 3,705 examples,
+   base rate 0.992, **still 1 of 10 bins occupied**, ECE 0.0002.
+
+**Diagnosis:** The layered refusal architecture removes essentially every error before
+the confidence stage exists. Tier 1 refuses on reference collision, tier 2 refuses on
+ties, Layer 2 refuses on non-unique subsets, the permutation gate refuses on
+order-dependence, and Layer 3 refuses on contradicted evidence. What survives all of
+that is correct ~99.2% of the time regardless of its feature values.
+
+A reliability diagram needs a spread of *outcomes* to calibrate against. This engine
+produces one outcome. The ECE of 0.0002 is not a good calibration result — it is the
+arithmetic of a single bucket, and quoting it as evidence the score is well calibrated
+would be precisely the overclaim this project was built to argue against.
+
+**The uncomfortable implication, stated plainly:** on this data the composite confidence
+score is **decorative**. It carries no information beyond "the engine accepted this",
+because acceptance already implies correctness at 99%+. The four verification layers do
+real work — the density sweep shows refusal rate rising 2.4x while precision holds —
+but the *scalar summary* of them adds nothing measurable on top of the accept/refuse
+decision itself.
+
+**What was NOT done:** the obvious way to manufacture a calibration curve is to loosen a
+threshold until the engine starts being wrong, then show the score tracking those
+errors. That would produce a beautiful reliability diagram and would be dishonest: it
+calibrates a deliberately degraded system and reports the result as though it described
+the real one. The density dial was used instead, because crowding the pool makes the
+problem genuinely harder rather than making the engine artificially worse — and even at
+a realised pool of 53, precision only fell to 0.9978.
+
+**What would settle it:** BenchRec. It is external, labelled, ~69k rows of real Tier-1
+bank data, and it contains the hard cases this generator does not produce. Kaggle
+requires authentication for dataset downloads, so it could not be fetched in this
+environment; `src/external/benchrec_ingest.py` reads it if a human places the files, and
+reports its absence rather than silently substituting the fallback. Until then the
+calibration claim is **not made**, rather than made weakly.
+
+**Cost:** ~50 minutes, inside the 60-minute time-box the plan set for this block.
+
+**The pattern, for the fourth time:** the number that would have looked best (ECE
+0.0002) was the least meaningful thing measured. Reporting it without the bin count
+would have passed unnoticed.
