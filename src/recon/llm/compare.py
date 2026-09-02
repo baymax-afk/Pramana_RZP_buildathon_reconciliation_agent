@@ -27,7 +27,7 @@ never be mistaken for a live one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from ..engine.normalize import needs_llm, parse
 from ..schemas import ReconInputs
@@ -48,31 +48,6 @@ class ParseYield:
     @property
     def fill_rate(self) -> float:
         return self.filled_by_llm / self.unreadable_by_regex if self.unreadable_by_regex else 0.0
-
-
-@dataclass(frozen=True, slots=True)
-class Comparison:
-    """
-    The two arms, side by side, plus an explicit judgement on whether it is valid.
-
-    `valid` is False whenever the tier under test cannot support a claim about what a
-    model contributes. The scorecards are still reported in that case -- they are real
-    measurements of the stand-in -- but `invalid_reason` travels with them so the
-    numbers cannot be quoted free of the caveat that produced them.
-    """
-
-    tier_name: str
-    valid: bool
-    invalid_reason: str
-    parse_yield: ParseYield
-    verdict_changes: tuple[tuple[str, str, str], ...] = ()
-    on: object | None = None
-    off: object | None = None
-    notes: list[str] = field(default_factory=list)
-
-    @property
-    def changed_verdicts(self) -> int:
-        return len(self.verdict_changes)
 
 
 # Tiers whose output is derived from the same rules as the deterministic parser. Their

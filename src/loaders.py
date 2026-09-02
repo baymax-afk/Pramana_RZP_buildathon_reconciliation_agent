@@ -52,7 +52,7 @@ def load_payments(path: Path) -> tuple[Payment, ...]:
     )
 
 
-def _money(row: dict, field: str, path: Path, row_no: int, *, blank_ok: bool = True) -> int:
+def _money(row: dict, field: str, path: Path, row_no: int) -> int:
     """
     Read one rupee-denominated column, naming the file, row and column if it is bad.
 
@@ -67,7 +67,7 @@ def _money(row: dict, field: str, path: Path, row_no: int, *, blank_ok: bool = T
             f"(row {row_no} has: {', '.join(sorted(k for k in row if k))})"
         )
     raw = row[field]
-    if raw is None or (blank_ok and not str(raw).strip()):
+    if raw is None or not str(raw).strip():
         return 0
     try:
         return rupees_to_paise(raw)
@@ -75,11 +75,9 @@ def _money(row: dict, field: str, path: Path, row_no: int, *, blank_ok: bool = T
         raise ValueError(f"{path.name} row {row_no}, column {field!r}: {e}") from None
 
 
-def _text(row: dict, field: str, path: Path, row_no: int, default: str | None = None) -> str:
+def _text(row: dict, field: str, path: Path, row_no: int) -> str:
     """Read one string column, naming the file, row and column if it is absent."""
     if field not in row:
-        if default is not None:
-            return default
         raise ValueError(
             f"{path.name}: missing required column {field!r} "
             f"(row {row_no} has: {', '.join(sorted(k for k in row if k))})"

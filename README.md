@@ -270,7 +270,7 @@ would be worse than none.
 pytest tests/
 ```
 
-278 tests, including the end-to-end isolation test — which deletes the ground-truth
+287 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*

@@ -19,7 +19,11 @@ from functools import lru_cache
 from typing import Literal
 
 Provenance = Literal["R1", "R2", "S"]
-Relation = Literal["one_to_one", "many_to_one", "partial", "unmatched"]
+# "split" is one payment settled across MANY credits -- the inverse of many_to_one, and
+# a relation the engine cannot represent (see ARCHITECTURE.md, "Two named limitations").
+# It was being constructed without being declared here, so it reached ground_truth.json
+# and the scorer's relation buckets as a value the type does not admit.
+Relation = Literal["one_to_one", "many_to_one", "partial", "split", "unmatched"]
 Verdict = Literal["assign", "refuse"]
 
 

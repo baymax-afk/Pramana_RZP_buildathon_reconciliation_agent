@@ -390,8 +390,7 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
     """
     from recon.llm import select as select_llm
     from recon.llm.compare import (
-        Comparison, diff_verdicts, measure_parse_yield, split_changes,
-        tier_is_measurable,
+        diff_verdicts, measure_parse_yield, split_changes, tier_is_measurable,
     )
     from scorer.score import load_truth, score
 

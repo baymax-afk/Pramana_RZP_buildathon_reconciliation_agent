@@ -101,6 +101,12 @@ def _load_r2_orders(path: Path) -> list[dict]:
 # --------------------------------------------------------------------------
 # Synthetic payment construction
 # --------------------------------------------------------------------------
+# The statement's opening balance. Named because `_renumber_bank_txns` recomputes the
+# whole column from it once row order is final, and the two must start from the same
+# number.
+OPENING_BALANCE_PAISE = 5_000_000
+
+
 def _invoice_nos(p: Payment) -> tuple[str, ...]:
     """
     The invoice(s) a payment settles -- empty for a payment on account.
@@ -254,7 +260,7 @@ def generate(
         )
         return invoices[-1]
 
-    balance = 5_000_000
+    balance = OPENING_BALANCE_PAISE
     txn_seq = 0
     pay_seq = 0
 
@@ -1090,7 +1096,6 @@ def _protect_ambiguity_window(
         )
 
     out: list[Payment] = []
-    shifted = 0
     for p in payments:
         if (
             p.captured
@@ -1100,7 +1105,6 @@ def _protect_ambiguity_window(
             and (p.amount - p.fee) <= cfg.AMBIGUITY_CREDIT_PAISE
         ):
             out.append(_relocate(p))
-            shifted += 1
         else:
             out.append(p)
 
@@ -1137,7 +1141,22 @@ def _renumber_bank_txns(
     """
     ordered = sorted(bank_txns, key=lambda t: (t.txn_date, t.id))
     remap = {t.id: f"bank_txn_{i:04d}" for i, t in enumerate(ordered, start=1)}
-    renumbered = [replace(t, id=remap[t.id]) for t in ordered]
+
+    # Recompute the running balance AFTER sorting, because only now is the row order
+    # final. Rows were previously stamped with whatever the balance happened to be when
+    # they were appended, and two defects then made that incoherent: a split settlement
+    # wrote the SAME pre-split balance on both halves, and a chargeback debit was
+    # stamped with an end-of-generation total before being sorted into the middle of the
+    # statement. The emitted column was non-monotonic and arithmetically wrong.
+    #
+    # Nothing reads it today, which is exactly why it would have been believed later.
+    # The generator's stated contract is a realistic Indian bank export, and a balance
+    # column that does not add up is the first thing a finance reader would check.
+    balance = OPENING_BALANCE_PAISE
+    renumbered = []
+    for t in ordered:
+        balance += t.credit - t.debit
+        renumbered.append(replace(t, id=remap[t.id], balance=balance))
     retruth = [
         replace(link, bank_txn_id=remap.get(link.bank_txn_id, link.bank_txn_id))
         for link in truth

@@ -284,7 +284,11 @@ finding is something the suite does not reach.
 Four were reproduced directly; the rest are read from the diff and marked as unverified,
 and that distinction is kept rather than collapsed.
 
-**Start here next session, in this order:**
+**RESOLVED 2026-09-03 — all 14.** Suite 265 → 287, precision 1.0000 at every density arm.
+Two fixes produced further defects while being applied, both recorded. The list below is
+kept as written so the order and the reasoning stay legible.
+
+**Was:**
 
 1. **R1 + R2** — the headline and `run_output.json` can name a seed and density that did
    not produce them. Reproduced: a batch generated at seed 77771 / ppw 12 prints
