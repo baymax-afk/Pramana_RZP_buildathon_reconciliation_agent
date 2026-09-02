@@ -148,6 +148,25 @@ def load_inputs(
     downstream ever sees a path again.
     """
     d = generated_dir or cfg.GENERATED
+
+    # The batch on disk knows which seed built it. Trust that over whatever the caller
+    # passed, and refuse loudly on a mismatch rather than mislabelling the run: `match
+    # --seed X` does not regenerate, so a caller naming a seed the data did not come
+    # from would otherwise have every reported number printed under the wrong seed.
+    manifest = d / "manifest.json"
+    if manifest.exists():
+        meta = json.loads(manifest.read_text(encoding="utf-8"))
+        on_disk = int(meta.get("seed", seed))
+        on_disk_ppw = int(meta.get("payments_per_window", payments_per_window))
+        if seed != cfg.SEED_PRIMARY and seed != on_disk:
+            raise ValueError(
+                f"The batch in {d} was generated with seed {on_disk}, but seed {seed} "
+                f"was requested. `match` does not regenerate. Run "
+                f"`python run.py generate --seed {seed}` first, or drop --seed to use "
+                f"the batch on disk."
+            )
+        seed, payments_per_window = on_disk, on_disk_ppw
+
     return ReconInputs(
         payments=load_payments(d / "payments.json"),
         bank_txns=load_bank_statement(d / "bank_statement.csv"),

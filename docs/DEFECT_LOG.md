@@ -1275,3 +1275,136 @@ tests as the only available verification. True at `ppw = 6`, and it left the wro
 impression: the resolver is not dormant machinery, it is machinery whose trigger
 condition the *reported density happens to sit just below*. That is a materially
 different thing to have shipped, and worth knowing.
+
+---
+
+## 2026-09-02-08 — Partial recall was 0/5 because the generator hid the money, and fixing it exposed two more defects
+
+**Timestamp:** 2026-09-02, working O1
+
+**What broke:** `partial` recall had been **0/5 on every run the project has ever
+reported**, dragging refusal correctness to 16.67%. It was never listed in
+`OUTSTANDING_TASKS.md` despite being printed in every metrics block.
+
+**Diagnosis — the third instance of one defect.** The generator did this:
+
+```python
+if rng.random() < 0.08:
+    net = int(net * rng.uniform(0.35, 0.75))   # shrink the CREDIT
+    relation = "partial"
+```
+
+The payment stayed at full value. So a Rs 21,999 payment settled Rs 13,573 and
+**Rs 7,854 vanished with nothing anywhere recording where it went** — while ground truth
+labelled the credit `assign`. Against a Rs 1 tolerance that is arithmetically
+unmatchable at any tolerance. All five were refused, correctly, and every one scored as
+a miss.
+
+This is `refund_netted` (2026-09-02-05 item 4) again, in a different costume, and the
+diagnosis that mattered was noticing it was the same shape rather than a new problem.
+
+**The model was also just wrong.** Razorpay cannot capture Rs 21,999 and settle
+Rs 13,573. A partial payment is a **smaller payment against a larger invoice**: the
+customer pays less than they owe. Payment, fee and credit agree exactly; what is partial
+is the INVOICE's coverage. So the fix reduces the payment, recomputes its fee from the
+generator's measured model, and marks the invoice `part_settled`.
+
+Three eligibility rules, all load-bearing:
+
+* **Synthetic payments only.** An R1 record is a genuinely captured Razorpay payment
+  whose amount, fee and tax are real API output. Rewriting one to manufacture a defect
+  would falsify exactly the provenance claim that makes those 18 records worth having.
+* **No-TDS invoices only.** Apportioning TDS across a part-settlement is a separate
+  modelling problem and the engine reads the invoice's FULL `tds_amount`. 84% of
+  invoices carry no TDS, so the category stays populated.
+* **Never below `MIN_PAYMENT_PAISE`.** That floor is what keeps `TOL_ABS_PAISE` 100x
+  below the smallest payment, and `config.py` asserts the two against each other at
+  import. Shrinking a payment through it would silently invalidate the subset-sum
+  uniqueness argument for the entire batch.
+
+**Second defect, found because the RNG stream moved.** With partials fixed, seed
+20260905 produced a truth link whose payment was dated **five days after the credit that
+settles it**. `_protect_ambiguity_window` shifts an interloping payment `lookback + 1` =
+6 days later, on the stated grounds that "its own settlement credit is dated from its
+window's settle date, which is strictly later, so the shift cannot orphan it".
+
+The arithmetic says otherwise. A payment sits at most 2 days into its window and its
+credit lands at settle date plus 0–2 days drift — **at most 5 days away, against a 6-day
+shift.** The repair pushed the payment past its own credit.
+
+Measured across 40 seeds: **5 of them (12.5%) shipped an orphaned payment, on both the
+old and the new generator.** The bug is pre-existing; my change only moved which seeds
+hit it, and the primary seed became one. The relocation now solves for both constraints —
+outside the ambiguity credit's lookback AND inside its own credit's — and fails the build
+when neither direction has room. 0 of 80 seeds after.
+
+**Third defect, and this one is in the ENGINE.** With the benchmark corrected, the
+density sweep dropped to **precision 0.9984** at ppw=6 — the first genuine false match
+the project has recorded. At seed 11111 a netted refund came to exactly the second
+payment's net, so a two-payment settlement's total equalled the first payment alone.
+
+Tier 2 found an exact one-to-one fit at residual 0, assigned it, and **never reached
+tier 3** — where enumeration would have found both decompositions and Layer 2 would have
+refused. The tier ordering short-circuited the uniqueness test, and the output was a
+confident wrong answer at confidence 0.96.
+
+The fix uses evidence the engine already had and had never used. The narration reads
+`RAZORPAY SETTLEMENT setl_znCbCTvaSMtUyY 2 TXNS`; `normalize.parse` has extracted
+`txn_count` since Block 3 and nothing consulted it. A credit whose own narration states
+it covers N transactions is no longer assigned to a different number of payments by any
+tier — new refusal category `narration_count_conflict`.
+
+That the count is *independent* of the amounts is what makes it admissible: it comes
+from the bank's text, so it can contradict an arithmetic fit without being derived from
+one. It is the same move as Layer 3 — two independent channels disagree, so neither is
+trusted alone.
+
+There was a test asserting this property. It reads ground truth to learn a credit is a
+settlement batch, so it could only ever catch the failure *after* the fact and never at
+runtime — the engine may not read the answer key. Now the engine enforces it itself.
+
+**Fourth, smaller: a test that was green because of the defect.**
+`test_reference_match_with_a_wrong_amount_is_refused_not_assigned` searched the batch for
+an existing `unexplained_residual` refusal and asserted its truth relation was `partial`.
+It was **encoding the broken behaviour as the expected one**, and it failed the moment
+the generator was fixed — for finding nothing, not for the property being false. Rewritten
+to construct the conflict directly.
+
+**Also found:** `run.py match --seed X` does not regenerate. It loads whatever is on disk
+and stamps the given seed onto `ReconInputs`, so a batch built at 20260905 could be
+matched, scored and printed as `seed=77771` — the headline block naming a seed that did
+not produce its numbers. The seed was written only into `_truth/`, which the engine may
+not read, so nothing could catch it. A `manifest.json` now sits outside the boundary
+recording seed and density, and a mismatch is refused with the command to fix it.
+
+**Net effect** (seed 20260905):
+
+| | before | after |
+|---|---|---|
+| `partial` recall | **0/5** | **7/7** |
+| `one_to_one` recall | 104/105 | **105/105** |
+| refusal correctness | 16.67% | **100.00%** |
+| exceptions | 6 | **1** |
+| rupees at risk | Rs 57,775 | **Rs 800** |
+| match rate | 92.78% | 93.30% |
+| match precision | 100.00% | 100.00% |
+
+Density sweep, precision by arm: **1.0000 / 1.0000 / 1.0000 / 1.0000** (was 0.9986 at
+ppw=3 even before this work). The single remaining exception is the hand-placed
+ambiguity case — the one thing the engine is designed to refuse.
+
+**Cost:** ~2 hours.
+
+**The honest caveat, stated because the numbers look like an engine improvement and are
+not.** Three of these four fixes are in the GENERATOR and the fourth changed the
+benchmark under the engine. The engine did not get better at reconciliation; the
+benchmark stopped asserting matches the data could not support. What genuinely improved
+is the engine's refusal of a case it previously got wrong — and that only became visible
+*because* the benchmark was corrected. A batch that scores its own checker generously is
+worse than useless, and this project shipped one for its entire life without noticing.
+
+**The pattern, for the sixth time:** every one of these presented as an engine coverage
+problem. The engine refused, correctly, on the evidence it was given; the scorer recorded
+a miss; and the investigation would naturally go to the matcher. `assert_truth_is_satisfiable`
+now fails the build on both shapes — hidden money and an out-of-reach payment — so the
+next instance is caught at generation rather than misdiagnosed at matching.

@@ -108,6 +108,12 @@ _TEMPLATES: dict[str, tuple[str, str]] = {
         "This is the band where a person should look.",
         "Review and confirm; the engine has done as much as the evidence allows.",
     ),
+    "narration_count_conflict": (
+        "The bank's own description says this settlement covers a different number of "
+        "transactions than the payments that fit its amount.",
+        "Pull the settlement report for this UTR and confirm which payments it covers "
+        "before posting.",
+    ),
     "contested_payment": (
         "Two or more bank credits have an equally good claim on the same payment, and "
         "the evidence does not separate them, so none of them was posted.",

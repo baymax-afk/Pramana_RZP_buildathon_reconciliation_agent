@@ -159,14 +159,22 @@ distinct timestamps. Memoised. `match_once` **41.6ms → 26.0ms**; end-to-end th
 
 ## Still open
 
-### O1. `partial` recall is 0/5 — the largest remaining correctness gap
-Five credits where a customer short-paid. The engine refuses because nothing on the three
-sides explains the shortfall, which drags refusal correctness to 16.67%. **This was never
-in this document**, which is itself worth noting: it is visible in every metrics block and
-was not listed until now.
+### ~~O1. `partial` recall is 0/5~~ — **fixed: 7/7** · `DEFECT_LOG` 2026-09-02-08
 
-It is a missing-evidence problem, not a matcher problem — see `AGENTIC.md`, which
-proposes it as the first thing an investigating agent should be pointed at.
+It was a missing-evidence problem, as predicted — but the evidence was missing because
+the GENERATOR hid it, not because it lived in an external system. `partial_payment`
+shrank the credit and left the payment at full value, so Rs 7,854 vanished from a
+Rs 21,999 payment while ground truth said `assign`. Unmatchable at any tolerance. The
+third instance of the `refund_netted` shape.
+
+A partial payment is a smaller payment against a larger invoice; the invoice is what is
+left partial. Fixed there, and the fix exposed three more defects — an ambiguity-window
+repair that orphaned the payments it moved (12.5% of seeds), a genuine ENGINE false match
+the corrected benchmark revealed, and a test that was green *because* of the original
+defect. All in the log.
+
+Refusal correctness 16.67% → **100.00%**; the only remaining exception is the hand-placed
+ambiguity case.
 
 ### O2. W1 — the confidence score is still uncalibrated
 Unchanged and still blocked on BenchRec. See above.
@@ -213,3 +221,14 @@ Not oversights — decisions, recorded so they are not mistaken for gaps.
 2. **C1** — single-pass search. Cheapest correctness-and-speed win available.
 3. **W1** — download BenchRec and complete the calibration, or state the limitation in the submission and move on.
 4. **C2** — conflict-resolution matching, which would retire an entire class of order-dependence rather than detecting it.
+
+### O6. The batch is now almost too clean to demonstrate the refusal machinery
+With one exception left at the primary seed, a reader cannot see Layers 2–4 doing much.
+The density sweep is now the only place the refusal behaviour is visible, which makes it
+load-bearing for the argument rather than supporting evidence. Worth considering a
+deliberately harder reported arm — not by breaking the data, but by reporting ppw=12
+alongside ppw=6.
+
+### O7. `assert_truth_is_satisfiable` should also run inside the sweep
+It runs on `generate`. The sweep builds batches in-process and does not call it, which is
+exactly where the orphaning defect hid. Cheap to add.

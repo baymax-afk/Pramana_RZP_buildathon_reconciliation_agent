@@ -77,6 +77,12 @@ def cmd_generate(args: argparse.Namespace) -> int:
             checks.append(("tolerance", f"FAILED -- {e}"))
             rc = 1
         try:
+            n_links = build.assert_truth_is_satisfiable(batch)
+            checks.append(("truth satisfiable", f"{n_links} assign-links, all reachable"))
+        except AssertionError as e:
+            checks.append(("truth satisfiable", f"FAILED -- {e}"))
+            rc = 1
+        try:
             worst = build.assert_pool_bound(batch)
             note = "" if worst <= cfg.MAX_POOL else f"  [above MAX_POOL={cfg.MAX_POOL}; engine must refuse these]"
             checks.append(("worst window pool", f"{worst}{note}"))
@@ -107,7 +113,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             paths = build.write(batch)
             _print_block(
                 "WRITTEN",
-                [(k, str(v.relative_to(ROOT))) for k, v in paths.items()],
+                [(k, str(v.relative_to(cfg.ROOT))) for k, v in paths.items()],
             )
             print(
                 "\n  Ground truth is written to _truth/ and is unreadable from inside\n"
@@ -127,7 +133,13 @@ def cmd_match(args: argparse.Namespace) -> int:
     different package, into a different object. There is no point in this function at
     which the engine could see the answer key.
     """
-    inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    try:
+        inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    except ValueError as e:
+        # A seed/batch mismatch is a reporting error waiting to happen, not a crash to
+        # trace. Say what is wrong and what to run.
+        print(f"\n  {e}\n")
+        return 1
 
     from recon.llm import select as _select_llm
 

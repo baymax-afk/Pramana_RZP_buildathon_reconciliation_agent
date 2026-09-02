@@ -90,29 +90,76 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
     # for why that is a type-level guarantee rather than a convention.
     parsed = parse_with_llm(txn.narration, llm)
 
+    def count_conflict(cands) -> bool:
+        """
+        Does the bank's own narration contradict the size of this match?
+
+        A settlement narration states how many transactions it covers -- "RAZORPAY
+        SETTLEMENT setl_... 2 TXNS". The engine has always PARSED that count and never
+        used it, which let a credit covering two payments be posted to one whenever a
+        single payment's net happened to equal the batch total.
+
+        That is not hypothetical. At seed 11111 a netted refund came to exactly the
+        second payment's net, so the batch total equalled the first payment alone.
+        Tier 2 found an exact one-to-one fit with residual 0, assigned it, and never
+        reached tier 3 -- where enumeration would have found BOTH decompositions and
+        Layer 2 would have refused. The tier ordering short-circuited the uniqueness
+        test, and the result was a confident wrong answer at confidence 0.96.
+
+        The count is a genuinely independent, label-free channel: it comes from the
+        bank's text, not from the amounts, so it can contradict an arithmetic fit
+        without being derived from one. Using it is the same move as Layer 3 -- when
+        two independent channels disagree, neither is trusted alone.
+        """
+        return bool(cands) and parsed.txn_count is not None and (
+            len(cands[0].payment_ids) != parsed.txn_count
+        )
+
+    def conflict_reason(cands) -> str:
+        return (
+            f"the bank's narration states this settlement covers "
+            f"{parsed.txn_count} transaction(s), but the amount evidence fits "
+            f"{len(cands[0].payment_ids)}: "
+            + ", ".join(cands[0].payment_ids)
+            + ". Two independent channels disagree, so neither is trusted alone"
+        )
+
     cands, cat, reason = tier1_reference.match(
         txn, parsed, index, by_id, claimed, invoices_by_no
     )
     if cat is not None:
         return ("refuse", cands, cat, reason, 1.0, None)
-    if cands:
+    if cands and not count_conflict(cands):
         return ("assign", cands, None, "", 1.0, None)
+    tier1_conflict = cands if count_conflict(cands) else []
 
     cands, cat, reason = tier2_amount_date.match(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
         return ("refuse", cands, cat, reason, 1.0, None)
-    if cands:
+    if cands and not count_conflict(cands):
         return ("assign", cands, None, "", 1.0, None)
+    tier2_conflict = cands if count_conflict(cands) else []
 
     cands, cat, reason, uniq = tier3_subsetsum.match_with_margin(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
         return ("refuse", cands, cat, reason, 0.0, None)
-    if cands:
+    if cands and not count_conflict(cands):
         return ("assign", cands, None, "", uniq, None)
+
+    # Tier 3 could not produce a decomposition of the stated size either. Whatever a
+    # single-payment tier found earlier is reported as the refusal's candidate, because
+    # an exception that names what it declined to post is actionable and one that says
+    # only "conflict" is not.
+    blocked = cands or tier2_conflict or tier1_conflict
+    if blocked:
+        return (
+            "refuse", blocked, RefusalCategory.NARRATION_COUNT_CONFLICT,
+            conflict_reason(blocked), 0.0, None,
+        )
 
     return ("none", [], None, "", 0.0, None)
 
