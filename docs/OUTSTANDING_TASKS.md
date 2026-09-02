@@ -36,20 +36,35 @@ than silently substituting the fallback.
     unzip -d data/benchrec <archive>.zip
 
 ### W2. The LLM on/off precision comparison is unmeasured
-**Status:** boundary enforced and tested; comparison withheld · `DEFECT_LOG` 2026-09-02-02
+**Status:** boundary enforced and tested; harness built; comparison still withheld ·
+`DEFECT_LOG` 2026-09-02-02, 2026-09-02-06
 
 The trust boundary is real: `NarrationFields` carries no payment id, candidate or score,
 so a model cannot express a matching preference even in principle, and `parse_with_llm`
 fills gaps only. Both properties are tested.
 
-What is missing is a valid measurement. There is no API key in this environment, and the
-offline stand-in applies the same word-filtering heuristic as the regex tier — it
-recovers the payer name on the same 8 of 18 unparseable narrations and changes 0
-verdicts. That agreement is a property of the stand-in sharing the parser's logic, not
-evidence about what a model would contribute.
+**The measurement is now one command**, and so is the refusal to report it:
 
-**To resolve:** set `ANTHROPIC_API_KEY` and re-run `python run.py match --verify` with
-and without `--no-llm`.
+    python run.py llm-compare --seed 20260905 --verify
+
+It reports three things in increasing order of what they license: parse yield at the
+field level, verdict deltas between the arms, and precision/match rate for both. It then
+states whether the comparison is VALID. Against the offline stand-in it exits 2 and says
+why; against a live tier it reports the comparison as evidence.
+
+Running it corrected two numbers this document previously carried. Under the engine's
+own `needs_llm` definition there are **13** unreadable credit narrations, not 18, and
+every one of them is missing a *merchant reference* — not a payer name. The regex tier
+already reads a name off all 13. So the earlier claim that the stand-in "recovers the
+payer name on 8 of 18" does not reproduce: it recovers **10 merchant refs of 13**, and
+**0 payer names**, and still changes **0 verdicts**.
+
+**Still withheld, and for the same reason as before.** There is no API key in this
+environment. The stand-in shares `normalize._extract_name`'s logic, so its agreement
+with the regex tier is a property of shared code, not evidence about a model.
+
+**To resolve:** set `ANTHROPIC_API_KEY` and run the command above. It will report VALID
+and the numbers will mean what they say.
 
 ---
 

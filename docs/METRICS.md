@@ -311,3 +311,10 @@ what a model would contribute.
 
 Running with `ANTHROPIC_API_KEY` set selects the live tier and makes the comparison real.
 Until then the claim is withheld.
+
+The comparison itself is `python run.py llm-compare`. It reports parse yield, verdict
+deltas and both arms' headlines, then judges its own validity: against the stand-in it
+exits non-zero and prints why the numbers are not evidence about a model. Measured
+against the stand-in on seed 20260905: 13 credit narrations unreadable by the regex tier
+(all missing a merchant reference, none missing a payer name), 10 refs recovered, 0
+payer names recovered, 0 verdicts changed, precision identical at 100.00% in both arms.

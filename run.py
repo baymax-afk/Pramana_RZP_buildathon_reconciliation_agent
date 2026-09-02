@@ -263,6 +263,129 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+_RULE = "=" * 78
+
+
+def cmd_llm_compare(args: argparse.Namespace) -> int:
+    """
+    Run the batch with the LLM narration tier ON and OFF, and report both arms.
+
+    `docs/ARCHITECTURE.md` requires precision to be reported both ways. This is that
+    measurement -- and, when the only available tier is the offline stand-in, this is
+    also the machinery that REFUSES to report it, which is the more important half. Two
+    identical numbers printed side by side would read as "the LLM changes nothing"; what
+    is actually true is "nothing here can tell you whether it would".
+    """
+    from recon.llm import select as select_llm
+    from recon.llm.compare import (
+        Comparison, diff_verdicts, measure_parse_yield, tier_is_measurable,
+    )
+    from scorer.score import load_truth, score
+
+    inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    tier_on = select_llm(disabled=False)
+    tier_off = select_llm(disabled=True)
+    valid, why = tier_is_measurable(tier_on)
+
+    print(_RULE)
+    print(f"  LLM TIER: ON vs OFF   seed={args.seed}   tier={tier_on.name}")
+    print(_RULE)
+
+    yields = measure_parse_yield(inputs, tier_on)
+
+    t0 = time.perf_counter()
+    if args.verify:
+        from recon.verify.stability import match_gated
+
+        k = cfg.PERMUTATION_K_FAST if args.fast else cfg.PERMUTATION_K
+        out_on, _ = match_gated(inputs, k=k, llm=tier_on)
+        out_off, _ = match_gated(inputs, k=k, llm=tier_off)
+    else:
+        out_on = match_once(inputs, llm=tier_on)
+        out_off = match_once(inputs, llm=tier_off)
+    elapsed = time.perf_counter() - t0
+
+    changes = diff_verdicts(out_on, out_off)
+
+    print("\n  PARSE YIELD  (field level, before any matching)")
+    print("  " + "-" * 74)
+    print(f"    credit narrations                {yields.narrations}")
+    print(f"    unreadable by the regex tier     {yields.unreadable_by_regex}"
+          "   (engine's own needs_llm definition)")
+    print(f"    gaps filled by the LLM tier      {yields.filled_by_llm}"
+          f"   ({yields.fill_rate:.0%} of the gaps)")
+    print(f"      payer names recovered          {yields.names_recovered}")
+    print(f"      merchant refs recovered        {yields.refs_recovered}")
+    print(f"    contradicted the regex tier      {yields.disagreed_with_regex}"
+          "   (must be 0: the tier fills gaps, it never overrides)")
+
+    print("\n  VERDICT DELTAS  (the only thing that licenses a claim about output)")
+    print("  " + "-" * 74)
+    if not changes:
+        print("    0 credits changed verdict between the two arms.")
+    else:
+        print(f"    {len(changes)} credit(s) changed verdict:")
+        for txn_id, off, on in changes[:20]:
+            print(f"      {txn_id}   off={off}   ->   on={on}")
+
+    truth_path = cfg.TRUTH_DIR / "ground_truth.json"
+    if truth_path.exists():
+        meta, links = load_truth(truth_path)
+        captured = sum(1 for p in inputs.payments if p.captured)
+        credits_by_id = {t.id: t.credit for t in inputs.bank_txns if t.is_credit}
+        arms = {}
+        for label, out in (("LLM OFF", out_off), ("LLM ON", out_on)):
+            arms[label] = score(
+                out, links, total_payments=len(inputs.payments),
+                captured_payments=captured,
+                ambiguity_bank_txn_id=meta.get("ambiguity_bank_txn_id", ""),
+                credits_by_id=credits_by_id, seed=args.seed,
+            )
+        print("\n  HEADLINE, BOTH ARMS")
+        print("  " + "-" * 74)
+        print(f"    {'':<22}{'LLM OFF':>14}{'LLM ON':>14}{'delta':>12}")
+        for name, attr, pct in (
+            ("match rate", "match_rate", True),
+            ("match precision", "match_precision", True),
+            ("refusal rate", "refusal_rate", True),
+            ("assignments", "total_assignments", False),
+            ("correct assignments", "correct_assignments", False),
+        ):
+            a, b = getattr(arms["LLM OFF"], attr), getattr(arms["LLM ON"], attr)
+            fmt = (lambda v: f"{v:.2%}") if pct else (lambda v: f"{v:d}")
+            delta = f"{b - a:+.2%}" if pct else f"{b - a:+d}"
+            print(f"    {name:<22}{fmt(a):>14}{fmt(b):>14}{delta:>12}")
+
+    print("\n  VERDICT ON THIS MEASUREMENT")
+    print("  " + "-" * 74)
+    if valid:
+        print("    VALID. The tier above is a live model, so the arms differ in what a")
+        print("    model contributed and the comparison means what it says.")
+        if not changes:
+            print("    The measured contribution to VERDICTS is zero. That is a result,")
+            print("    not an absence of one: the trust boundary holds and the")
+            print("    deterministic tiers were already sufficient on this batch.")
+    else:
+        print("    WITHHELD -- this comparison is NOT valid evidence about an LLM.")
+        for line in _wrap(why, 70):
+            print(f"    {line}")
+        print("")
+        print("    The parse-yield and verdict-delta numbers above are real")
+        print("    measurements OF THE STAND-IN. They are not a null result for a")
+        print("    model, and quoting them as one would be the overclaim this")
+        print("    project exists to argue against.")
+
+    print(f"\n  both arms in {elapsed:.2f}s")
+    print(_RULE)
+    return 0 if valid else 2
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    import textwrap
+
+    return textwrap.wrap(text, width=width)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="run.py", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -294,6 +417,17 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--no-llm", action="store_true", default=False,
                    help="disable the LLM narration tier and report precision without it")
     m.set_defaults(func=cmd_match)
+
+    c = sub.add_parser(
+        "llm-compare",
+        help="run the batch with the LLM tier on and off and report both arms",
+    )
+    c.add_argument("--seed", type=int, default=cfg.SEED_PRIMARY)
+    c.add_argument("--payments-per-window", type=int, default=cfg.TARGET_POOL_SIZE)
+    c.add_argument("--verify", action="store_true", default=False,
+                   help="run both arms under the permutation gate")
+    c.add_argument("--fast", action="store_true", default=False)
+    c.set_defaults(func=cmd_llm_compare)
 
     w = sub.add_parser("sweep", help="density sweep: refusal rate vs precision")
     w.add_argument("--seeds", type=int, nargs="+", default=[11111, 22222, 33333, 44444, 55555])
