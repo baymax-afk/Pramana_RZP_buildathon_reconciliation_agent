@@ -26,8 +26,11 @@ quoted as evidence of calibration.
 accept/refuse decision preceding it. The four layers demonstrably work — see the density
 sweep — but their scalar summary does not.
 
-**What would settle it:** BenchRec (external, labelled, ~69k rows, CC BY 4.0). Kaggle
-requires authentication so it could not be fetched here.
+**What would settle it:** BenchRec (external, labelled, ~69k rows, CC BY 4.0). Blocked
+two independent ways in this environment, both re-verified: Kaggle requires
+authentication and no credentials are present, and the outbound network policy refuses
+the host outright (`CONNECT tunnel failed, response 403`). Neither is something the
+project can route around from here.
 `src/external/benchrec_ingest.py` reads it when present and reports its absence rather
 than silently substituting the fallback.
 
@@ -180,7 +183,8 @@ ambiguity case.
 Unchanged and still blocked on BenchRec. See above.
 
 ### O3. W2 — the LLM comparison is still withheld
-The harness is built and is one command. Still blocked on an API key.
+The harness is built and is one command. Still blocked on an API key: `.env` is
+gitignored and did not reach this container, and a direct API call returns 401.
 
 ### ~~O4. Density sweep has not been re-run since C2 and C3~~ — **re-run**
 
@@ -229,6 +233,8 @@ load-bearing for the argument rather than supporting evidence. Worth considering
 deliberately harder reported arm — not by breaking the data, but by reporting ppw=12
 alongside ppw=6.
 
-### O7. `assert_truth_is_satisfiable` should also run inside the sweep
-It runs on `generate`. The sweep builds batches in-process and does not call it, which is
-exactly where the orphaning defect hid. Cheap to add.
+### ~~O7. `assert_truth_is_satisfiable` should also run inside the sweep~~ — **done**
+The sweep now asserts every batch it builds. That is exactly where the orphaning defect
+hid: `generate` checked the primary seed and the sweep never checked its own five, so a
+sweep could quietly average over unsatisfiable ground truth and report the generator's
+bugs as the engine's coverage. All 20 batches (4 densities x 5 seeds) pass.

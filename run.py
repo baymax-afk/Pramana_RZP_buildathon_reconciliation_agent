@@ -233,6 +233,12 @@ def cmd_sweep(args: argparse.Namespace) -> int:
         assigned = 0
         for seed in seeds:
             batch = _build.generate(seed=seed, payments_per_window=ppw)
+            # The sweep builds batches in-process and used to skip this, which is
+            # exactly where the ambiguity-window orphaning defect hid: `generate`
+            # checked the primary seed, the sweep never checked its own five. A sweep
+            # that quietly averages over unsatisfiable ground truth is reporting the
+            # generator's bugs as the engine's coverage.
+            _build.assert_truth_is_satisfiable(batch)
             try:
                 worst = _build.assert_pool_bound(batch)
             except AssertionError as e:
