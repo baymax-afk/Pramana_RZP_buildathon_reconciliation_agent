@@ -1,6 +1,13 @@
-# A reconciliation engine that verifies its own output
+# Pramana
 
-**Razorpay Buildathon 2026 — Track 04, AI Finance Controller**
+**A reconciliation engine that verifies its own output**
+Razorpay Buildathon 2026 — Track 04, AI Finance Controller
+
+> *pramāṇa* — the term in Indian epistemology for a **means of valid knowledge**: not a
+> belief, but the thing that justifies holding one. The name states the argument rather
+> than the subject matter. Producing candidate reconciliation matches is easy; knowing
+> which of them is *justified* is the unsolved part, and that is what the four
+> verification layers exist to answer — without an answer key.
 
 A three-way reconciliation engine that matches Razorpay payments against a bank
 statement against an invoice ledger over a batch of 200+ records, produces a

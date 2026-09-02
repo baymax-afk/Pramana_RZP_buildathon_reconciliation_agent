@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-02T06:40:45.127147+00:00",
+  "generated_at": "2026-09-02T07:00:50.769511+00:00",
   "seed": 20260905,
   "density": 6,
   "totals": {
@@ -2533,5 +2533,5 @@
       "mean_stability": 1.0
     }
   },
-  "throughput_records_per_s": 370
+  "throughput_records_per_s": 345
 }

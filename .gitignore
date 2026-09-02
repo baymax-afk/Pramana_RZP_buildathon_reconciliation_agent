@@ -26,3 +26,10 @@ ui/.vite/
 # OS
 desktop.ini
 .DS_Store
+
+# Session handoff. A working note for whoever picks this up next -- current state,
+# where the bodies are buried, what the numbers actually mean. Deliberately NOT
+# committed: it is scratch continuity, not a submission artefact, and it goes stale
+# the moment the next session starts changing things. The durable record is
+# DEFECT_LOG.md, OUTSTANDING_TASKS.md and the metrics block.
+docs/SESSION_HANDOFF.md
