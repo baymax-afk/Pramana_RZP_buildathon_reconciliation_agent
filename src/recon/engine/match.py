@@ -17,6 +17,8 @@ and are labelled as such.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import config as cfg
 
 from ..schemas import Payment, ReconInputs
@@ -115,6 +117,101 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
     return ("none", [], None, "", 0.0, None)
 
 
+# Tier precedence IS the engine's declared evidence hierarchy -- tier 1 is an exact
+# reference agreement, tier 2 a unique amount/date fit, tier 3 a searched decomposition.
+# Naming it here keeps "which evidence is stronger" a single fact rather than something
+# re-derived at each comparison.
+_TIER_RANK = {
+    tier1_reference.TIER: 2,
+    tier2_amount_date.TIER: 1,
+    tier3_subsetsum.TIER: 0,
+}
+
+
+@dataclass(frozen=True, slots=True)
+class _Proposal:
+    """One credit's bid for a set of payments, before any of it is granted."""
+
+    txn_id: str
+    credit: int
+    cand: Candidate
+    uniqueness: float
+    fs_weight: float
+
+    @property
+    def evidence_key(self) -> tuple[int, float]:
+        """
+        How strong this bid is, for comparison against a rival bid.
+
+        Two components, both already part of the engine's stated evidence model: the
+        tier that produced it, and the Fellegi-Sunter weight of its non-amount evidence.
+        The FS weight is rounded because it is a float sum -- without that, two bids
+        that are equal in every respect that matters could differ in the last bit and
+        produce a "strict" winner that is really a coin toss.
+
+        Deliberately NOT included: residual tightness, subset size, recency, or
+        anything else that would break a tie. A tie here means the evidence does not
+        separate two claims on the same money, and the correct output is a refusal.
+        """
+        return (_TIER_RANK.get(self.cand.tier, -1), round(self.fs_weight, 6))
+
+
+def _resolve_contested(
+    proposals: list[_Proposal],
+) -> tuple[list[_Proposal], list[tuple[_Proposal, list[_Proposal]]]]:
+    """
+    Award each contested payment on evidence, and refuse where evidence cannot separate.
+
+    **Why this replaces greedy claiming.** The loop used to walk credits in sorted order
+    and let each take what it wanted, so when two credits both had a viable claim on one
+    payment, the winner was whichever the sort happened to reach first. That is a
+    decision made by iteration order, on money, and the permutation gate could only
+    detect it after the fact. Detecting a design weakness is weaker than not having it:
+    the gate is now a safety net rather than a load-bearing part of the answer.
+
+    A proposal is granted when it is uncontested, or when its evidence STRICTLY beats
+    every rival bidding for any payment it wants. Equal evidence is not a tie to be
+    broken -- it is the engine saying two credits have an equally good claim on the same
+    money, which is the same underdetermination Layer 2 refuses on, arriving through a
+    different door. Both are refused and both are handed to a human.
+
+    Returns (granted, contested) where each contested entry pairs a losing proposal with
+    the rivals that beat or tied it, so the refusal can name them.
+    """
+    wanted: dict[str, list[_Proposal]] = {}
+    for prop in proposals:
+        for pid in prop.cand.payment_ids:
+            wanted.setdefault(pid, []).append(prop)
+
+    granted: list[_Proposal] = []
+    contested: list[tuple[_Proposal, list[_Proposal]]] = []
+
+    for prop in proposals:
+        rivals = {
+            other.txn_id: other
+            for pid in prop.cand.payment_ids
+            for other in wanted[pid]
+            if other.txn_id != prop.txn_id
+        }
+        if not rivals:
+            granted.append(prop)
+            continue
+        mine = prop.evidence_key
+        # max() over rival keys and a STRICT comparison: both are symmetric in the
+        # rivals, so the outcome does not depend on the order the rivals were found.
+        strongest = max(r.evidence_key for r in rivals.values())
+        if mine > strongest:
+            granted.append(prop)
+        else:
+            blockers = sorted(
+                (r for r in rivals.values() if r.evidence_key >= mine),
+                key=lambda r: r.txn_id,
+            )
+            contested.append((prop, blockers))
+
+    return granted, contested
+
+
 def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
     """
     Match a batch, iterating to a FIXPOINT.
@@ -176,9 +273,13 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
 
     for _ in range(cfg.MAX_ROUNDS):
         rounds += 1
-        progressed = False
         refusals, no_candidate = [], []
+        proposals: list[_Proposal] = []
 
+        # ---- PROPOSE ----------------------------------------------------------
+        # Every unsettled credit bids against the SAME claimed set. Nothing is granted
+        # inside this loop, so no credit's bid can shrink a later credit's pool -- which
+        # is precisely how sort order used to leak into the answer.
         for txn in credits:
             if txn.id in settled:
                 continue
@@ -212,16 +313,9 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
                         )
                     )
                     continue
-                assignments.append(
-                    _assignment_from(
-                        txn.id, txn.credit, cand, by_id,
-                        uniqueness=uniq, fs_weight=ev.weight,
-                    )
+                proposals.append(
+                    _Proposal(txn.id, txn.credit, cand, uniq, ev.weight)
                 )
-                claimed.update(cand.payment_ids)
-                settled.add(txn.id)
-                tier_counts[cand.tier] = tier_counts.get(cand.tier, 0) + 1
-                progressed = True
             elif verdict == "refuse":
                 refusals.append(
                     Refusal(txn.id, cat, reason, txn.credit, tuple(cands))
@@ -229,7 +323,44 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
             else:
                 no_candidate.append(txn.id)
 
-        if not progressed:
+        # ---- RESOLVE ----------------------------------------------------------
+        granted, contested = _resolve_contested(proposals)
+
+        for prop in granted:
+            assignments.append(
+                _assignment_from(
+                    prop.txn_id, prop.credit, prop.cand, by_id,
+                    uniqueness=prop.uniqueness, fs_weight=prop.fs_weight,
+                )
+            )
+            claimed.update(prop.cand.payment_ids)
+            settled.add(prop.txn_id)
+            tier_counts[prop.cand.tier] = tier_counts.get(prop.cand.tier, 0) + 1
+
+        for prop, blockers in contested:
+            shared = sorted(
+                set(prop.cand.payment_ids).intersection(
+                    *(set(b.cand.payment_ids) for b in blockers)
+                )
+                or set(prop.cand.payment_ids)
+            )
+            refusals.append(
+                Refusal(
+                    prop.txn_id, RefusalCategory.CONTESTED_PAYMENT,
+                    f"{len(blockers) + 1} credits have an equally good or better claim "
+                    f"on {', '.join(shared)}: this credit at Fellegi-Sunter weight "
+                    f"{prop.fs_weight:+.2f} (tier {prop.cand.tier}) against "
+                    + "; ".join(
+                        f"{b.txn_id} at {b.fs_weight:+.2f} (tier {b.cand.tier})"
+                        for b in blockers
+                    )
+                    + ". The evidence does not separate them, so neither is posted",
+                    prop.credit, (prop.cand,),
+                )
+            )
+
+        # A round that granted nothing cannot change what the next round would see.
+        if not granted:
             break
 
     unassigned = tuple(
