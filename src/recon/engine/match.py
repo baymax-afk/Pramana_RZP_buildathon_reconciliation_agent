@@ -136,7 +136,9 @@ class _Proposal:
     credit: int
     cand: Candidate
     uniqueness: float
-    fs_weight: float
+    # None means "there was nothing at all to weigh" -- explicitly NOT the same as a
+    # weight of zero, which means the evidence balanced out. See fellegi_sunter.Evidence.
+    fs_weight: float | None
 
     @property
     def evidence_key(self) -> tuple[int, float]:
@@ -152,8 +154,27 @@ class _Proposal:
         Deliberately NOT included: residual tightness, subset size, recency, or
         anything else that would break a tie. A tie here means the evidence does not
         separate two claims on the same money, and the correct output is a refusal.
+
+        **An absent weight ranks below every real one, and never as zero.** `None` means
+        the Fellegi-Sunter layer had nothing to weigh -- no usable name, no usable
+        reference -- which the evidence model treats as categorically different from
+        evidence that cancelled to zero. Mapping it to 0.0 would let a credit with *no*
+        supporting evidence outrank one carrying real but slightly negative evidence, and
+        would let it win contested money outright. Ranking it at -inf means it can only
+        lose a contest or tie with another evidence-free bid, and a tie refuses both.
+
+        (This was a live crash, not a hypothetical: `round(None, 6)` raised TypeError.
+        It surfaced only when the density sweep was re-run at ppw=12 -- neither the
+        primary seed nor the test suite contained a credit whose FS layer found nothing
+        to weigh.)
         """
-        return (_TIER_RANK.get(self.cand.tier, -1), round(self.fs_weight, 6))
+        weight = float("-inf") if self.fs_weight is None else round(self.fs_weight, 6)
+        return (_TIER_RANK.get(self.cand.tier, -1), weight)
+
+
+def _fmt_weight(w: float | None) -> str:
+    """Render an FS weight for an operator, distinguishing absent from zero."""
+    return "no non-amount evidence" if w is None else f"{w:+.2f}"
 
 
 def _resolve_contested(
@@ -349,9 +370,10 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
                     prop.txn_id, RefusalCategory.CONTESTED_PAYMENT,
                     f"{len(blockers) + 1} credits have an equally good or better claim "
                     f"on {', '.join(shared)}: this credit at Fellegi-Sunter weight "
-                    f"{prop.fs_weight:+.2f} (tier {prop.cand.tier}) against "
+                    f"{_fmt_weight(prop.fs_weight)} (tier {prop.cand.tier}) against "
                     + "; ".join(
-                        f"{b.txn_id} at {b.fs_weight:+.2f} (tier {b.cand.tier})"
+                        f"{b.txn_id} at {_fmt_weight(b.fs_weight)} "
+                        f"(tier {b.cand.tier})"
                         for b in blockers
                     )
                     + ". The evidence does not separate them, so neither is posted",

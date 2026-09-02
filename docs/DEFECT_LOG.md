@@ -7,6 +7,13 @@ it, and what it cost.
 entries below are explicitly marked as reconstructed from notes, because they
 predate the log's existence; every entry after them was written at the time.
 
+> **A note on entry numbering.** `2026-09-02-02` and `2026-09-02-03` are each used
+> twice — a collision introduced when two work streams appended on the same day. The
+> entries are left as written, because this log is append-only and renumbering it would
+> be exactly the retroactive tidying the format exists to prevent. Where another
+> document cites one of those ids, it now names the subject too. Recorded here rather
+> than silently repaired.
+
 Format for each entry:
 
 | Field | Meaning |
@@ -1104,3 +1111,167 @@ Recall agreed with the correct value while precision was perfect. The uniqueness
 reported 1.0 on a genuinely unique answer *and* on a near-tie. `fs_scaled` returned
 plausible numbers in [0, 1] throughout. None would have been caught by reading the
 output; all were caught by asking what the function does across its whole domain.
+
+---
+
+## 2026-09-02-06 — The outstanding-tasks list, worked through: three findings the list did not predict
+
+**Timestamp:** 2026-09-02, post-review remediation pass
+
+**What broke:** Nothing new broke. This entry records working through
+`OUTSTANDING_TASKS.md` end to end — C1–C5, T1–T6, P1–P3, H1–H3, W2 — because three
+things found along the way contradicted what the list said, and a list that is wrong
+about its own contents is worse than no list.
+
+**1. C3 was a bigger defect than the list described, and a smaller one than it looks.**
+The entry read "identical credits get different priors depending on when they are
+processed" — true, and it undersold the blast radius. Measured after the fix: **96 of
+129 assignments (74%) carried an inflated Fellegi-Sunter weight**, by up to 1.875 bits.
+Every single weight moved *down*. The engine had been reporting stronger evidence than
+it possessed, on three quarters of its output.
+
+And then the second half: **zero band crossings**. Not one assignment changed verdict,
+because none of the 96 sat near the 4.0 threshold. So the defect corrupted a *reported*
+number without ever corrupting a *decision* — which is the same shape as the recall bug
+and the `fs_scaled` bug before it, and the third time this project has found a metric
+that was wrong in a way the output could not reveal.
+
+**2. Fixing C3 made the engine slower, and the profiler found the real bottleneck.**
+Halving the tier-3 searches (C1: 44 → 24 per batch, tier-3 cumulative 0.311s → 0.162s)
+should have made `match_once` faster. It got *slower*: 41.6ms → 45.2ms, reproducibly.
+
+The cause was C3's own pre-pass. Computing blocking pool sizes with nothing claimed
+means every payment survives the `p.id not in claimed` check and reaches the date
+conversion, pushing `payment_date` from 278k to 383k calls. The profile then showed what
+had been true all along and nobody had looked: `datetime.fromtimestamp` at the top, ~380k
+calls over **~200 distinct timestamps**. `date_of` is a pure `int -> date` map. Memoising
+it took `match_once` to 26.0ms — **37% below the original**, not merely back to par.
+
+The lesson is the ordinary one and it keeps being worth relearning: the search looked
+expensive because it is algorithmically interesting, and the date parsing looked free
+because it is boring. The profiler disagreed.
+
+**3. The documented LLM parse yield does not reproduce.** `METRICS.md` and
+`OUTSTANDING_TASKS.md` both said the stand-in "recovers the payer name on the same 8 of
+18 unparseable narrations". Running the new `run.py llm-compare` against the engine's own
+`needs_llm` definition gives **13**, not 18 — and **every one of them is missing a
+merchant reference, not a payer name**. The regex tier already reads a name off all 13.
+The stand-in recovers 10 refs, 0 names, and still changes 0 verdicts.
+
+The old figure came from a different definition of "unreadable" than the one the engine
+uses. `measure_parse_yield` now reuses `needs_llm` rather than restating it — which is
+also why settlement batches are excluded, since a batch covering many payers has no
+single payer name and the absence is the correct parse rather than a gap.
+
+**Smaller things, recorded because they were each invisible in their own way:**
+
+- `rupees_to_paise` raised **three** different exception types, not one:
+  `InvalidOperation`, `ValueError` for `"NaN"`, `OverflowError` for `"Infinity"`. The
+  non-finite pair is the interesting one — both are *valid Decimals*, so any validation
+  of the form "does this parse as a Decimal" waves them straight through to fail later
+  somewhere that looks like arithmetic.
+- The explanation templates keyed on `fs_contradicted`, which no engine path has ever
+  emitted. Every amount/name conflict fell through to the generic fallback, so operators
+  read the engine's internal reason string instead of prose written for them. Invisible
+  because the fallback is a plausible sentence.
+- `python-multipart` was an undeclared runtime dependency of the invoice upload route,
+  found only because the API got its first tests.
+- `DEFECT_LOG` 2026-09-01-06 called the tier-3 cost model "meet-in-the-middle". Its
+  arithmetic is C(n, 6) — bounded enumeration — so the reasoning held and only the label
+  was wrong. Corrected in `ARCHITECTURE.md` rather than by editing the entry.
+
+**Verification of the two regression tests.** Both tier-3 regression tests were checked
+against the bugs they claim to catch, by reintroducing each defect in turn: the
+overshoot-prune bug fails 2 tests, the margin-origin bug fails 1, and both reproduce the
+exact symptom the original entry describes — a uniqueness margin of **1.0, "perfectly
+isolated", on a credit with a near-twin 5 paise outside tolerance.** A regression test
+that has never been shown to fail is decoration.
+
+**Also worth recording: C2's mechanism does not fire on the production batch.** The new
+conflict resolver saw 129 proposals and **0 contests** across 3 rounds. So it is verified
+by 11 constructed tests instead — including the outcome being identical across *every
+permutation* of the proposal list rather than one shuffle, because a resolver that merely
+moved order-dependence from the claiming loop into itself would pass a single-shuffle
+test comfortably.
+
+**Cost:** ~4 hours across the full list.
+
+**Net effect on the reported run** (seed 20260905):
+
+| | before | after |
+|---|---|---|
+| match rate | 92.78% | 92.78% |
+| match precision | 100.00% | 100.00% |
+| assignments with inflated FS weight | 96 | **0** |
+| `match_once` | 41.6 ms | **26.0 ms** |
+| throughput | 345 rec/s | **760 rec/s** |
+| tests | 128 | **203** |
+
+Precision and match rate are unchanged, and that is the point: none of this was
+supposed to move them. What moved was the amount of the output that is *true*.
+
+---
+
+## 2026-09-02-07 — The conflict resolver crashed on absent evidence, and only the density sweep found it
+
+**Timestamp:** 2026-09-02, immediately after the remediation pass above
+
+**What broke:** `python run.py sweep` died at `ppw=12` with
+`TypeError: type NoneType doesn't define __round__ method`, inside the conflict resolver
+added hours earlier as the fix for C2.
+
+**Diagnosis:** `Evidence.weight` is `None` when the Fellegi-Sunter layer had **nothing to
+weigh** — no usable payer name, no usable reference. The codebase is explicit that this
+is not the same as a weight of zero: zero means the evidence cancelled out, `None` means
+there was none. `_Proposal.evidence_key` called `round(self.fs_weight, 6)` and annotated
+the field `float`.
+
+Then a second instance of the same root cause, one line further on: the
+`contested_payment` refusal message formats `{prop.fs_weight:+.2f}`, which fails the same
+way. Fixing the first exposed the second.
+
+A third apparent instance, at the `amount_name_conflict` message, is **provably
+unreachable**: `contradicts` requires at least one field with `level == DISAGREE`, and any
+non-None level makes the weight non-None. Left alone rather than defensively patched, on
+the grounds that an unnecessary guard implies a possibility that does not exist.
+
+**Why the whole test suite and the entire reported run missed it.** Measured afterwards,
+across three seeds at each density:
+
+| ppw | proposals | contests | proposals with **no** FS evidence |
+|---:|---:|---:|---:|
+| 3 | 436 | 0 | 90 |
+| 6 | 379 | **0** | 96 |
+| 12 | 358 | **9** | 104 |
+| 24 | 303 | 0 | 51 |
+
+Two facts had to coincide. An evidence-free proposal is **not rare** — roughly a quarter
+of all proposals, at every density, including the reported one. What is rare is an
+evidence-free proposal that *also* enters a contest, and contests need `ppw >= 12`. At
+the reported density of 6 there are zero contests, so the crashing line was never
+reached. At `ppw = 24` there are none either, for the opposite reason: pools exceed
+`MAX_POOL` and tier 3 refuses before anything is proposed.
+
+So the defect sat behind a conjunction of two conditions, each individually common, whose
+intersection is empty at the density every reported number uses.
+
+**Fix:** `None` maps to `-inf` in the evidence key, never to `0.0`. It therefore ranks
+below every real weight, can only lose a contest or tie with another evidence-free bid,
+and a tie refuses both. Mapping it to zero would have been the tempting one-character
+fix and would have let a credit with *no* supporting evidence beat one carrying real but
+slightly negative evidence — and take the contested money. The message formatter now
+renders it as "no non-amount evidence" rather than a number. Four regression tests.
+
+**Cost:** ~25 minutes.
+
+**The lesson, which is about process rather than about code.** `OUTSTANDING_TASKS.md` had
+listed re-running the density sweep as a *recommendation* — something to do before quoting
+the numbers again. Running it instead of recommending it took two minutes and found a
+crash in code committed the same day, in a path 203 passing tests did not reach.
+
+It also corrected a claim in the previous entry. That entry recorded "C2's mechanism does
+not fire on the production batch — 129 proposals, 0 contests" and treated the constructed
+tests as the only available verification. True at `ppw = 6`, and it left the wrong
+impression: the resolver is not dormant machinery, it is machinery whose trigger
+condition the *reported density happens to sit just below*. That is a materially
+different thing to have shipped, and worth knowing.

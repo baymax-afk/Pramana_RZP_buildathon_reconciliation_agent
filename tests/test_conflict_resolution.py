@@ -30,7 +30,7 @@ from recon.engine.tier2_amount_date import TIER as TIER2
 from recon.engine.tier3_subsetsum import TIER as TIER3
 
 
-def _prop(txn_id: str, payment_ids: tuple[str, ...], tier: str = TIER3, fs: float = 5.0):
+def _prop(txn_id: str, payment_ids: tuple[str, ...], tier: str = TIER3, fs: float | None = 5.0):
     return _Proposal(
         txn_id=txn_id,
         credit=100_000,
@@ -159,3 +159,49 @@ def test_degenerate_proposal_counts(n):
     granted, contested = _resolve_contested(props)
     assert len(granted) == n
     assert contested == []
+
+
+# --------------------------------------------------------------------------
+# An ABSENT Fellegi-Sunter weight. Regression: this crashed the density sweep.
+# --------------------------------------------------------------------------
+
+def test_an_absent_fs_weight_does_not_crash_the_resolver():
+    """
+    REGRESSION. `Evidence.weight` is None when the FS layer had nothing to weigh -- no
+    usable name, no usable reference. `round(None, 6)` raised TypeError, and it took
+    re-running the density sweep at ppw=12 to find it: neither the primary seed nor the
+    suite contained such a credit.
+    """
+    a = _prop("t_a", ("p1",), tier=TIER2, fs=None)
+    granted, contested = _resolve_contested([a])
+    assert [g.txn_id for g in granted] == ["t_a"]
+    assert contested == []
+
+
+def test_no_evidence_loses_a_contest_against_any_real_weight():
+    """
+    None means "nothing to weigh", which the evidence model treats as categorically
+    different from a weight of zero. Mapping it to 0.0 would let a credit with NO
+    supporting evidence beat one carrying real but slightly negative evidence, and take
+    the contested money. It ranks below every real weight instead.
+    """
+    nothing = _prop("t_none", ("p1",), tier=TIER2, fs=None)
+    negative = _prop("t_neg", ("p1",), tier=TIER2, fs=-2.0)
+    granted, contested = _resolve_contested([nothing, negative])
+    assert [g.txn_id for g in granted] == ["t_neg"]
+    assert [c[0].txn_id for c in contested] == ["t_none"]
+
+
+def test_two_evidence_free_bids_tie_and_both_are_refused():
+    a = _prop("t_a", ("p1",), tier=TIER2, fs=None)
+    b = _prop("t_b", ("p1",), tier=TIER2, fs=None)
+    granted, contested = _resolve_contested([a, b])
+    assert granted == []
+    assert {c[0].txn_id for c in contested} == {"t_a", "t_b"}
+
+
+def test_tier_precedence_still_outranks_an_absent_weight():
+    reference = _prop("t_ref", ("p1",), tier=TIER1, fs=None)
+    searched = _prop("t_sub", ("p1",), tier=TIER3, fs=9.0)
+    granted, _ = _resolve_contested([reference, searched])
+    assert [g.txn_id for g in granted] == ["t_ref"]
