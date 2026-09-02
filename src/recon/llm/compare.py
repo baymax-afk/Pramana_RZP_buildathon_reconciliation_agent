@@ -137,8 +137,18 @@ def measure_parse_yield(inputs: ReconInputs, tier: LLMTier) -> ParseYield:
             refs += 1
         if added_name or added_ref:
             filled += 1
-        # A tier CONTRADICTING the regex tier is worth counting separately: gap-filling
-        # is the tier's job, overriding is not, and `parse_with_llm` must never let it.
+        # How often the tier reads a field DIFFERENTLY from the regex tier.
+        #
+        # Informational, and deliberately not an alarm. It counts what the tier
+        # RETURNS, not what the engine uses: `parse_with_llm` fills gaps only, so a
+        # disagreement here is discarded by the merge and cannot reach a verdict.
+        # Verified -- on a jammed narration the regex tier reads "ORCHIDFOODSPVT" and
+        # the stand-in reads "ORCHIDFOODS PVT"; the merged parse keeps the regex value.
+        #
+        # This counter's note used to read "must be 0", which was simply wrong about its
+        # own metric: a non-zero value says the two parsers disagree about a hard string,
+        # which is expected and harmless. The boundary is enforced in `parse_with_llm`
+        # and asserted directly in tests/test_llm_tier.py.
         if (
             base.payer_name
             and got.payer_name

@@ -688,14 +688,28 @@ def generate(
             # ~18% of credits arrive in a shape the regex tier cannot parse. Real
             # statements contain these; a batch without them makes narration parsing
             # look solved and leaves the LLM tier with nothing to do.
+            #
+            # BOTH branches use `third_party or cust`. The messy branch used to ignore
+            # the third party and narrate with the invoice customer, so a record could
+            # be LABELLED as a name-channel disagreement while carrying no disagreement
+            # at all -- measured at 2 of 7 links on the primary seed, roughly a quarter
+            # of the cohort. Every number reported for `third_party_payer`, including
+            # the outcome-by-defect table, was then computed over data a quarter of
+            # which contradicted its own label.
+            #
+            # It is the same defect the comment below the partial-payment block was
+            # written about: a label that can disagree with the data it describes is
+            # worse than no label. A third-party payer whose narration is also messy is
+            # perfectly realistic -- the two defects are independent -- so the fix is to
+            # honour the payer in both branches rather than to suppress one.
+            # REVIEW_2026-09-02 R3.
+            payer = third_party or cust
             if rng.random() < 0.18:
-                nar = defects.messy_narration(rng, cust, p.notes.get("invoice_no") or "")
-            else:
-                # A third-party payer puts the PARENT's name on the wire, not the
-                # invoice customer's.
-                nar = defects.narrate(
-                    rng, utr, third_party or cust, merchant_ref=quoted
+                nar = defects.messy_narration(
+                    rng, payer, p.notes.get("invoice_no") or ""
                 )
+            else:
+                nar = defects.narrate(rng, utr, payer, merchant_ref=quoted)
             balance += net
             bank_txns.append(
                 BankTxn(

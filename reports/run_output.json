@@ -1,36 +1,64 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-02T17:05:35.550861+00:00",
+  "generated_at": "2026-09-02T23:36:37.831361+00:00",
   "seed": 20260905,
-  "density": 12,
+  "density": 6,
   "totals": {
     "payments": 200,
     "captured_payments": 194,
-    "bank_credits": 130,
-    "invoices": 197,
-    "assigned": 118,
-    "refused": 12,
+    "bank_credits": 141,
+    "invoices": 187,
+    "assigned": 127,
+    "refused": 14,
     "no_candidate": 0,
-    "rupees_at_risk": 163043.81
+    "rupees_at_risk": 253889.05
   },
   "not_examined": {
-    "debit_lines": 2,
-    "rupees": 77882.29,
+    "debit_lines": 6,
+    "rupees": 166732.77,
     "reason": "The engine reads credit transactions only. Money leaving the account -- chargebacks, reversals, bank fees -- is outside its model and is neither matched nor refused.",
     "lines": [
       {
-        "bank_txn_id": "bank_txn_0102",
-        "txn_date": "2026-07-11",
-        "narration": "CHARGEBACK REV AXISP81762919576 DISPUTE",
-        "ref_no": "AXISP81762919576",
-        "rupees": 41380.14
+        "bank_txn_id": "bank_txn_0044",
+        "txn_date": "2026-07-05",
+        "narration": "CHARGEBACK REV ICICR20389267501 DISPUTE",
+        "ref_no": "ICICR20389267501",
+        "rupees": 41102.54
       },
       {
-        "bank_txn_id": "bank_txn_0029",
-        "txn_date": "2026-06-13",
-        "narration": "CHARGEBACK REV UTIBP54461944919 DISPUTE",
-        "ref_no": "UTIBP54461944919",
-        "rupees": 36502.15
+        "bank_txn_id": "bank_txn_0057",
+        "txn_date": "2026-07-10",
+        "narration": "CHARGEBACK REV PUNBR94445115394 DISPUTE",
+        "ref_no": "PUNBR94445115394",
+        "rupees": 39881.09
+      },
+      {
+        "bank_txn_id": "bank_txn_0145",
+        "txn_date": "2026-09-11",
+        "narration": "CHARGEBACK REV HDFCN41860995025 DISPUTE",
+        "ref_no": "HDFCN41860995025",
+        "rupees": 28876.88
+      },
+      {
+        "bank_txn_id": "bank_txn_0146",
+        "txn_date": "2026-09-13",
+        "narration": "CHARGEBACK REV UTIBP08760386266 DISPUTE",
+        "ref_no": "UTIBP08760386266",
+        "rupees": 20261.98
+      },
+      {
+        "bank_txn_id": "bank_txn_0070",
+        "txn_date": "2026-07-16",
+        "narration": "CHARGEBACK REV UTIBP73259920214 DISPUTE",
+        "ref_no": "UTIBP73259920214",
+        "rupees": 18360.66
+      },
+      {
+        "bank_txn_id": "bank_txn_0056",
+        "txn_date": "2026-07-10",
+        "narration": "CHARGEBACK REV KKBKH78913095583 DISPUTE",
+        "ref_no": "KKBKH78913095583",
+        "rupees": 18249.62
       }
     ]
   },
@@ -47,28 +75,41 @@
     "materiality_rupees": 5000.0
   },
   "tier_counts": {
-    "tier2_amount_date": 55,
-    "tier1_reference": 43,
+    "tier1_reference": 46,
+    "tier2_amount_date": 61,
     "tier3_subsetsum": 20
   },
   "exceptions": [
     {
-      "bank_txn_id": "bank_txn_0087",
-      "category": "unexplained_residual",
-      "rupees_at_risk": 48568.23,
-      "txn_date": "2026-07-03",
-      "narration": "IMPS/90058483351/PINNACLE STEEL TRA/INV-2026-1111",
-      "reference": "AXISP90058483351",
-      "why": "The counterparty is right but the money is not. Likely a partial payment or a deduction the ledger does not record.",
-      "next_step": "Establish what the shortfall is -- partial settlement, TDS, or a fee not modelled.",
-      "engine_reason": "reference matches payment pay_SYN001015146 but the amount does not: credit 4856823p vs expected 4861821..4861825p (residual -4998p)",
+      "bank_txn_id": "bank_txn_0050",
+      "category": "decomposition_out_of_bounds",
+      "rupees_at_risk": 45673.58,
+      "txn_date": "2026-07-06",
+      "narration": "NEFT-KKBKH50259179672-ORCHID FOODS PVT-CR",
+      "reference": "KKBKH50259179672",
+      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
+      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "engine_reason": "no subset of the 1 candidates sums to 4567358p within 100p at k<=6",
+      "candidates": [],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0031",
+      "category": "amount_name_conflict",
+      "rupees_at_risk": 44668.48,
+      "txn_date": "2026-06-26",
+      "narration": "NEFT-HDFCN12074445212-LOTUS PAPER MILLS-CR",
+      "reference": "HDFCN12074445212",
+      "why": "The amounts reconcile but the counterparty does not. Either the payer was renamed, or this is a coincidental amount match to the wrong customer.",
+      "next_step": "Confirm the customer identity; do not post on the amount alone.",
+      "engine_reason": "amounts reconcile (residual +0p) but non-amount evidence contradicts it: Fellegi-Sunter field weight -3.26 (total -6.26). name disagreement: bank 'LOTUS PAPER MILLS' vs ['PINNACLE STEELS TRADERS']",
       "candidates": [
         {
           "payment_ids": [
-            "pay_SYN001015146"
+            "pay_SYN000458238"
           ],
-          "rupees": 48618.23,
-          "residual_paise": -4998,
+          "rupees": 44668.5,
+          "residual_paise": 0,
           "customers": [
             "Pinnacle Steels Traders"
           ]
@@ -77,122 +118,157 @@
       "confidence": null
     },
     {
-      "bank_txn_id": "bank_txn_0106",
-      "category": "decomposition_out_of_bounds",
-      "rupees_at_risk": 45438.71,
-      "txn_date": "2026-07-13",
-      "narration": "MB:9812445077-ORCHID FOODS PVT-INV/2026/1157",
-      "reference": "AXISP17715601642",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
-      "engine_reason": "no subset of the 3 candidates sums to 4543871p within 100p at k<=6 (closest miss +379553p)",
-      "candidates": [],
-      "confidence": null
-    },
-    {
-      "bank_txn_id": "bank_txn_0110",
-      "category": "unexplained_residual",
-      "rupees_at_risk": 26303.84,
-      "txn_date": "2026-07-15",
-      "narration": "UPI/41681482940/PAYMENT/ACME INDUSTR/INV-2026-1162",
-      "reference": "UTIBP41681482940",
-      "why": "The counterparty is right but the money is not. Likely a partial payment or a deduction the ledger does not record.",
-      "next_step": "Establish what the shortfall is -- partial settlement, TDS, or a fee not modelled.",
-      "engine_reason": "reference matches payment pay_SYN001535897 but the amount does not: credit 2630384p vs expected 2631562..2631566p (residual -1178p)",
-      "candidates": [
-        {
-          "payment_ids": [
-            "pay_SYN001535897"
-          ],
-          "rupees": 26315.64,
-          "residual_paise": -1178,
-          "customers": [
-            "Acme Industrial Supplies Private Limited"
-          ]
-        }
-      ],
-      "confidence": null
-    },
-    {
-      "bank_txn_id": "bank_txn_0034",
-      "category": "decomposition_out_of_bounds",
-      "rupees_at_risk": 13443.48,
-      "txn_date": "2026-06-15",
-      "narration": "RTGS-PUNBR43617405168-SILVERLINE PACKAGI-CR",
-      "reference": "PUNBR43617405168",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
-      "engine_reason": "no subset of the 4 candidates sums to 1344348p within 100p at k<=6 (closest miss +10591p)",
-      "candidates": [],
-      "confidence": null
-    },
-    {
-      "bank_txn_id": "bank_txn_0001",
-      "category": "decomposition_out_of_bounds",
-      "rupees_at_risk": 7940.98,
-      "txn_date": "2026-06-04",
-      "narration": "RAZORPAY SETTLEMENT setl_rIPVWKcN1ds64E PART 1 OF 2",
-      "reference": "KKBKH39362259223",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
-      "engine_reason": "no subset of the 3 candidates sums to 794098p within 100p at k<=6 (closest miss +252724p)",
-      "candidates": [],
-      "confidence": null
-    },
-    {
-      "bank_txn_id": "bank_txn_0008",
-      "category": "decomposition_out_of_bounds",
-      "rupees_at_risk": 6187.47,
-      "txn_date": "2026-06-04",
-      "narration": "RAZORPAY SETTLEMENT setl_rIPVWKcN1ds64E PART 2 OF 2",
-      "reference": "UTIBP33653001108",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
-      "engine_reason": "no subset of the 3 candidates sums to 618747p within 100p at k<=6 (closest miss +77373p)",
-      "candidates": [],
-      "confidence": null
-    },
-    {
-      "bank_txn_id": "bank_txn_0042",
+      "bank_txn_id": "bank_txn_0128",
       "category": "amount_name_conflict",
-      "rupees_at_risk": 4865.33,
-      "txn_date": "2026-06-16",
-      "narration": "NEFT-PUNBR44900233250-ACME RETAIL PVT LT-CR",
-      "reference": "PUNBR44900233250",
+      "rupees_at_risk": 39975.58,
+      "txn_date": "2026-09-01",
+      "narration": "NEFT-AXISP91304521001-SILVERLINE PACKAGI-CR",
+      "reference": "AXISP91304521001",
       "why": "The amounts reconcile but the counterparty does not. Either the payer was renamed, or this is a coincidental amount match to the wrong customer.",
       "next_step": "Confirm the customer identity; do not post on the amount alone.",
-      "engine_reason": "amounts reconcile (residual +0p) but non-amount evidence contradicts it: Fellegi-Sunter field weight -3.26 (total -7.90). name disagreement: bank 'ACME RETAIL LT' vs ['NOVA CHEMICALS INDIA']",
+      "engine_reason": "amounts reconcile (residual +0p) but non-amount evidence contradicts it: Fellegi-Sunter field weight -3.26 (total -6.72). name disagreement: bank 'SILVERLINE PACKAGI' vs ['HARBOUR MARINE SUPPLIES']",
       "candidates": [
         {
           "payment_ids": [
-            "pay_TWdq5H4Wj5FiW1"
+            "pay_SYN001742843"
           ],
-          "rupees": 4865.33,
+          "rupees": 39975.58,
           "residual_paise": 0,
           "customers": [
-            "Nova Chemicals India Private Limited"
+            "Harbour Marine Supplies"
           ]
         }
       ],
       "confidence": null
     },
     {
-      "bank_txn_id": "bank_txn_0048",
+      "bank_txn_id": "bank_txn_0135",
       "category": "unexplained_residual",
-      "rupees_at_risk": 4132.07,
-      "txn_date": "2026-06-18",
-      "narration": "RTGS-UTIBP46629787840-NOVA CHEMICALS IND-INV-2026-1056-CR",
-      "reference": "UTIBP46629787840",
+      "rupees_at_risk": 39183.55,
+      "txn_date": "2026-09-07",
+      "narration": "RTGS-KKBKH63765170736-GREENFIELD ORGANIC-INV-2026-1179-CR",
+      "reference": "KKBKH63765170736",
       "why": "The counterparty is right but the money is not. Likely a partial payment or a deduction the ledger does not record.",
       "next_step": "Establish what the shortfall is -- partial settlement, TDS, or a fee not modelled.",
-      "engine_reason": "reference matches payment pay_R2XTWf0ZuwMZJXKs9 but the amount does not: credit 413207p vs expected 416205..416209p (residual -2998p)",
+      "engine_reason": "reference matches payment pay_SYN001844736 but the amount does not: credit 3918355p vs expected 3918853..3918857p (residual -498p)",
       "candidates": [
         {
           "payment_ids": [
-            "pay_R2XTWf0ZuwMZJXKs9"
+            "pay_SYN001844736"
           ],
-          "rupees": 4162.07,
-          "residual_paise": -2998,
+          "rupees": 39188.55,
+          "residual_paise": -498,
+          "customers": [
+            "GREENFIELD ORGANIC"
+          ]
+        }
+      ],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0089",
+      "category": "decomposition_out_of_bounds",
+      "rupees_at_risk": 21044.99,
+      "txn_date": "2026-08-05",
+      "narration": "RAZORPAY SETTLEMENT setl_i5dazeBPnUGQ2F 1 TXNS",
+      "reference": "AXISP62419861700",
+      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
+      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "engine_reason": "no subset of the 2 candidates sums to 2104499p within 100p at k<=6",
+      "candidates": [],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0004",
+      "category": "decomposition_out_of_bounds",
+      "rupees_at_risk": 13168.37,
+      "txn_date": "2026-06-06",
+      "narration": "RAZORPAY SETTLEMENT setl_KqPpowfwOFbJhV PART 2 OF 2",
+      "reference": "UTIBP91060626569",
+      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
+      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "engine_reason": "no subset of the 4 candidates sums to 1316837p within 100p at k<=6 (closest miss +89543p)",
+      "candidates": [],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0003",
+      "category": "decomposition_out_of_bounds",
+      "rupees_at_risk": 11287.82,
+      "txn_date": "2026-06-06",
+      "narration": "RAZORPAY SETTLEMENT setl_KqPpowfwOFbJhV PART 1 OF 2",
+      "reference": "UTIBP88628414531",
+      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
+      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "engine_reason": "no subset of the 4 candidates sums to 1128782p within 100p at k<=6 (closest miss +211234p)",
+      "candidates": [],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0112",
+      "category": "amount_name_conflict",
+      "rupees_at_risk": 9473.62,
+      "txn_date": "2026-08-18",
+      "narration": "NEFT-ICICR83645844342-BHARATI TRADERS LL-CR",
+      "reference": "ICICR83645844342",
+      "why": "The amounts reconcile but the counterparty does not. Either the payer was renamed, or this is a coincidental amount match to the wrong customer.",
+      "next_step": "Confirm the customer identity; do not post on the amount alone.",
+      "engine_reason": "amounts reconcile (residual +0p) but non-amount evidence contradicts it: Fellegi-Sunter field weight -3.26 (total -6.84). name disagreement: bank 'BHARATI TRADERS LL' vs ['MERIDIAN LOGISTICS']",
+      "candidates": [
+        {
+          "payment_ids": [
+            "pay_SYN001461845"
+          ],
+          "rupees": 9672.22,
+          "residual_paise": 0,
+          "customers": [
+            "Meridian Logistics LLP"
+          ]
+        }
+      ],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0027",
+      "category": "amount_name_conflict",
+      "rupees_at_risk": 8863.76,
+      "txn_date": "2026-06-22",
+      "narration": "BY CLG/666792/VERTEX ENGINEERIN",
+      "reference": "UTIBP51234026739",
+      "why": "The amounts reconcile but the counterparty does not. Either the payer was renamed, or this is a coincidental amount match to the wrong customer.",
+      "next_step": "Confirm the customer identity; do not post on the amount alone.",
+      "engine_reason": "amounts reconcile (residual +0p) but non-amount evidence contradicts it: Fellegi-Sunter field weight -3.26 (total -6.58). name disagreement: bank 'VERTEX ENGINEERIN' vs ['SILVERLINE PACKAGING']",
+      "candidates": [
+        {
+          "payment_ids": [
+            "pay_TWdulPFK9A74yH"
+          ],
+          "rupees": 8863.76,
+          "residual_paise": 0,
+          "customers": [
+            "Silverline Packaging LLP"
+          ]
+        }
+      ],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0038",
+      "category": "unexplained_residual",
+      "rupees_at_risk": 6435.37,
+      "txn_date": "2026-07-01",
+      "narration": "NEFT-KKBKH05851893192-NOVA CHEMICALS IND-INV-2026-1057-CR",
+      "reference": "KKBKH05851893192",
+      "why": "The counterparty is right but the money is not. Likely a partial payment or a deduction the ledger does not record.",
+      "next_step": "Establish what the shortfall is -- partial settlement, TDS, or a fee not modelled.",
+      "engine_reason": "reference matches payment pay_SYN000606242 but the amount does not: credit 643537p vs expected 644715..644719p (residual -1178p)",
+      "candidates": [
+        {
+          "payment_ids": [
+            "pay_SYN000606242"
+          ],
+          "rupees": 6447.17,
+          "residual_paise": -1178,
           "customers": [
             "Nova Chemical India Private Limited"
           ]
@@ -201,70 +277,70 @@
       "confidence": null
     },
     {
-      "bank_txn_id": "bank_txn_0016",
+      "bank_txn_id": "bank_txn_0008",
+      "category": "decomposition_out_of_bounds",
+      "rupees_at_risk": 4953.06,
+      "txn_date": "2026-06-08",
+      "narration": "RAZORPAY SETTLEMENT setl_g3m4bPmmj6FV86 PART 2 OF 2",
+      "reference": "HDFCN11335953218",
+      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
+      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "engine_reason": "no subset of the 1 candidates sums to 495306p within 100p at k<=6",
+      "candidates": [],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0005",
+      "category": "decomposition_out_of_bounds",
+      "rupees_at_risk": 4222.4,
+      "txn_date": "2026-06-08",
+      "narration": "RAZORPAY SETTLEMENT setl_g3m4bPmmj6FV86 PART 1 OF 2",
+      "reference": "KKBKH30180936761",
+      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
+      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "engine_reason": "no subset of the 1 candidates sums to 422240p within 100p at k<=6",
+      "candidates": [],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0064",
       "category": "unexplained_residual",
-      "rupees_at_risk": 3047.44,
-      "txn_date": "2026-06-09",
-      "narration": "UPI/29653178250/PAYMENT/SUNRISE TEXT/INV-2026-1021",
-      "reference": "HDFCN29653178250",
+      "rupees_at_risk": 4138.47,
+      "txn_date": "2026-07-13",
+      "narration": "NEFT-AXISP49789229159-NOVA CHEMICALS IND-INV-2026-1080-CR",
+      "reference": "AXISP49789229159",
       "why": "The counterparty is right but the money is not. Likely a partial payment or a deduction the ledger does not record.",
       "next_step": "Establish what the shortfall is -- partial settlement, TDS, or a fee not modelled.",
-      "engine_reason": "reference matches payment pay_TWetruAwIULxPh but the amount does not: credit 304744p vs expected 309742..309746p (residual -4998p)",
+      "engine_reason": "reference matches payment pay_R2XTWf0ZuwMZJXKs9 but the amount does not: credit 413847p vs expected 416205..416209p (residual -2358p)",
       "candidates": [
         {
           "payment_ids": [
-            "pay_TWetruAwIULxPh"
+            "pay_R2XTWf0ZuwMZJXKs9"
           ],
-          "rupees": 3097.44,
-          "residual_paise": -4998,
+          "rupees": 4162.07,
+          "residual_paise": -2358,
           "customers": [
-            "Sunrise Textile Limited"
+            "Nova Chemical India Private Limited"
           ]
         }
       ],
       "confidence": null
     },
     {
-      "bank_txn_id": "bank_txn_0002",
-      "category": "decomposition_out_of_bounds",
-      "rupees_at_risk": 1180.7,
-      "txn_date": "2026-06-04",
-      "narration": "RAZORPAY SETTLEMENT setl_fvaWpnvy9AjC4k PART 1 OF 2",
-      "reference": "UTIBP16307447382",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
-      "engine_reason": "no subset of the 3 candidates sums to 118070p within 100p at k<=6",
-      "candidates": [],
-      "confidence": null
-    },
-    {
-      "bank_txn_id": "bank_txn_0009",
-      "category": "decomposition_out_of_bounds",
-      "rupees_at_risk": 1135.56,
-      "txn_date": "2026-06-04",
-      "narration": "RAZORPAY SETTLEMENT setl_fvaWpnvy9AjC4k PART 2 OF 2",
-      "reference": "UTIBP99546224271",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
-      "engine_reason": "no subset of the 3 candidates sums to 113556p within 100p at k<=6",
-      "candidates": [],
-      "confidence": null
-    },
-    {
-      "bank_txn_id": "bank_txn_0071",
+      "bank_txn_id": "bank_txn_0078",
       "category": "multiple_candidates",
       "rupees_at_risk": 800.0,
-      "txn_date": "2026-06-28",
-      "narration": "RAZORPAY SETTLEMENT setl_YQMcMPXXVvkOsy 2 TXNS",
-      "reference": "AXISP11729690492",
+      "txn_date": "2026-07-25",
+      "narration": "RAZORPAY SETTLEMENT setl_4BbjqgOyYt88bA 2 TXNS",
+      "reference": "UTIBP19023211356",
       "why": "More than one set of payments explains this credit equally well. The amounts cannot single one out.",
       "next_step": "Pick the correct set from the candidates listed, or ask the payer for a remittance advice.",
-      "engine_reason": "2 distinct subsets each satisfy this credit within 100p: {pay_AMBIG0986537, pay_AMBIG1611053} | {pay_AMBIG2792392, pay_AMBIG3756095}; amount evidence cannot identify one",
+      "engine_reason": "2 distinct subsets each satisfy this credit within 100p: {pay_AMBIG0977373, pay_AMBIG1779154} | {pay_AMBIG2636470, pay_AMBIG3243616}; amount evidence cannot identify one",
       "candidates": [
         {
           "payment_ids": [
-            "pay_AMBIG0986537",
-            "pay_AMBIG1611053"
+            "pay_AMBIG0977373",
+            "pay_AMBIG1779154"
           ],
           "rupees": 800.0,
           "residual_paise": 0,
@@ -274,8 +350,8 @@
         },
         {
           "payment_ids": [
-            "pay_AMBIG2792392",
-            "pay_AMBIG3756095"
+            "pay_AMBIG2636470",
+            "pay_AMBIG3243616"
           ],
           "rupees": 800.0,
           "residual_paise": 0,
@@ -289,21 +365,21 @@
   ],
   "assignments": [
     {
-      "bank_txn_id": "bank_txn_0059",
+      "bank_txn_id": "bank_txn_0072",
       "payment_ids": [
-        "pay_SYN000791371",
-        "pay_SYN000827802",
-        "pay_SYN000835150",
-        "pay_SYN000844534"
+        "pay_SYN000911393",
+        "pay_SYN000928153",
+        "pay_SYN000935737",
+        "pay_SYN000946029"
       ],
       "invoice_nos": [
-        "INV-2026-1077",
-        "INV-2026-1080",
-        "INV-2026-1081",
-        "INV-2026-1082"
+        "INV-2026-1087",
+        "INV-2026-1088",
+        "INV-2026-1089",
+        "INV-2026-1090"
       ],
       "tier": "tier3_subsetsum",
-      "rupees": 134854.73,
+      "rupees": 155784.07,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
@@ -312,23 +388,21 @@
       "confidence": 0.9627
     },
     {
-      "bank_txn_id": "bank_txn_0096",
+      "bank_txn_id": "bank_txn_0097",
       "payment_ids": [
-        "pay_SYN001253037",
-        "pay_SYN001276401",
-        "pay_SYN001282143",
-        "pay_SYN001291343",
-        "pay_SYN001325906"
+        "pay_SYN001276515",
+        "pay_SYN001281851",
+        "pay_SYN001305308",
+        "pay_SYN001311552"
       ],
       "invoice_nos": [
-        "INV-2026-1134",
-        "INV-2026-1136",
-        "INV-2026-1137",
-        "INV-2026-1138",
-        "INV-2026-1141"
+        "INV-2026-1127",
+        "INV-2026-1128",
+        "INV-2026-1130",
+        "INV-2026-1131"
       ],
       "tier": "tier3_subsetsum",
-      "rupees": 119527.38,
+      "rupees": 109921.4,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
@@ -337,289 +411,18 @@
       "confidence": 0.9627
     },
     {
-      "bank_txn_id": "bank_txn_0083",
+      "bank_txn_id": "bank_txn_0101",
       "payment_ids": [
-        "pay_SYN000978892",
-        "pay_SYN000993990",
-        "pay_SYN001066227"
+        "pay_SYN001345998",
+        "pay_SYN001362864",
+        "pay_SYN001378610"
       ],
       "invoice_nos": [
-        "INV-2026-1107",
-        "INV-2026-1109",
-        "INV-2026-1116"
+        "INV-2026-1135",
+        "INV-2026-1136"
       ],
       "tier": "tier3_subsetsum",
-      "rupees": 110982.11,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0100",
-      "payment_ids": [
-        "pay_SYN001354815",
-        "pay_SYN001387628",
-        "pay_SYN001399573",
-        "pay_SYN001422660"
-      ],
-      "invoice_nos": [
-        "INV-2026-1144",
-        "INV-2026-1147",
-        "INV-2026-1148",
-        "INV-2026-1151"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 104664.57,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 0.78,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9432
-    },
-    {
-      "bank_txn_id": "bank_txn_0113",
-      "payment_ids": [
-        "pay_SYN001603654",
-        "pay_SYN001639078",
-        "pay_SYN001641966",
-        "pay_SYN001665371",
-        "pay_SYN001679055"
-      ],
-      "invoice_nos": [
-        "INV-2026-1169",
-        "INV-2026-1172",
-        "INV-2026-1173",
-        "INV-2026-1175",
-        "INV-2026-1176"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 94432.52,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0105",
-      "payment_ids": [
-        "pay_SYN001464067",
-        "pay_SYN001493514",
-        "pay_SYN001549375"
-      ],
-      "invoice_nos": [
-        "INV-2026-1155",
-        "INV-2026-1158",
-        "INV-2026-1163"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 88147.69,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0088",
-      "payment_ids": [
-        "pay_SYN001109781",
-        "pay_SYN001129775",
-        "pay_SYN001137894",
-        "pay_SYN001146314",
-        "pay_SYN001186874"
-      ],
-      "invoice_nos": [
-        "INV-2026-1119",
-        "INV-2026-1121",
-        "INV-2026-1122",
-        "INV-2026-1123",
-        "INV-2026-1127"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 77350.06,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0068",
-      "payment_ids": [
-        "pay_SYN000858441",
-        "pay_SYN000865119",
-        "pay_SYN000884379",
-        "pay_SYN000926175",
-        "pay_SYN000965953"
-      ],
-      "invoice_nos": [
-        "INV-2026-1083",
-        "INV-2026-1084",
-        "INV-2026-1086",
-        "INV-2026-1090",
-        "INV-2026-1094"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 77146.13,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0109",
-      "payment_ids": [
-        "pay_SYN001454617",
-        "pay_SYN001519260",
-        "pay_SYN001528605",
-        "pay_SYN001563826"
-      ],
-      "invoice_nos": [
-        "INV-2026-1154",
-        "INV-2026-1160",
-        "INV-2026-1161",
-        "INV-2026-1165"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 76509.8,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0053",
-      "payment_ids": [
-        "pay_SYN000639468",
-        "pay_SYN000664125",
-        "pay_SYN000686153",
-        "pay_SYN000695827",
-        "pay_SYN000706804"
-      ],
-      "invoice_nos": [
-        "INV-2026-1062",
-        "INV-2026-1065",
-        "INV-2026-1067",
-        "INV-2026-1068",
-        "INV-2026-1069"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 68818.26,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0118",
-      "payment_ids": [
-        "pay_SYN001704287",
-        "pay_SYN001743946",
-        "pay_SYN001764721",
-        "pay_SYN001793594"
-      ],
-      "invoice_nos": [
-        "INV-2026-1179",
-        "INV-2026-1183",
-        "INV-2026-1185",
-        "INV-2026-1188"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 68128.58,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0132",
-      "payment_ids": [
-        "pay_SYN001846203",
-        "pay_SYN001874168"
-      ],
-      "invoice_nos": [
-        "INV-2026-1193",
-        "INV-2026-1196"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 63773.7,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0089",
-      "payment_ids": [
-        "pay_SYN001093799",
-        "pay_SYN001117019",
-        "pay_SYN001169062",
-        "pay_SYN001206711"
-      ],
-      "invoice_nos": [
-        "INV-2026-1118",
-        "INV-2026-1120",
-        "INV-2026-1125",
-        "INV-2026-1129"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 59432.03,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0026",
-      "payment_ids": [
-        "pay_SYN000352968",
-        "pay_TWeiUJBUtXCNYn"
-      ],
-      "invoice_nos": [
-        "INV-2026-1035",
-        "INV-2026-1026"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 51065.03,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0116",
-      "payment_ids": [
-        "pay_SYN001593827",
-        "pay_SYN001688064"
-      ],
-      "invoice_nos": [
-        "INV-2026-1168",
-        "INV-2026-1177"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 48578.82,
+      "rupees": 97982.59,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
@@ -630,210 +433,21 @@
     {
       "bank_txn_id": "bank_txn_0052",
       "payment_ids": [
-        "pay_SYN000651599"
+        "pay_SYN000672049",
+        "pay_SYN000683937",
+        "pay_SYN000696114",
+        "pay_SYN000713382",
+        "pay_SYN000729156"
       ],
       "invoice_nos": [
-        "INV-2026-1064"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 48535.44,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0062",
-      "payment_ids": [
-        "pay_SYN000783242"
-      ],
-      "invoice_nos": [
-        "INV-2026-1076"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 48235.44,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.871,
-      "permutation_stability": 1.0,
-      "confidence": 0.9618
-    },
-    {
-      "bank_txn_id": "bank_txn_0038",
-      "payment_ids": [
-        "pay_SYN000582976"
-      ],
-      "invoice_nos": [
-        "INV-2026-1057"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 47274.07,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.292,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0127",
-      "payment_ids": [
-        "pay_SYN001816226"
-      ],
-      "invoice_nos": [
-        "INV-2026-1190"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 47162.01,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 4.746,
-      "permutation_stability": 1.0,
-      "confidence": 0.964
-    },
-    {
-      "bank_txn_id": "bank_txn_0128",
-      "payment_ids": [
-        "pay_SYN001868934"
-      ],
-      "invoice_nos": [
-        "INV-2026-1195"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 46732.49,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 4.746,
-      "permutation_stability": 1.0,
-      "confidence": 0.964
-    },
-    {
-      "bank_txn_id": "bank_txn_0091",
-      "payment_ids": [
-        "pay_SYN001179314"
-      ],
-      "invoice_nos": [
-        "INV-2026-1126"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 46467.53,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0014",
-      "payment_ids": [
-        "pay_SYN000137299"
-      ],
-      "invoice_nos": [
-        "INV-2026-1013"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 46264.94,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0018",
-      "payment_ids": [
-        "pay_SYN000185586"
-      ],
-      "invoice_nos": [
-        "INV-2026-1018"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 46182.22,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 0.182,
-      "permutation_stability": 1.0,
-      "confidence": 0.9265
-    },
-    {
-      "bank_txn_id": "bank_txn_0097",
-      "payment_ids": [
-        "pay_SYN001366402"
-      ],
-      "invoice_nos": [
-        "INV-2026-1145"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 45186.7,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.537,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0003",
-      "payment_ids": [
-        "pay_SYN000037491",
-        "pay_TWdoUNOlyGqTcU",
-        "pay_TWdsbW2RO6NDwB",
-        "pay_TWdwqHrmklQ6gJ"
-      ],
-      "invoice_nos": [
-        "INV-2026-1003",
-        "INV-2026-1012",
-        "INV-2026-1001",
-        "INV-2026-1006"
+        "INV-2026-1064",
+        "INV-2026-1065",
+        "INV-2026-1066",
+        "INV-2026-1068",
+        "INV-2026-1069"
       ],
       "tier": "tier3_subsetsum",
-      "rupees": 43104.17,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 0.84,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9493
-    },
-    {
-      "bank_txn_id": "bank_txn_0117",
-      "payment_ids": [
-        "pay_SYN001589712"
-      ],
-      "invoice_nos": [
-        "INV-2026-1167"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 43029.19,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.406,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0093",
-      "payment_ids": [
-        "pay_SYN001231322",
-        "pay_SYN001242710",
-        "pay_SYN001307640"
-      ],
-      "invoice_nos": [
-        "INV-2026-1132",
-        "INV-2026-1133",
-        "INV-2026-1139"
-      ],
-      "tier": "tier3_subsetsum",
-      "rupees": 42239.29,
+      "rupees": 93835.41,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
@@ -842,53 +456,21 @@
       "confidence": 0.9627
     },
     {
-      "bank_txn_id": "bank_txn_0033",
+      "bank_txn_id": "bank_txn_0081",
       "payment_ids": [
-        "pay_SYN000389453"
+        "pay_SYN001033850",
+        "pay_SYN001046238",
+        "pay_SYN001061229",
+        "pay_SYN001081783"
       ],
       "invoice_nos": [
-        "INV-2026-1038"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 41923.66,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.172,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0101",
-      "payment_ids": [
-        "pay_SYN001338950",
-        "pay_SYN001416201",
-        "pay_SYN001437919"
-      ],
-      "invoice_nos": [
-        "INV-2026-1142",
-        "INV-2026-1150",
-        "INV-2026-1152"
+        "INV-2026-1105",
+        "INV-2026-1106",
+        "INV-2026-1108",
+        "INV-2026-1110"
       ],
       "tier": "tier3_subsetsum",
-      "rupees": 41469.47,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0095",
-      "payment_ids": [
-        "pay_SYN001218312"
-      ],
-      "invoice_nos": [
-        "INV-2026-1130"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 41380.14,
+      "rupees": 92857.91,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
@@ -899,255 +481,42 @@
     {
       "bank_txn_id": "bank_txn_0084",
       "payment_ids": [
-        "pay_SYN001009078"
+        "pay_SYN001097892",
+        "pay_SYN001104455",
+        "pay_SYN001117339",
+        "pay_SYN001131847"
       ],
       "invoice_nos": [
-        "INV-2026-1110"
+        "INV-2026-1111",
+        "INV-2026-1112",
+        "INV-2026-1113",
+        "INV-2026-1115"
       ],
-      "tier": "tier2_amount_date",
-      "rupees": 41124.85,
+      "tier": "tier3_subsetsum",
+      "rupees": 79140.29,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0043",
-      "payment_ids": [
-        "pay_SYN000505410"
-      ],
-      "invoice_nos": [
-        "INV-2026-1049"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 41009.04,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.47,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0066",
-      "payment_ids": [
-        "pay_SYN000956868"
-      ],
-      "invoice_nos": [
-        "INV-2026-1093"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 40879.48,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.862,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0104",
-      "payment_ids": [
-        "pay_SYN001555862"
-      ],
-      "invoice_nos": [
-        "INV-2026-1164"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 40105.12,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.687,
-      "permutation_stability": 1.0,
-      "confidence": 0.9605
-    },
-    {
-      "bank_txn_id": "bank_txn_0119",
-      "payment_ids": [
-        "pay_SYN001772090"
-      ],
-      "invoice_nos": [
-        "INV-2026-1186"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 39603.16,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.599,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0129",
-      "payment_ids": [
-        "pay_SYN001828431"
-      ],
-      "invoice_nos": [
-        "INV-2026-1191"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 39482.71,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 0.737,
-      "permutation_stability": 1.0,
-      "confidence": 0.9333
-    },
-    {
-      "bank_txn_id": "bank_txn_0120",
-      "payment_ids": [
-        "pay_SYN001721950"
-      ],
-      "invoice_nos": [
-        "INV-2026-1181"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 38642.12,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 4.009,
+      "fs_weight": null,
       "permutation_stability": 1.0,
       "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0061",
-      "payment_ids": [
-        "pay_SYN000817247"
-      ],
-      "invoice_nos": [
-        "INV-2026-1079"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 38575.89,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.47,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0115",
-      "payment_ids": [
-        "pay_SYN001613377"
-      ],
-      "invoice_nos": [
-        "INV-2026-1170"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 38501.85,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.537,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0007",
-      "payment_ids": [
-        "pay_SYN000083238"
-      ],
-      "invoice_nos": [
-        "INV-2026-1008"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 36502.15,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 0.652,
-      "permutation_stability": 1.0,
-      "confidence": 0.9323
-    },
-    {
-      "bank_txn_id": "bank_txn_0123",
-      "payment_ids": [
-        "pay_SYN001753819"
-      ],
-      "invoice_nos": [
-        "INV-2026-1184"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 36282.99,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 0.0,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
     },
     {
       "bank_txn_id": "bank_txn_0067",
       "payment_ids": [
-        "pay_SYN000879005"
+        "pay_SYN000867318",
+        "pay_SYN000873282",
+        "pay_SYN000899302",
+        "pay_SYN000901156"
       ],
       "invoice_nos": [
-        "INV-2026-1085"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 35880.72,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.263,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0024",
-      "payment_ids": [
-        "pay_SYN000312023"
-      ],
-      "invoice_nos": [
-        "INV-2026-1031"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 35707.82,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.682,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0090",
-      "payment_ids": [
-        "pay_SYN001159415"
-      ],
-      "invoice_nos": [
-        "INV-2026-1124"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 35525.19,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.202,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0086",
-      "payment_ids": [
-        "pay_SYN000984081",
-        "pay_SYN001032778",
-        "pay_SYN001071507"
-      ],
-      "invoice_nos": [
-        "INV-2026-1108",
-        "INV-2026-1113",
-        "INV-2026-1117"
+        "INV-2026-1083",
+        "INV-2026-1084",
+        "INV-2026-1085",
+        "INV-2026-1086"
       ],
       "tier": "tier3_subsetsum",
-      "rupees": 35296.97,
+      "rupees": 77854.67,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
@@ -1156,1086 +525,563 @@
       "confidence": 0.9627
     },
     {
-      "bank_txn_id": "bank_txn_0058",
+      "bank_txn_id": "bank_txn_0119",
       "payment_ids": [
-        "pay_SYN000763940"
+        "pay_SYN001578627",
+        "pay_SYN001585706",
+        "pay_SYN001616428"
       ],
       "invoice_nos": [
-        "INV-2026-1075"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 35179.28,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.47,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0092",
-      "payment_ids": [
-        "pay_SYN001223288"
-      ],
-      "invoice_nos": [
-        "INV-2026-1131"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 34826.8,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.807,
-      "permutation_stability": 1.0,
-      "confidence": 0.9614
-    },
-    {
-      "bank_txn_id": "bank_txn_0107",
-      "payment_ids": [
-        "pay_SYN001505947"
-      ],
-      "invoice_nos": [
-        "INV-2026-1159"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 32370.27,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.921,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0021",
-      "payment_ids": [
-        "pay_SYN000305185"
-      ],
-      "invoice_nos": [
-        "INV-2026-1030"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 32226.11,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0055",
-      "payment_ids": [
-        "pay_SYN000728245"
-      ],
-      "invoice_nos": [
-        "INV-2026-1071"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 31311.49,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0028",
-      "payment_ids": [
-        "pay_R2XTWezmeqK3RKRWG",
-        "pay_R2XTWf07xIRgP3mLt",
-        "pay_SYN000447838",
-        "pay_SYN000452510"
-      ],
-      "invoice_nos": [
-        "INV-2026-1040",
-        "INV-2026-1041",
-        "INV-2026-1044",
-        "INV-2026-1045"
+        "INV-2026-1155",
+        "INV-2026-1157"
       ],
       "tier": "tier3_subsetsum",
-      "rupees": 29894.26,
+      "rupees": 66015.94,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
       "fs_weight": null,
       "permutation_stability": 1.0,
       "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0070",
-      "payment_ids": [
-        "pay_SYN000949712"
-      ],
-      "invoice_nos": [
-        "INV-2026-1092"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 29549.48,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.406,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0041",
-      "payment_ids": [
-        "pay_SYN000535558"
-      ],
-      "invoice_nos": [
-        "INV-2026-1052"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 29162.76,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.921,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
     },
     {
       "bank_txn_id": "bank_txn_0131",
       "payment_ids": [
-        "pay_SYN001851242"
+        "pay_SYN001752014",
+        "pay_SYN001786519",
+        "pay_SYN001799189"
       ],
       "invoice_nos": [
-        "INV-2026-1194"
+        "INV-2026-1170",
+        "INV-2026-1173",
+        "INV-2026-1174"
       ],
-      "tier": "tier1_reference",
-      "rupees": 25747.77,
+      "tier": "tier3_subsetsum",
+      "rupees": 56744.86,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.523,
+      "fs_weight": null,
       "permutation_stability": 1.0,
-      "confidence": 0.9653
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0120",
+      "payment_ids": [
+        "pay_SYN001641714"
+      ],
+      "invoice_nos": [
+        "INV-2026-1160"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 48732.2,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.798,
+      "permutation_stability": 1.0,
+      "confidence": 0.934
     },
     {
       "bank_txn_id": "bank_txn_0125",
       "payment_ids": [
-        "pay_SYN001807187"
+        "pay_SYN001722366"
       ],
       "invoice_nos": [
-        "INV-2026-1189"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 23896.12,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 4.083,
-      "permutation_stability": 1.0,
-      "confidence": 0.9628
-    },
-    {
-      "bank_txn_id": "bank_txn_0064",
-      "payment_ids": [
-        "pay_SYN000917950"
-      ],
-      "invoice_nos": [
-        "INV-2026-1089"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 21910.05,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.746,
-      "permutation_stability": 1.0,
-      "confidence": 0.9609
-    },
-    {
-      "bank_txn_id": "bank_txn_0049",
-      "payment_ids": [
-        "pay_SYN000676821"
-      ],
-      "invoice_nos": [
-        "INV-2026-1066"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 21873.04,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.938,
-      "permutation_stability": 1.0,
-      "confidence": 0.9623
-    },
-    {
-      "bank_txn_id": "bank_txn_0126",
-      "payment_ids": [
-        "pay_SYN001836104"
-      ],
-      "invoice_nos": [
-        "INV-2026-1192"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 21574.99,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 4.331,
-      "permutation_stability": 1.0,
-      "confidence": 0.9633
-    },
-    {
-      "bank_txn_id": "bank_txn_0035",
-      "payment_ids": [
-        "pay_SYN000435192"
-      ],
-      "invoice_nos": [
-        "INV-2026-1043"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 20915.56,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.807,
-      "permutation_stability": 1.0,
-      "confidence": 0.9614
-    },
-    {
-      "bank_txn_id": "bank_txn_0065",
-      "payment_ids": [
-        "pay_SYN000933756"
-      ],
-      "invoice_nos": [
-        "INV-2026-1091"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 20746.08,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.746,
-      "permutation_stability": 1.0,
-      "confidence": 0.9609
-    },
-    {
-      "bank_txn_id": "bank_txn_0032",
-      "payment_ids": [
-        "pay_SYN000373832"
-      ],
-      "invoice_nos": [
-        "INV-2026-1037"
+        "INV-2026-1168"
       ],
       "tier": "tier2_amount_date",
-      "rupees": 20736.34,
+      "rupees": 48398.09,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
+      "fs_weight": -2.782,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
     {
-      "bank_txn_id": "bank_txn_0122",
+      "bank_txn_id": "bank_txn_0141",
       "payment_ids": [
-        "pay_SYN001738290"
+        "pay_SYN001906723"
       ],
       "invoice_nos": [
-        "INV-2026-1182"
+        "INV-2026-1183"
       ],
       "tier": "tier2_amount_date",
-      "rupees": 20586.34,
+      "rupees": 48313.36,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.599,
+      "fs_weight": 1.213,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0044",
-      "payment_ids": [
-        "pay_SYN000511713"
-      ],
-      "invoice_nos": [
-        "INV-2026-1050"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 20368.15,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.736,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0056",
-      "payment_ids": [
-        "pay_SYN000731968"
-      ],
-      "invoice_nos": [
-        "INV-2026-1072"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 20075.94,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.871,
-      "permutation_stability": 1.0,
-      "confidence": 0.9618
-    },
-    {
-      "bank_txn_id": "bank_txn_0057",
-      "payment_ids": [
-        "pay_SYN000802681"
-      ],
-      "invoice_nos": [
-        "INV-2026-1078"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 19607.43,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.47,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0082",
-      "payment_ids": [
-        "pay_SYN001022576"
-      ],
-      "invoice_nos": [
-        "INV-2026-1112"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 19573.33,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.47,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
+      "confidence": 0.9386
     },
     {
       "bank_txn_id": "bank_txn_0103",
       "payment_ids": [
-        "pay_SYN001374589"
-      ],
-      "invoice_nos": [
-        "INV-2026-1146"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 18441.49,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.687,
-      "permutation_stability": 1.0,
-      "confidence": 0.9605
-    },
-    {
-      "bank_txn_id": "bank_txn_0108",
-      "payment_ids": [
-        "pay_SYN001472088"
-      ],
-      "invoice_nos": [
-        "INV-2026-1156"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 18228.21,
-      "residual_paise": 1,
-      "residual_tightness": 0.99,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.202,
-      "permutation_stability": 1.0,
-      "confidence": 0.922
-    },
-    {
-      "bank_txn_id": "bank_txn_0010",
-      "payment_ids": [
-        "pay_TWercCkkQwdC7l"
-      ],
-      "invoice_nos": [
-        "INV-2026-1002"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 18214.54,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.525,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0098",
-      "payment_ids": [
-        "pay_SYN001449513"
-      ],
-      "invoice_nos": [
-        "INV-2026-1153"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 18158.06,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.669,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0079",
-      "payment_ids": [
-        "pay_SYN900075058"
-      ],
-      "invoice_nos": [
-        "INV-2026-1106"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 18119.1,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.202,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0099",
-      "payment_ids": [
-        "pay_SYN001343295"
+        "pay_SYN001441035"
       ],
       "invoice_nos": [
         "INV-2026-1143"
       ],
       "tier": "tier1_reference",
-      "rupees": 17802.53,
+      "rupees": 48020.17,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 7.537,
+      "fs_weight": 0.815,
       "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0036",
-      "payment_ids": [
-        "pay_SYN000473683"
-      ],
-      "invoice_nos": [
-        "INV-2026-1047"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 17477.19,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.807,
-      "permutation_stability": 1.0,
-      "confidence": 0.9614
-    },
-    {
-      "bank_txn_id": "bank_txn_0069",
-      "payment_ids": [
-        "pay_SYN000891425"
-      ],
-      "invoice_nos": [
-        "INV-2026-1087"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 16689.97,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.736,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0030",
-      "payment_ids": [
-        "pay_SYN000468436"
-      ],
-      "invoice_nos": [
-        "INV-2026-1046"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 16292.89,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.807,
-      "permutation_stability": 1.0,
-      "confidence": 0.9614
-    },
-    {
-      "bank_txn_id": "bank_txn_0130",
-      "payment_ids": [
-        "pay_SYN001889536"
-      ],
-      "invoice_nos": [
-        "INV-2026-1197"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 16252.83,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 1.515,
-      "permutation_stability": 1.0,
-      "confidence": 0.9418
-    },
-    {
-      "bank_txn_id": "bank_txn_0050",
-      "payment_ids": [
-        "pay_SYN000717046"
-      ],
-      "invoice_nos": [
-        "INV-2026-1070"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 15750.23,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.938,
-      "permutation_stability": 1.0,
-      "confidence": 0.9623
-    },
-    {
-      "bank_txn_id": "bank_txn_0073",
-      "payment_ids": [
-        "pay_SYN900011382"
-      ],
-      "invoice_nos": [
-        "INV-2026-1100"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 15381.07,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0080",
-      "payment_ids": [
-        "pay_R2XTWf04vEnwQt5kM"
-      ],
-      "invoice_nos": [
-        "INV-2026-1114"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 14838.52,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.871,
-      "permutation_stability": 1.0,
-      "confidence": 0.9618
-    },
-    {
-      "bank_txn_id": "bank_txn_0045",
-      "payment_ids": [
-        "pay_SYN000491197"
-      ],
-      "invoice_nos": [],
-      "tier": "tier2_amount_date",
-      "rupees": 14724.57,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.736,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0077",
-      "payment_ids": [
-        "pay_SYN900058569"
-      ],
-      "invoice_nos": [
-        "INV-2026-1104"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 14364.17,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0040",
-      "payment_ids": [
-        "pay_SYN000525209"
-      ],
-      "invoice_nos": [
-        "INV-2026-1051"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 13439.8,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.687,
-      "permutation_stability": 1.0,
-      "confidence": 0.9605
-    },
-    {
-      "bank_txn_id": "bank_txn_0074",
-      "payment_ids": [
-        "pay_SYN900029105"
-      ],
-      "invoice_nos": [
-        "INV-2026-1101"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 12953.76,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0017",
-      "payment_ids": [
-        "pay_SYN000221261"
-      ],
-      "invoice_nos": [
-        "INV-2026-1022"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 12937.17,
-      "residual_paise": -1,
-      "residual_tightness": 0.99,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.447,
-      "permutation_stability": 1.0,
-      "confidence": 0.922
-    },
-    {
-      "bank_txn_id": "bank_txn_0075",
-      "payment_ids": [
-        "pay_SYN900032351"
-      ],
-      "invoice_nos": [
-        "INV-2026-1102"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 12581.68,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0072",
-      "payment_ids": [
-        "pay_SYN900001614"
-      ],
-      "invoice_nos": [
-        "INV-2026-1099"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 11768.36,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0054",
-      "payment_ids": [
-        "pay_R2XTWf0NyLDE22k5f"
-      ],
-      "invoice_nos": [
-        "INV-2026-1061"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 11566.73,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0114",
-      "payment_ids": [
-        "pay_SYN001657084"
-      ],
-      "invoice_nos": [
-        "INV-2026-1174"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 11344.65,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.938,
-      "permutation_stability": 1.0,
-      "confidence": 0.9623
-    },
-    {
-      "bank_txn_id": "bank_txn_0121",
-      "payment_ids": [
-        "pay_SYN001718968"
-      ],
-      "invoice_nos": [
-        "INV-2026-1180"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 9679.04,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 4.009,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0037",
-      "payment_ids": [
-        "pay_R2XTWf0WFGa87HEom"
-      ],
-      "invoice_nos": [
-        "INV-2026-1048"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 9557.29,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.202,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0076",
-      "payment_ids": [
-        "pay_SYN900047036"
-      ],
-      "invoice_nos": [
-        "INV-2026-1103"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 8983.57,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.202,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0004",
-      "payment_ids": [
-        "pay_TWdulPFK9A74yH"
-      ],
-      "invoice_nos": [
-        "INV-2026-1007"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 8863.77,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 4.63,
-      "permutation_stability": 1.0,
-      "confidence": 0.9638
-    },
-    {
-      "bank_txn_id": "bank_txn_0047",
-      "payment_ids": [
-        "pay_SYN000544200"
-      ],
-      "invoice_nos": [
-        "INV-2026-1053"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 8042.02,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0022",
-      "payment_ids": [
-        "pay_TWduDqnDXXGXQO"
-      ],
-      "invoice_nos": [
-        "INV-2026-1025"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 7687.11,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.447,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0012",
-      "payment_ids": [
-        "pay_TWewgg8dNUUSrb"
-      ],
-      "invoice_nos": [
-        "INV-2026-1023"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 7456.27,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": null,
-      "permutation_stability": 1.0,
-      "confidence": 0.9627
-    },
-    {
-      "bank_txn_id": "bank_txn_0015",
-      "payment_ids": [
-        "pay_R2XTWf0C6cAlonQiD"
-      ],
-      "invoice_nos": [
-        "INV-2026-1020"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 7239.07,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.447,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9342
     },
     {
       "bank_txn_id": "bank_txn_0124",
       "payment_ids": [
-        "pay_SYN001694676"
+        "pay_SYN001693557"
       ],
       "invoice_nos": [
-        "INV-2026-1178"
+        "INV-2026-1165"
       ],
-      "tier": "tier2_amount_date",
-      "rupees": 7002.37,
+      "tier": "tier1_reference",
+      "rupees": 47336.39,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.525,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0055",
+      "payment_ids": [
+        "pay_SYN000743175"
+      ],
+      "invoice_nos": [
+        "INV-2026-1071"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 47091.92,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.402,
+      "permutation_stability": 1.0,
+      "confidence": 0.9634
+    },
+    {
+      "bank_txn_id": "bank_txn_0113",
+      "payment_ids": [
+        "pay_SYN001517191",
+        "pay_SYN001523735",
+        "pay_SYN001532118",
+        "pay_SYN001565314"
+      ],
+      "invoice_nos": [
+        "INV-2026-1150",
+        "INV-2026-1151",
+        "INV-2026-1152",
+        "INV-2026-1154"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 46514.7,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0100",
+      "payment_ids": [
+        "pay_SYN001339147"
+      ],
+      "invoice_nos": [
+        "INV-2026-1133"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 46280.53,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0090",
+      "payment_ids": [
+        "pay_SYN001249499"
+      ],
+      "invoice_nos": [],
+      "tier": "tier2_amount_date",
+      "rupees": 46217.22,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.923,
+      "permutation_stability": 1.0,
+      "confidence": 0.9354
+    },
+    {
+      "bank_txn_id": "bank_txn_0147",
+      "payment_ids": [
+        "pay_SYN001932502"
+      ],
+      "invoice_nos": [
+        "INV-2026-1186"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 45399.9,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.382,
+      "permutation_stability": 1.0,
+      "confidence": 0.9634
+    },
+    {
+      "bank_txn_id": "bank_txn_0122",
+      "payment_ids": [
+        "pay_SYN001633129",
+        "pay_SYN001659537",
+        "pay_SYN001686678"
+      ],
+      "invoice_nos": [
+        "INV-2026-1159",
+        "INV-2026-1161",
+        "INV-2026-1164"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 44799.03,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0091",
+      "payment_ids": [
+        "pay_SYN001232519"
+      ],
+      "invoice_nos": [
+        "INV-2026-1124"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 44690.91,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0117",
+      "payment_ids": [
+        "pay_SYN001591745"
+      ],
+      "invoice_nos": [],
+      "tier": "tier2_amount_date",
+      "rupees": 44636.36,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0109",
+      "payment_ids": [
+        "pay_SYN001458902"
+      ],
+      "invoice_nos": [
+        "INV-2026-1144"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 44292.54,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.908,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0142",
+      "payment_ids": [
+        "pay_SYN001919540"
+      ],
+      "invoice_nos": [
+        "INV-2026-1184"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 44077.29,
+      "residual_paise": 1,
+      "residual_tightness": 0.99,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 1.213,
+      "permutation_stability": 1.0,
+      "confidence": 0.9369
+    },
+    {
+      "bank_txn_id": "bank_txn_0083",
+      "payment_ids": [
+        "pay_SYN001129258",
+        "pay_SYN001148489"
+      ],
+      "invoice_nos": [
+        "INV-2026-1114",
+        "INV-2026-1116"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 43463.7,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0106",
+      "payment_ids": [
+        "pay_SYN001426634",
+        "pay_SYN001432876"
+      ],
+      "invoice_nos": [
+        "INV-2026-1141",
+        "INV-2026-1142"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 42393.15,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0041",
+      "payment_ids": [
+        "pay_SYN000585334"
+      ],
+      "invoice_nos": [
+        "INV-2026-1055"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 41920.52,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0049",
+      "payment_ids": [
+        "pay_SYN000622305"
+      ],
+      "invoice_nos": [
+        "INV-2026-1059"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 41801.26,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0007",
+      "payment_ids": [
+        "pay_SYN000108165"
+      ],
+      "invoice_nos": [
+        "INV-2026-1007"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 41685.82,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.323,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
     {
       "bank_txn_id": "bank_txn_0094",
       "payment_ids": [
-        "pay_SYN001319605"
+        "pay_SYN001222238"
+      ],
+      "invoice_nos": [
+        "INV-2026-1123"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 41223.33,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.455,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0035",
+      "payment_ids": [
+        "pay_SYN000519528"
+      ],
+      "invoice_nos": [
+        "INV-2026-1048"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 41102.54,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 1.382,
+      "permutation_stability": 1.0,
+      "confidence": 0.9404
+    },
+    {
+      "bank_txn_id": "bank_txn_0011",
+      "payment_ids": [
+        "pay_SYN000097824"
+      ],
+      "invoice_nos": [
+        "INV-2026-1006"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 41080.14,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0082",
+      "payment_ids": [
+        "pay_R2XTWezr1QLvMKR6K",
+        "pay_SYN001074090"
+      ],
+      "invoice_nos": [
+        "INV-2026-1107",
+        "INV-2026-1109"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 40412.92,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0048",
+      "payment_ids": [
+        "pay_SYN000654634"
+      ],
+      "invoice_nos": [
+        "INV-2026-1062"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 39881.09,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0077",
+      "payment_ids": [
+        "pay_R2XTWf0NyLDE22k5f",
+        "pay_SYN001005766"
+      ],
+      "invoice_nos": [
+        "INV-2026-1097",
+        "INV-2026-1096"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 39291.74,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0104",
+      "payment_ids": [
+        "pay_SYN001413245"
       ],
       "invoice_nos": [
         "INV-2026-1140"
       ],
-      "tier": "tier1_reference",
-      "rupees": 6894.38,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.406,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0063",
-      "payment_ids": [
-        "pay_SYN000779908"
-      ],
-      "invoice_nos": [],
       "tier": "tier2_amount_date",
-      "rupees": 6799.79,
+      "rupees": 39034.65,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.8,
+      "fs_weight": -2.782,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
     {
-      "bank_txn_id": "bank_txn_0085",
+      "bank_txn_id": "bank_txn_0012",
       "payment_ids": [
-        "pay_SYN001056771"
+        "pay_SYN000136444"
       ],
       "invoice_nos": [
-        "INV-2026-1115"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 6405.36,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 3.807,
-      "permutation_stability": 1.0,
-      "confidence": 0.9614
-    },
-    {
-      "bank_txn_id": "bank_txn_0078",
-      "payment_ids": [
-        "pay_SYN900061411"
-      ],
-      "invoice_nos": [
-        "INV-2026-1105"
+        "INV-2026-1010"
       ],
       "tier": "tier2_amount_date",
-      "rupees": 5576.38,
+      "rupees": 38606.08,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -0.202,
+      "fs_weight": null,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
-      "bank_txn_id": "bank_txn_0112",
+      "bank_txn_id": "bank_txn_0053",
       "payment_ids": [
-        "pay_SYN001572260"
+        "pay_SYN000755336"
       ],
       "invoice_nos": [
-        "INV-2026-1166"
+        "INV-2026-1072"
       ],
       "tier": "tier1_reference",
-      "rupees": 5469.23,
+      "rupees": 38401.53,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 7.47,
+      "fs_weight": 4.402,
       "permutation_stability": 1.0,
-      "confidence": 0.982
+      "confidence": 0.9634
     },
     {
-      "bank_txn_id": "bank_txn_0039",
+      "bank_txn_id": "bank_txn_0037",
       "payment_ids": [
-        "pay_SYN000597843"
+        "pay_SYN000493969"
       ],
       "invoice_nos": [
-        "INV-2026-1058"
+        "INV-2026-1046"
       ],
       "tier": "tier2_amount_date",
-      "rupees": 5424.43,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.322,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0027",
-      "payment_ids": [
-        "pay_TWepdP13N0bTCU"
-      ],
-      "invoice_nos": [
-        "INV-2026-1028"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 5103.96,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.669,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0081",
-      "payment_ids": [
-        "pay_SYN001081985"
-      ],
-      "invoice_nos": [],
-      "tier": "tier2_amount_date",
-      "rupees": 4861.44,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.736,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0111",
-      "payment_ids": [
-        "pay_SYN001629259"
-      ],
-      "invoice_nos": [
-        "INV-2026-1171"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 4622.8,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -3.736,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0031",
-      "payment_ids": [
-        "pay_SYN000422016"
-      ],
-      "invoice_nos": [
-        "INV-2026-1042"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 4372.46,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -0.202,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0019",
-      "payment_ids": [
-        "pay_R2XTWezgoQXbP9bak"
-      ],
-      "invoice_nos": [
-        "INV-2026-1029"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 4017.91,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 7.76,
-      "permutation_stability": 1.0,
-      "confidence": 0.982
-    },
-    {
-      "bank_txn_id": "bank_txn_0020",
-      "payment_ids": [
-        "pay_SYN000324481"
-      ],
-      "invoice_nos": [
-        "INV-2026-1032"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 3585.28,
+      "rupees": 38371.33,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
@@ -2246,160 +1092,1569 @@
     {
       "bank_txn_id": "bank_txn_0023",
       "payment_ids": [
-        "pay_TWSzxog1eMrPK6"
+        "pay_SYN000312343",
+        "pay_TWdwqHrmklQ6gJ"
+      ],
+      "invoice_nos": [
+        "INV-2026-1028",
+        "INV-2026-1029"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 37967.09,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 0.82,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9473
+    },
+    {
+      "bank_txn_id": "bank_txn_0130",
+      "payment_ids": [
+        "pay_SYN001774898"
+      ],
+      "invoice_nos": [
+        "INV-2026-1172"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 37855.09,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 1.061,
+      "permutation_stability": 1.0,
+      "confidence": 0.937
+    },
+    {
+      "bank_txn_id": "bank_txn_0028",
+      "payment_ids": [
+        "pay_R2XTWf04vEnwQt5kM",
+        "pay_SYN000376202",
+        "pay_SYN000417433",
+        "pay_TWelWouB7zHFHE",
+        "pay_TWercCkkQwdC7l"
+      ],
+      "invoice_nos": [
+        "INV-2026-1037",
+        "INV-2026-1034",
+        "INV-2026-1038",
+        "INV-2026-1039",
+        "INV-2026-1035"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 37519.22,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0108",
+      "payment_ids": [
+        "pay_SYN001484099"
+      ],
+      "invoice_nos": [
+        "INV-2026-1147"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 36357.0,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.625,
+      "permutation_stability": 1.0,
+      "confidence": 0.9638
+    },
+    {
+      "bank_txn_id": "bank_txn_0087",
+      "payment_ids": [
+        "pay_SYN001164862"
+      ],
+      "invoice_nos": [
+        "INV-2026-1117"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 36314.16,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.214,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0039",
+      "payment_ids": [
+        "pay_SYN000571047"
+      ],
+      "invoice_nos": [
+        "INV-2026-1054"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 36269.36,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.625,
+      "permutation_stability": 1.0,
+      "confidence": 0.9638
+    },
+    {
+      "bank_txn_id": "bank_txn_0116",
+      "payment_ids": [
+        "pay_SYN001601926"
+      ],
+      "invoice_nos": [
+        "INV-2026-1156"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 36024.84,
+      "residual_paise": -1,
+      "residual_tightness": 0.99,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.888,
+      "permutation_stability": 1.0,
+      "confidence": 0.9632
+    },
+    {
+      "bank_txn_id": "bank_txn_0026",
+      "payment_ids": [
+        "pay_SYN000361348"
       ],
       "invoice_nos": [
         "INV-2026-1033"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 35514.14,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.645,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0139",
+      "payment_ids": [
+        "pay_SYN001833905"
+      ],
+      "invoice_nos": [
+        "INV-2026-1178"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 35457.01,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0066",
+      "payment_ids": [
+        "pay_SYN000819607"
+      ],
+      "invoice_nos": [
+        "INV-2026-1078"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 34986.54,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.455,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0099",
+      "payment_ids": [
+        "pay_SYN001381320"
+      ],
+      "invoice_nos": [
+        "INV-2026-1137"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 34639.78,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0071",
+      "payment_ids": [
+        "pay_SYN000956854"
+      ],
+      "invoice_nos": [
+        "INV-2026-1091"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 33828.41,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 5.402,
+      "permutation_stability": 1.0,
+      "confidence": 0.9651
+    },
+    {
+      "bank_txn_id": "bank_txn_0111",
+      "payment_ids": [
+        "pay_SYN001494345"
+      ],
+      "invoice_nos": [
+        "INV-2026-1148"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 32418.28,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0029",
+      "payment_ids": [
+        "pay_SYN000477557"
+      ],
+      "invoice_nos": [
+        "INV-2026-1044"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 32287.47,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0058",
+      "payment_ids": [
+        "pay_SYN000777870"
+      ],
+      "invoice_nos": [
+        "INV-2026-1074"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 32074.16,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0098",
+      "payment_ids": [
+        "pay_SYN001326051"
+      ],
+      "invoice_nos": [
+        "INV-2026-1132"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 32073.18,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.593,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0063",
+      "payment_ids": [
+        "pay_SYN000791384"
+      ],
+      "invoice_nos": [
+        "INV-2026-1076"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 30769.92,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 5.04,
+      "permutation_stability": 1.0,
+      "confidence": 0.9645
+    },
+    {
+      "bank_txn_id": "bank_txn_0114",
+      "payment_ids": [
+        "pay_SYN001541994"
+      ],
+      "invoice_nos": [],
+      "tier": "tier2_amount_date",
+      "rupees": 29376.05,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0140",
+      "payment_ids": [
+        "pay_SYN001929727"
+      ],
+      "invoice_nos": [
+        "INV-2026-1185"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 28876.88,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0107",
+      "payment_ids": [
+        "pay_SYN001399434"
+      ],
+      "invoice_nos": [
+        "INV-2026-1138"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 28768.27,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0043",
+      "payment_ids": [
+        "pay_SYN000553201"
+      ],
+      "invoice_nos": [
+        "INV-2026-1052"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 28137.1,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.923,
+      "permutation_stability": 1.0,
+      "confidence": 0.9354
+    },
+    {
+      "bank_txn_id": "bank_txn_0065",
+      "payment_ids": [
+        "pay_SYN000848334"
+      ],
+      "invoice_nos": [
+        "INV-2026-1081"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 27403.64,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0132",
+      "payment_ids": [
+        "pay_SYN001763195"
+      ],
+      "invoice_nos": [
+        "INV-2026-1171"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 27165.0,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.625,
+      "permutation_stability": 1.0,
+      "confidence": 0.9638
+    },
+    {
+      "bank_txn_id": "bank_txn_0137",
+      "payment_ids": [
+        "pay_SYN001861918"
+      ],
+      "invoice_nos": [
+        "INV-2026-1180"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 27003.31,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.923,
+      "permutation_stability": 1.0,
+      "confidence": 0.9354
+    },
+    {
+      "bank_txn_id": "bank_txn_0092",
+      "payment_ids": [
+        "pay_SYN001251763"
+      ],
+      "invoice_nos": [
+        "INV-2026-1125"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 25512.49,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.923,
+      "permutation_stability": 1.0,
+      "confidence": 0.9354
+    },
+    {
+      "bank_txn_id": "bank_txn_0088",
+      "payment_ids": [
+        "pay_SYN001171678"
+      ],
+      "invoice_nos": [
+        "INV-2026-1118"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 25490.63,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.682,
+      "permutation_stability": 1.0,
+      "confidence": 0.9326
+    },
+    {
+      "bank_txn_id": "bank_txn_0009",
+      "payment_ids": [
+        "pay_SYN000083038"
+      ],
+      "invoice_nos": [
+        "INV-2026-1005"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 24730.88,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 5.21,
+      "permutation_stability": 1.0,
+      "confidence": 0.9648
+    },
+    {
+      "bank_txn_id": "bank_txn_0115",
+      "payment_ids": [
+        "pay_SYN001555404"
+      ],
+      "invoice_nos": [
+        "INV-2026-1153"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 24088.99,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.645,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0110",
+      "payment_ids": [
+        "pay_SYN001506303"
+      ],
+      "invoice_nos": [
+        "INV-2026-1149"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 23276.64,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.798,
+      "permutation_stability": 1.0,
+      "confidence": 0.934
+    },
+    {
+      "bank_txn_id": "bank_txn_0006",
+      "payment_ids": [
+        "pay_SYN000073086"
+      ],
+      "invoice_nos": [],
+      "tier": "tier2_amount_date",
+      "rupees": 22943.53,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 1.382,
+      "permutation_stability": 1.0,
+      "confidence": 0.9404
+    },
+    {
+      "bank_txn_id": "bank_txn_0093",
+      "payment_ids": [
+        "pay_SYN001263031"
+      ],
+      "invoice_nos": [
+        "INV-2026-1126"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 22519.04,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.455,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0069",
+      "payment_ids": [
+        "pay_SYN000881229"
+      ],
+      "invoice_nos": [],
+      "tier": "tier2_amount_date",
+      "rupees": 21765.9,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0102",
+      "payment_ids": [
+        "pay_SYN001359344"
+      ],
+      "invoice_nos": [
+        "INV-2026-1134"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 21747.4,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0096",
+      "payment_ids": [
+        "pay_SYN001298181"
+      ],
+      "invoice_nos": [
+        "INV-2026-1129"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 21629.53,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.888,
+      "permutation_stability": 1.0,
+      "confidence": 0.9642
+    },
+    {
+      "bank_txn_id": "bank_txn_0138",
+      "payment_ids": [
+        "pay_SYN001826426"
+      ],
+      "invoice_nos": [
+        "INV-2026-1177"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 20737.31,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0018",
+      "payment_ids": [
+        "pay_SYN000218418"
+      ],
+      "invoice_nos": [
+        "INV-2026-1018"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 20466.07,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.923,
+      "permutation_stability": 1.0,
+      "confidence": 0.9354
+    },
+    {
+      "bank_txn_id": "bank_txn_0136",
+      "payment_ids": [
+        "pay_SYN001815161"
+      ],
+      "invoice_nos": [
+        "INV-2026-1176"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 20261.98,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.455,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0134",
+      "payment_ids": [
+        "pay_SYN001855052"
+      ],
+      "invoice_nos": [],
+      "tier": "tier2_amount_date",
+      "rupees": 20233.73,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0062",
+      "payment_ids": [
+        "pay_SYN000803240"
+      ],
+      "invoice_nos": [
+        "INV-2026-1077"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 18360.66,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0095",
+      "payment_ids": [
+        "pay_SYN001214609"
+      ],
+      "invoice_nos": [
+        "INV-2026-1122"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 18300.26,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0046",
+      "payment_ids": [
+        "pay_SYN000664524"
+      ],
+      "invoice_nos": [
+        "INV-2026-1063"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 18249.62,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0133",
+      "payment_ids": [
+        "pay_SYN001804809"
+      ],
+      "invoice_nos": [
+        "INV-2026-1175"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 17645.69,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.908,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0016",
+      "payment_ids": [
+        "pay_SYN000196637",
+        "pay_SYN000205753",
+        "pay_SYN000248999",
+        "pay_TWewgg8dNUUSrb"
+      ],
+      "invoice_nos": [
+        "INV-2026-1016",
+        "INV-2026-1017",
+        "INV-2026-1021",
+        "INV-2026-1019"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 17438.42,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0061",
+      "payment_ids": [
+        "pay_SYN000822341"
+      ],
+      "invoice_nos": [
+        "INV-2026-1079"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 17051.8,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.745,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0075",
+      "payment_ids": [
+        "pay_SYN001029076"
+      ],
+      "invoice_nos": [
+        "INV-2026-1098"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 16165.17,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0123",
+      "payment_ids": [
+        "pay_SYN001666425"
+      ],
+      "invoice_nos": [
+        "INV-2026-1162"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 15074.25,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0040",
+      "payment_ids": [
+        "pay_SYN000598434"
+      ],
+      "invoice_nos": [
+        "INV-2026-1056"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 14610.6,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.908,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0127",
+      "payment_ids": [
+        "pay_SYN001736021"
+      ],
+      "invoice_nos": [],
+      "tier": "tier2_amount_date",
+      "rupees": 13927.8,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0118",
+      "payment_ids": [
+        "pay_SYN001627680"
+      ],
+      "invoice_nos": [
+        "INV-2026-1158"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 13686.21,
+      "residual_paise": -1,
+      "residual_tightness": 0.99,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 5.04,
+      "permutation_stability": 1.0,
+      "confidence": 0.9635
+    },
+    {
+      "bank_txn_id": "bank_txn_0017",
+      "payment_ids": [
+        "pay_SYN000237236"
+      ],
+      "invoice_nos": [
+        "INV-2026-1020"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 13612.21,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0143",
+      "payment_ids": [
+        "pay_SYN001879057",
+        "pay_SYN001883392",
+        "pay_SYN001898587"
+      ],
+      "invoice_nos": [
+        "INV-2026-1181",
+        "INV-2026-1182"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 13347.28,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0086",
+      "payment_ids": [
+        "pay_SYN001189675"
+      ],
+      "invoice_nos": [
+        "INV-2026-1119"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 13102.78,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.509,
+      "permutation_stability": 1.0,
+      "confidence": 0.9636
+    },
+    {
+      "bank_txn_id": "bank_txn_0036",
+      "payment_ids": [
+        "pay_SYN000523192"
+      ],
+      "invoice_nos": [
+        "INV-2026-1049"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 12682.89,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.915,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0080",
+      "payment_ids": [
+        "pay_SYN900017944"
+      ],
+      "invoice_nos": [
+        "INV-2026-1104"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 12537.85,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.923,
+      "permutation_stability": 1.0,
+      "confidence": 0.9354
+    },
+    {
+      "bank_txn_id": "bank_txn_0054",
+      "payment_ids": [
+        "pay_SYN000785650"
+      ],
+      "invoice_nos": [
+        "INV-2026-1075"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 12447.25,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.402,
+      "permutation_stability": 1.0,
+      "confidence": 0.9634
+    },
+    {
+      "bank_txn_id": "bank_txn_0001",
+      "payment_ids": [
+        "pay_SYN000062817"
+      ],
+      "invoice_nos": [
+        "INV-2026-1004"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 12134.59,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.493,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0010",
+      "payment_ids": [
+        "pay_SYN000126867"
+      ],
+      "invoice_nos": [
+        "INV-2026-1009"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 11523.87,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0030",
+      "payment_ids": [
+        "pay_R2XTWezmeqK3RKRWG"
+      ],
+      "invoice_nos": [
+        "INV-2026-1043"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 10658.93,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 5.04,
+      "permutation_stability": 1.0,
+      "confidence": 0.9645
+    },
+    {
+      "bank_txn_id": "bank_txn_0021",
+      "payment_ids": [
+        "pay_SYN000269609",
+        "pay_SYN000273578",
+        "pay_TWepdP13N0bTCU"
+      ],
+      "invoice_nos": [
+        "INV-2026-1023",
+        "INV-2026-1024",
+        "INV-2026-1026"
+      ],
+      "tier": "tier3_subsetsum",
+      "rupees": 10549.56,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0121",
+      "payment_ids": [
+        "pay_SYN001679954"
+      ],
+      "invoice_nos": [
+        "INV-2026-1163"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 10037.48,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.625,
+      "permutation_stability": 1.0,
+      "confidence": 0.9638
+    },
+    {
+      "bank_txn_id": "bank_txn_0013",
+      "payment_ids": [
+        "pay_R2XTWf0WFGa87HEom"
+      ],
+      "invoice_nos": [
+        "INV-2026-1012"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 9557.29,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.323,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0129",
+      "payment_ids": [
+        "pay_SYN001707737"
+      ],
+      "invoice_nos": [
+        "INV-2026-1166"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 8997.18,
+      "residual_paise": -1,
+      "residual_tightness": 0.99,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.922
+    },
+    {
+      "bank_txn_id": "bank_txn_0085",
+      "payment_ids": [
+        "pay_SYN001155256"
+      ],
+      "invoice_nos": [],
+      "tier": "tier2_amount_date",
+      "rupees": 7787.45,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.682,
+      "permutation_stability": 1.0,
+      "confidence": 0.9326
+    },
+    {
+      "bank_txn_id": "bank_txn_0032",
+      "payment_ids": [
+        "pay_SYN000486515"
+      ],
+      "invoice_nos": [
+        "INV-2026-1045"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 7774.79,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0019",
+      "payment_ids": [
+        "pay_TWduDqnDXXGXQO"
+      ],
+      "invoice_nos": [
+        "INV-2026-1025"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 7687.11,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.888,
+      "permutation_stability": 1.0,
+      "confidence": 0.9642
+    },
+    {
+      "bank_txn_id": "bank_txn_0105",
+      "payment_ids": [
+        "pay_SYN001403369"
+      ],
+      "invoice_nos": [
+        "INV-2026-1139"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 7375.44,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0045",
+      "payment_ids": [
+        "pay_R2XTWf0C6cAlonQiD"
+      ],
+      "invoice_nos": [
+        "INV-2026-1060"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 7239.07,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0068",
+      "payment_ids": [
+        "pay_SYN000858043"
+      ],
+      "invoice_nos": [
+        "INV-2026-1082"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 7007.24,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0047",
+      "payment_ids": [
+        "pay_SYN000647295"
+      ],
+      "invoice_nos": [
+        "INV-2026-1061"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 6913.71,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.75,
+      "permutation_stability": 1.0,
+      "confidence": 0.964
+    },
+    {
+      "bank_txn_id": "bank_txn_0051",
+      "payment_ids": [
+        "pay_SYN000707213"
+      ],
+      "invoice_nos": [
+        "INV-2026-1067"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 6742.82,
+      "residual_paise": 1,
+      "residual_tightness": 0.99,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9616
+    },
+    {
+      "bank_txn_id": "bank_txn_0073",
+      "payment_ids": [
+        "pay_R2XTWezvJtsDu6wUk"
+      ],
+      "invoice_nos": [
+        "INV-2026-1095"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 6417.95,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.455,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0033",
+      "payment_ids": [
+        "pay_TWdoUNOlyGqTcU"
+      ],
+      "invoice_nos": [
+        "INV-2026-1041"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 6185.19,
+      "residual_paise": 1,
+      "residual_tightness": 0.99,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 5.21,
+      "permutation_stability": 1.0,
+      "confidence": 0.9638
+    },
+    {
+      "bank_txn_id": "bank_txn_0025",
+      "payment_ids": [
+        "pay_SYN000355401"
+      ],
+      "invoice_nos": [
+        "INV-2026-1032"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 5904.62,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.645,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0126",
+      "payment_ids": [
+        "pay_SYN001712794"
+      ],
+      "invoice_nos": [
+        "INV-2026-1167"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 5801.38,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0015",
+      "payment_ids": [
+        "pay_TWdq5H4Wj5FiW1"
+      ],
+      "invoice_nos": [
+        "INV-2026-1013"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 4865.33,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.915,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0059",
+      "payment_ids": [
+        "pay_SYN000767507"
+      ],
+      "invoice_nos": [
+        "INV-2026-1073"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 4840.0,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": null,
+      "permutation_stability": 1.0,
+      "confidence": 0.9627
+    },
+    {
+      "bank_txn_id": "bank_txn_0022",
+      "payment_ids": [
+        "pay_R2XTWezgoQXbP9bak"
+      ],
+      "invoice_nos": [
+        "INV-2026-1031"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 4017.91,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 4.625,
+      "permutation_stability": 1.0,
+      "confidence": 0.9638
+    },
+    {
+      "bank_txn_id": "bank_txn_0020",
+      "payment_ids": [
+        "pay_TWSzxog1eMrPK6"
+      ],
+      "invoice_nos": [
+        "INV-2026-1027"
       ],
       "tier": "tier1_reference",
       "rupees": 3360.44,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 4.083,
+      "fs_weight": 4.888,
       "permutation_stability": 1.0,
-      "confidence": 0.9628
+      "confidence": 0.9642
     },
     {
-      "bank_txn_id": "bank_txn_0051",
+      "bank_txn_id": "bank_txn_0076",
       "payment_ids": [
         "pay_R2XTWf0F3FTnj0xHu"
       ],
       "invoice_nos": [
-        "INV-2026-1060"
+        "INV-2026-1093"
       ],
       "tier": "tier2_amount_date",
       "rupees": 3084.79,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.669,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0060",
-      "payment_ids": [
-        "pay_SYN000758677"
-      ],
-      "invoice_nos": [
-        "INV-2026-1074"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 2023.52,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
       "fs_weight": null,
       "permutation_stability": 1.0,
       "confidence": 0.9627
     },
     {
-      "bank_txn_id": "bank_txn_0013",
+      "bank_txn_id": "bank_txn_0034",
+      "payment_ids": [
+        "pay_TWeiUJBUtXCNYn"
+      ],
+      "invoice_nos": [
+        "INV-2026-1040"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 2800.38,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 8.915,
+      "permutation_stability": 1.0,
+      "confidence": 0.982
+    },
+    {
+      "bank_txn_id": "bank_txn_0079",
+      "payment_ids": [
+        "pay_SYN900007682"
+      ],
+      "invoice_nos": [
+        "INV-2026-1103"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 2311.39,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": -2.782,
+      "permutation_stability": 1.0,
+      "confidence": 0.9241
+    },
+    {
+      "bank_txn_id": "bank_txn_0014",
       "payment_ids": [
         "pay_TWejZoTi8Hv8v7"
       ],
       "invoice_nos": [
-        "INV-2026-1024"
+        "INV-2026-1014"
       ],
-      "tier": "tier2_amount_date",
+      "tier": "tier1_reference",
       "rupees": 1519.5,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": null,
+      "fs_weight": 8.915,
       "permutation_stability": 1.0,
-      "confidence": 0.9627
+      "confidence": 0.982
     },
     {
-      "bank_txn_id": "bank_txn_0046",
+      "bank_txn_id": "bank_txn_0024",
       "payment_ids": [
         "pay_TWdvT67dIiHFxk"
       ],
       "invoice_nos": [
-        "INV-2026-1055"
+        "INV-2026-1030"
       ],
-      "tier": "tier2_amount_date",
+      "tier": "tier1_reference",
       "rupees": 1412.36,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": null,
+      "fs_weight": 8.593,
       "permutation_stability": 1.0,
-      "confidence": 0.9627
+      "confidence": 0.982
     },
     {
-      "bank_txn_id": "bank_txn_0011",
+      "bank_txn_id": "bank_txn_0002",
       "payment_ids": [
         "pay_TWedIaNu18A7Am"
       ],
       "invoice_nos": [
-        "INV-2026-1014"
+        "INV-2026-1002"
       ],
-      "tier": "tier2_amount_date",
+      "tier": "tier1_reference",
       "rupees": 1217.54,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.447,
+      "fs_weight": 5.04,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9645
     },
     {
-      "bank_txn_id": "bank_txn_0005",
+      "bank_txn_id": "bank_txn_0144",
+      "payment_ids": [
+        "pay_SYN001944705"
+      ],
+      "invoice_nos": [
+        "INV-2026-1187"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 972.09,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 6.625,
+      "permutation_stability": 1.0,
+      "confidence": 0.9671
+    },
+    {
+      "bank_txn_id": "bank_txn_0074",
+      "payment_ids": [
+        "pay_R2XTWf07xIRgP3mLt"
+      ],
+      "invoice_nos": [
+        "INV-2026-1094"
+      ],
+      "tier": "tier2_amount_date",
+      "rupees": 872.74,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.923,
+      "permutation_stability": 1.0,
+      "confidence": 0.9354
+    },
+    {
+      "bank_txn_id": "bank_txn_0042",
       "payment_ids": [
         "pay_TWT0VdkziW7AEd"
       ],
       "invoice_nos": [
-        "INV-2026-1011"
+        "INV-2026-1053"
       ],
       "tier": "tier2_amount_date",
       "rupees": 759.76,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.977,
+      "fs_weight": 0.923,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9354
     },
     {
-      "bank_txn_id": "bank_txn_0006",
-      "payment_ids": [
-        "pay_TWelWouB7zHFHE"
-      ],
-      "invoice_nos": [
-        "INV-2026-1004"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 617.53,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -2.977,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
-      "bank_txn_id": "bank_txn_0025",
+      "bank_txn_id": "bank_txn_0060",
       "payment_ids": [
         "pay_R2XTWf0RhohFHzTTe"
       ],
       "invoice_nos": [
-        "INV-2026-1027"
+        "INV-2026-1070"
       ],
-      "tier": "tier2_amount_date",
+      "tier": "tier1_reference",
       "rupees": 534.75,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.525,
+      "fs_weight": 5.04,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9645
     }
   ],
   "verification": {
-    "relations": [],
-    "permutation_gate": null
+    "relations": [
+      {
+        "name": "MR1",
+        "kind": "metamorphic",
+        "statement": "shuffling input order must not change any assignment",
+        "checked": 126,
+        "violations": 0,
+        "passed": true
+      },
+      {
+        "name": "MR2",
+        "kind": "metamorphic",
+        "statement": "splitting a payment (with the credit adjusted by the fee delta) must not change settlement-level grouping elsewhere",
+        "checked": 5,
+        "violations": 0,
+        "passed": true
+      },
+      {
+        "name": "MR3",
+        "kind": "metamorphic",
+        "statement": "adding a constructively unmatchable record must not change any existing match",
+        "checked": 126,
+        "violations": 0,
+        "passed": true
+      },
+      {
+        "name": "MR4",
+        "kind": "invariant",
+        "statement": "assigned payments + MDR + TDS must equal the bank credit within tolerance",
+        "checked": 127,
+        "violations": 0,
+        "passed": true
+      },
+      {
+        "name": "MR5",
+        "kind": "invariant",
+        "statement": "every credit and every captured payment is accounted for exactly once",
+        "checked": 335,
+        "violations": 0,
+        "passed": true
+      },
+      {
+        "name": "MR6",
+        "kind": "metamorphic",
+        "statement": "rerunning on the unassigned residue must produce no new assignments",
+        "checked": 20,
+        "violations": 0,
+        "passed": true
+      }
+    ],
+    "permutation_gate": {
+      "passes": 8,
+      "txns_observed": 127,
+      "unstable": 0,
+      "min_stability": 1.0,
+      "mean_stability": 1.0
+    }
   },
-  "throughput_records_per_s": 10183
+  "throughput_records_per_s": 1041
 }

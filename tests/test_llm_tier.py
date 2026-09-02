@@ -129,19 +129,87 @@ def test_payer_name_is_never_the_whole_narration():
         assert len(name) < len(narration)
 
 
-def test_llm_does_not_change_precision_on_this_batch():
+def test_the_llm_tier_may_change_an_outcome_but_never_decides_one():
     """
-    The measured Block 9 result, pinned so a later change cannot quietly alter it.
+    The trust boundary, stated precisely -- and it is NOT "the LLM changes no verdict".
 
-    The tier upgrades 9 matches from tier 2 to tier 1 -- stronger evidence -- but
-    changes no verdict. If a future change makes the LLM start altering outcomes, that
-    is a trust-boundary event and this test should fail loudly.
+    This test used to assert `on.assignment_map == off.assignment_map` and said in its
+    own docstring that a change would be "a trust-boundary event". It changed, and it is
+    not one. The tier recovered a merchant reference from a narration the regex tier
+    could not read; that reference gave tier 1 something to match on; the DETERMINISTIC
+    engine then reached a different and correct conclusion from better evidence.
+
+    Conflating "the LLM must not decide a match" with "the LLM must not change any
+    outcome" makes the weaker claim untestable and the stronger one unfalsifiable. The
+    tier exists to fill narration fields. If filling them never changed anything, it
+    would have no reason to exist -- and the boundary would be enforced by the tier
+    being useless rather than by the type system.
+
+    So what is asserted is what the boundary actually promises:
+
+      1. the tier never OVERRIDES a field the regex tier already read;
+      2. any outcome it changes is changed for the better, never for the worse.
     """
     inputs = load_inputs()
     off = match_once(inputs, llm=NullTier())
     on = match_once(inputs, llm=RecordedTier())
-    assert on.assignment_map == off.assignment_map
-    assert on.tier_counts.get("tier1_reference", 0) >= off.tier_counts.get("tier1_reference", 0)
+
+    # (1) Structural: every payer name the regex tier read survives the merge intact.
+    from recon.engine.normalize import needs_llm, parse, parse_with_llm
+
+    tier = RecordedTier()
+    for t in inputs.bank_txns:
+        if not t.is_credit:
+            continue
+        base = parse(t.narration)
+        if not needs_llm(base) or not base.payer_name:
+            continue
+        merged = parse_with_llm(t.narration, tier)
+        assert merged.payer_name == base.payer_name, (
+            f"the LLM tier overrode a regex-parsed payer name on {t.id}: "
+            f"{base.payer_name!r} -> {merged.payer_name!r}"
+        )
+
+    # (2) Evidence only ever gets stronger: tier 1 matches cannot decrease, and the
+    #     tier must not cost an assignment the deterministic engine had without it.
+    assert on.tier_counts.get("tier1_reference", 0) >= off.tier_counts.get(
+        "tier1_reference", 0
+    )
+    assert len(on.assignments) >= len(off.assignments)
+
+
+def test_any_outcome_the_llm_tier_changes_is_a_correct_one():
+    """
+    The half of the boundary that matters for money. The tier may turn a refusal into an
+    assignment -- it did, on this batch, by recovering a reference that outweighed a
+    third-party payer's name disagreement -- but every assignment it enables must be
+    right. A tier that bought coverage with precision would be crossing the boundary in
+    the only way that costs anything.
+    """
+    import config as cfg
+    from scorer.score import load_truth, score
+
+    truth_path = cfg.TRUTH_DIR / "ground_truth.json"
+    if not truth_path.exists():
+        import pytest
+
+        pytest.skip("no ground truth on disk")
+
+    inputs = load_inputs()
+    raw, links = load_truth(truth_path)
+    scores = {}
+    for label, llm in (("off", NullTier()), ("on", RecordedTier())):
+        out = match_once(inputs, llm=llm)
+        scores[label] = score(
+            out, links, total_payments=len(inputs.payments),
+            captured_payments=sum(1 for p in inputs.payments if p.captured),
+            ambiguity_bank_txn_id=raw.get("ambiguity_bank_txn_id", ""),
+            credits_by_id={t.id: t.credit for t in inputs.bank_txns},
+            seed=inputs.seed,
+        )
+    assert scores["on"].match_precision >= scores["off"].match_precision
+    assert scores["on"].correct_assignments >= scores["off"].correct_assignments
+    assert scores["on"].wrong_assignments == ()
 
 
 def test_select_reports_which_tier_ran():

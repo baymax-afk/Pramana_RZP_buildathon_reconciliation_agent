@@ -141,6 +141,14 @@ def cmd_match(args: argparse.Namespace) -> int:
         print(f"\n  {e}\n")
         return 1
 
+    # From here down, ALWAYS report `inputs.seed` / `inputs.payments_per_window`, never
+    # `args.*`. `load_inputs` resolves both from the batch's manifest, so the two can
+    # differ -- and when they did, the headline printed one seed while run_output.json
+    # recorded another and took its density from a third place. A payload inconsistent
+    # with itself is worse than a wrong one, because nothing about it looks wrong.
+    seed = inputs.seed
+    ppw = inputs.payments_per_window
+
     from recon.llm import select as _select_llm
 
     llm = _select_llm(disabled=args.no_llm)
@@ -186,7 +194,7 @@ def cmd_match(args: argparse.Namespace) -> int:
         ambiguity_bank_txn_id=raw.get("ambiguity_bank_txn_id", ""),
         throughput=records / elapsed if elapsed else None,
         credits_by_id={x.id: x.credit for x in inputs.bank_txns},
-        seed=args.seed,
+        seed=seed,
         unexamined=(
             sum(1 for x in inputs.bank_txns if x.debit),
             sum(x.debit for x in inputs.bank_txns if x.debit),
@@ -198,7 +206,7 @@ def cmd_match(args: argparse.Namespace) -> int:
     from recon.report import run_output
 
     payload = run_output.build(
-        inputs, out, seed=args.seed, elapsed_s=elapsed,
+        inputs, out, seed=seed, elapsed_s=elapsed,
         relations=relations, ensemble=ensemble,
     )
     written = run_output.write(payload)
@@ -215,12 +223,15 @@ def cmd_match(args: argparse.Namespace) -> int:
     # touch `data/generated/`, which holds the reported batch that the exception list,
     # the API and the UI all read; overwriting that from a display option would make the
     # headline and the artefacts disagree.
+    # Skip a comparison arm that equals the primary density. Now that the primary is
+    # read from the manifest it can BE the compare density, and "density=12 vs 12" is a
+    # column of zeroes wearing the costume of a measurement.
     compare = None
-    if args.compare_density:
+    if args.compare_density and args.compare_density != ppw:
         from recon.generator import build as _build
 
         cmp_batch = _build.generate(
-            seed=args.seed, payments_per_window=args.compare_density
+            seed=seed, payments_per_window=args.compare_density
         )
         _build.assert_truth_is_satisfiable(cmp_batch)
         cmp_out = match_once(cmp_batch.inputs, llm=llm)
@@ -232,12 +243,12 @@ def cmd_match(args: argparse.Namespace) -> int:
                 captured_payments=sum(1 for p in cmp_batch.inputs.payments if p.captured),
                 ambiguity_bank_txn_id=cmp_batch.ambiguity_bank_txn_id or "",
                 credits_by_id={x.id: x.credit for x in cmp_batch.inputs.bank_txns},
-                seed=args.seed,
+                seed=seed,
             ),
             args.compare_density,
         )
 
-    print(render(sc, args.seed, args.payments_per_window,
+    print(render(sc, seed, ppw,
                  llm_enabled=llm.name, relations=relations, ensemble=ensemble,
                  compare=compare))
     return 0
@@ -340,13 +351,18 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
     )
     from scorer.score import load_truth, score
 
-    inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    try:
+        inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    except ValueError as e:
+        print(f"\n  {e}\n")
+        return 1
+    seed = inputs.seed
     tier_on = select_llm(disabled=False)
     tier_off = select_llm(disabled=True)
     valid, why = tier_is_measurable(tier_on)
 
     print(_RULE)
-    print(f"  LLM TIER: ON vs OFF   seed={args.seed}   tier={tier_on.name}")
+    print(f"  LLM TIER: ON vs OFF   seed={seed}   tier={tier_on.name}")
     print(_RULE)
 
     yields = measure_parse_yield(inputs, tier_on)
@@ -374,8 +390,8 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
           f"   ({yields.fill_rate:.0%} of the gaps)")
     print(f"      payer names recovered          {yields.names_recovered}")
     print(f"      merchant refs recovered        {yields.refs_recovered}")
-    print(f"    contradicted the regex tier      {yields.disagreed_with_regex}"
-          "   (must be 0: the tier fills gaps, it never overrides)")
+    print(f"    read a field differently          {yields.disagreed_with_regex}"
+          "   (informational -- the merge keeps the regex value)")
 
     outcome_changes, reason_changes = split_changes(changes)
     print("\n  VERDICT DELTAS  (the only thing that licenses a claim about output)")
@@ -407,7 +423,7 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
                 out, links, total_payments=len(inputs.payments),
                 captured_payments=captured,
                 ambiguity_bank_txn_id=meta.get("ambiguity_bank_txn_id", ""),
-                credits_by_id=credits_by_id, seed=args.seed,
+                credits_by_id=credits_by_id, seed=seed,
             )
         print("\n  HEADLINE, BOTH ARMS")
         print("  " + "-" * 74)
@@ -473,8 +489,13 @@ def main(argv: list[str] | None = None) -> int:
     g.set_defaults(func=cmd_generate)
 
     m = sub.add_parser("match", help="run the matching engine and print the metrics block")
-    m.add_argument("--seed", type=int, default=cfg.SEED_PRIMARY)
-    m.add_argument("--payments-per-window", type=int, default=cfg.TARGET_POOL_SIZE)
+    # None, not the config default: `load_inputs` has to be able to tell an omitted
+    # flag from one that happens to name the default value, or its mismatch guard
+    # silently relabels the run instead of refusing.
+    m.add_argument("--seed", type=int, default=None,
+                   help="fail unless the batch on disk was generated with this seed")
+    m.add_argument("--payments-per-window", type=int, default=None,
+                   help="fail unless the batch on disk was generated at this density")
     m.add_argument("--no-score", dest="score", action="store_false", default=True,
                    help="match only; do not load ground truth at all")
     m.add_argument("--verify", action="store_true", default=False,
@@ -494,8 +515,8 @@ def main(argv: list[str] | None = None) -> int:
         "llm-compare",
         help="run the batch with the LLM tier on and off and report both arms",
     )
-    c.add_argument("--seed", type=int, default=cfg.SEED_PRIMARY)
-    c.add_argument("--payments-per-window", type=int, default=cfg.TARGET_POOL_SIZE)
+    c.add_argument("--seed", type=int, default=None)
+    c.add_argument("--payments-per-window", type=int, default=None)
     c.add_argument("--verify", action="store_true", default=False,
                    help="run both arms under the permutation gate")
     c.add_argument("--fast", action="store_true", default=False)

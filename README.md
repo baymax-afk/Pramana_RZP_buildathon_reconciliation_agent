@@ -164,6 +164,15 @@ metrics block discloses the unexamined lines and their value instead.
 The statement contained **zero debits** until `chargeback_debit` existed, which is
 exactly why that blind spot went unnoticed.
 
+**On `third_party_payer`, a claim was made and then withdrawn.** An earlier version of
+this README said the payments that reconcile are the ones quoting an invoice reference.
+That was measured over a cohort ~29% of which was mislabelled — the messy-narration
+branch ignored the third party, so records carried the *correct* payer name while being
+labelled a name mismatch. Re-measured on a clean cohort over five seeds: **13 matched,
+20 refused**, and a quoted reference is *sufficient* to reconcile (9 of 9 with one
+matched; none was refused) but its absence is not decisive (4 of 24 without one still
+matched). See `DEFECT_LOG` 2026-09-03-01.
+
 **`bank_charge` is the one deliberately labelled unmatchable.** An engine that widened
 its tolerance to absorb bank charges would also start absorbing genuine coincidences,
 and the whole subset-sum uniqueness argument rests on tolerance staying far below the

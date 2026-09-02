@@ -138,34 +138,64 @@ def load_invoices(path: Path) -> tuple[Invoice, ...]:
 
 def load_inputs(
     generated_dir: Path | None = None,
-    seed: int = cfg.SEED_PRIMARY,
-    payments_per_window: int = cfg.TARGET_POOL_SIZE,
+    seed: int | None = None,
+    payments_per_window: int | None = None,
 ) -> ReconInputs:
     """
     Build the engine's complete input from disk.
 
     This is the boundary crossing: paths go in, dataclasses come out, and nothing
     downstream ever sees a path again.
+
+    **`None` means "whatever built this batch", not a default value.** Both parameters
+    used to default to the config constants, which made an omitted flag and an explicit
+    `--seed 20260905` indistinguishable: the mismatch check read
+    `if seed != cfg.SEED_PRIMARY and ...`, so naming the primary seed explicitly against
+    a batch built at another seed skipped the guard entirely and silently relabelled the
+    run -- the exact opposite of what the guard promises. A sentinel is the only thing
+    that can tell "not passed" from "passed, and happens to equal the default".
+
+    `payments_per_window` was worse: it was overwritten with no check at all, so a
+    density mismatch was never reported under any invocation.
     """
     d = generated_dir or cfg.GENERATED
 
-    # The batch on disk knows which seed built it. Trust that over whatever the caller
-    # passed, and refuse loudly on a mismatch rather than mislabelling the run: `match
-    # --seed X` does not regenerate, so a caller naming a seed the data did not come
-    # from would otherwise have every reported number printed under the wrong seed.
+    # The batch on disk knows what built it. Trust that over whatever the caller passed,
+    # and refuse loudly on a mismatch rather than mislabelling the run: `match --seed X`
+    # does not regenerate, so a caller naming a seed the data did not come from would
+    # otherwise have every reported number printed under the wrong seed.
     manifest = d / "manifest.json"
     if manifest.exists():
         meta = json.loads(manifest.read_text(encoding="utf-8"))
-        on_disk = int(meta.get("seed", seed))
-        on_disk_ppw = int(meta.get("payments_per_window", payments_per_window))
-        if seed != cfg.SEED_PRIMARY and seed != on_disk:
-            raise ValueError(
-                f"The batch in {d} was generated with seed {on_disk}, but seed {seed} "
-                f"was requested. `match` does not regenerate. Run "
-                f"`python run.py generate --seed {seed}` first, or drop --seed to use "
-                f"the batch on disk."
+        on_disk_seed = int(meta.get("seed", cfg.SEED_PRIMARY))
+        on_disk_ppw = int(meta.get("payments_per_window", cfg.TARGET_POOL_SIZE))
+
+        mismatches = []
+        if seed is not None and seed != on_disk_seed:
+            mismatches.append(f"seed {seed} was requested but the batch is seed {on_disk_seed}")
+        if payments_per_window is not None and payments_per_window != on_disk_ppw:
+            mismatches.append(
+                f"density {payments_per_window} was requested but the batch is "
+                f"density {on_disk_ppw}"
             )
-        seed, payments_per_window = on_disk, on_disk_ppw
+        if mismatches:
+            raise ValueError(
+                f"The batch in {d} does not match what was requested: "
+                + "; ".join(mismatches)
+                + ". `match` does not regenerate. Run `python run.py generate "
+                f"--seed {seed if seed is not None else on_disk_seed} "
+                f"--payments-per-window "
+                f"{payments_per_window if payments_per_window is not None else on_disk_ppw}`"
+                " first, or drop the flags to use the batch on disk."
+            )
+        seed, payments_per_window = on_disk_seed, on_disk_ppw
+
+    # No manifest (a batch written before manifests existed, or a bare fixture
+    # directory): fall back to the config defaults rather than carrying None onward.
+    if seed is None:
+        seed = cfg.SEED_PRIMARY
+    if payments_per_window is None:
+        payments_per_window = cfg.TARGET_POOL_SIZE
 
     return ReconInputs(
         payments=load_payments(d / "payments.json"),

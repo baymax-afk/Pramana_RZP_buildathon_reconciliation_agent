@@ -168,7 +168,7 @@ def test_loading_with_a_seed_the_batch_did_not_come_from_is_refused(tmp_path):
     from loaders import load_inputs
 
     build.write(build.generate(seed=44444), out_dir=tmp_path)
-    with pytest.raises(ValueError, match="was generated with seed 44444"):
+    with pytest.raises(ValueError, match="the batch is seed 44444"):
         load_inputs(tmp_path, seed=77771)
 
 
@@ -177,3 +177,82 @@ def test_loading_without_a_seed_adopts_the_batchs_own(tmp_path):
 
     build.write(build.generate(seed=44444), out_dir=tmp_path)
     assert load_inputs(tmp_path).seed == 44444
+
+
+# --------------------------------------------------------------------------
+# R1 / R2 — a reported number must never name a run that did not produce it
+# --------------------------------------------------------------------------
+
+def test_reported_seed_and_density_come_from_the_batch_not_the_flags(tmp_path):
+    """
+    REGRESSION, REVIEW_2026-09-02 R1. `match --seed X` does not regenerate: it loads
+    whatever is on disk. The manifest guard was added to stop the headline naming a seed
+    that did not produce its numbers, and it closed only the loud path.
+
+    Reproduced before the fix: a batch generated at seed 77771 / ppw 12, matched with no
+    flags, printed `seed=20260905 density=6` and wrote a payload saying seed 20260905
+    with density 12 -- inconsistent with the headline AND with itself, because the
+    payload took density from the corrected inputs and seed from the uncorrected args.
+    """
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=77771, payments_per_window=12), out_dir=tmp_path)
+    inputs = load_inputs(tmp_path)
+    assert inputs.seed == 77771
+    assert inputs.payments_per_window == 12
+
+
+def test_naming_the_default_seed_explicitly_is_still_checked(tmp_path):
+    """
+    REGRESSION, REVIEW_2026-09-02 R2. The guard read `seed != cfg.SEED_PRIMARY`, but
+    argparse DEFAULTS --seed to that value -- so an explicit `--seed 20260905` was
+    indistinguishable from no flag at all and skipped the check entirely, silently
+    relabelling the run. Only a sentinel can tell "not passed" from "passed, and happens
+    to equal the default".
+    """
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=77771), out_dir=tmp_path)
+    with pytest.raises(ValueError, match="seed 20260905 was requested"):
+        load_inputs(tmp_path, seed=cfg.SEED_PRIMARY)
+
+
+def test_a_density_mismatch_is_reported_too(tmp_path):
+    """
+    REGRESSION, REVIEW_2026-09-02 R2. `payments_per_window` was overwritten with NO
+    check at all, so a density mismatch was never reported under any invocation.
+    """
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=44444, payments_per_window=12), out_dir=tmp_path)
+    with pytest.raises(ValueError, match="density 6 was requested"):
+        load_inputs(tmp_path, payments_per_window=6)
+
+
+def test_both_mismatches_are_reported_together(tmp_path):
+    """One error naming both beats two runs to discover them one at a time."""
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=44444, payments_per_window=12), out_dir=tmp_path)
+    with pytest.raises(ValueError) as e:
+        load_inputs(tmp_path, seed=11111, payments_per_window=3)
+    assert "seed 11111" in str(e.value) and "density 3" in str(e.value)
+
+
+def test_omitting_both_flags_adopts_the_batch(tmp_path):
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=44444, payments_per_window=12), out_dir=tmp_path)
+    inputs = load_inputs(tmp_path)
+    assert (inputs.seed, inputs.payments_per_window) == (44444, 12)
+
+
+def test_a_batch_with_no_manifest_falls_back_to_config_defaults(tmp_path):
+    """A fixture directory written before manifests existed must still load."""
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=44444), out_dir=tmp_path)
+    (tmp_path / "manifest.json").unlink()
+    inputs = load_inputs(tmp_path)
+    assert inputs.seed == cfg.SEED_PRIMARY
+    assert inputs.payments_per_window == cfg.TARGET_POOL_SIZE
