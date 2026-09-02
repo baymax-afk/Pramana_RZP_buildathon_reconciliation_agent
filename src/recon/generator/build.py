@@ -34,7 +34,7 @@ from ..schemas import (
     paise_to_rupees,
 )
 from . import defects, fees
-from .customers import BY_KEY, CONFUSABLE_PAIRS, REGISTRY, Customer
+from .customers import BY_KEY, CONFUSABLE_PAIRS, REGISTRY, Customer, resolve
 
 START_DATE = date(2026, 6, 1)
 
@@ -332,9 +332,23 @@ def generate(
 
             if real_pool and rng.random() < 0.35:
                 rp = real_pool.pop()
+                # Resolve the counterparty from the name the payment actually carries,
+                # and only fall back to a random one when there is no name at all.
+                #
+                # This previously assigned a RANDOM family to any real payment lacking
+                # an explicit name_family, which produced records whose customer_name
+                # and name_family disagreed -- one real payment ended up named
+                # "Acme Retail Pvt Ltd" while filed under "acme_industrial", its
+                # deliberately confusable twin. That is the precise confusion the
+                # registry exists to test, manufactured by the generator instead of
+                # injected on purpose, and it corrupts both the Fellegi-Sunter name
+                # channel and any measurement made over it.
                 fam = rp.notes.get("name_family")
-                cust = BY_KEY.get(fam) if fam else rng.choice(REGISTRY)
-                cust = cust or rng.choice(REGISTRY)
+                cust = BY_KEY.get(fam) if fam else None
+                if cust is None:
+                    cust = resolve(rp.notes.get("customer_name") or "")
+                if cust is None:
+                    cust = rng.choice(REGISTRY)
                 inv = next_invoice(cust, rp.amount, pay_date, with_tds=False)
                 notes = dict(rp.notes)
                 notes.setdefault("customer_name", cust.canonical_name)

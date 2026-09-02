@@ -289,3 +289,25 @@ reported either way.
   layer is deterministic and reproducible.
 - Precision is reported **with and without the LLM tier** (`--no-llm`). If the LLM
   tier makes precision worse, the metrics block says so.
+
+
+## LLM tier: reported as unmeasured
+
+`docs/ARCHITECTURE.md` requires precision to be reported with the LLM tier on and off.
+That comparison **is not made**, and the reason is recorded rather than the number
+substituted.
+
+The tier is architecturally complete and its boundary is enforced structurally:
+`NarrationFields` has no field for a payment id, a candidate or a score, so a model
+cannot nominate or endorse a match even in principle, and `parse_with_llm` fills only
+fields the deterministic tier left empty. Both properties are tested.
+
+What is missing is a valid measurement. There is no API key in this environment, and the
+offline stand-in (`RecordedTier`) applies essentially the same word-filtering heuristic
+as `normalize._extract_name` — it recovers the payer name on the same 8 of 18
+unparseable narrations the regex tier already handles, and changes 0 verdicts. That
+agreement is a property of the stand-in sharing the parser's logic, not evidence about
+what a model would contribute.
+
+Running with `ANTHROPIC_API_KEY` set selects the live tier and makes the comparison real.
+Until then the claim is withheld.

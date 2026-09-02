@@ -32,7 +32,7 @@ from . import (
     tier2_amount_date,
     tier3_subsetsum,
 )
-from .normalize import parse, parse_with_llm
+from .normalize import parse_with_llm
 from .results import Assignment, Candidate, MatchOutput, Refusal, RefusalCategory
 
 

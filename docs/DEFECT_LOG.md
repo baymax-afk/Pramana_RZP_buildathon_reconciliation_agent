@@ -899,3 +899,85 @@ the metrics block prints `llm=recorded` so it cannot be read as a live-model res
 `ClaudeTier` is written and selected automatically when a key is present; it was not
 exercised. The honest summary is that the *architecture* is demonstrated and the
 *model's* contribution is not.
+
+---
+
+## 2026-09-02-02 — The LLM on/off comparison is unmeasured, not "no difference"
+
+**Timestamp:** 2026-09-02, Block 9 (LLM tier)
+
+**What broke:** three things in sequence, each hiding the next.
+
+**1. The LLM tier had no work to do.** The generator emitted narrations in only the
+five clean rail formats the regex tier already parses, so `needs_llm` fired on 0 of 137
+credits. Reporting "precision with the LLM on versus off" would have compared a tier
+against itself. Fixed by adding ~14% narrations in shapes real statements contain and
+this parser cannot read: clearing entries, cheque deposits, mobile-banking strings and
+free-text remitter descriptions. The regex tier now fails on 18 of 140 (13%).
+
+**2. My measurement harness silently disabled the thing it was measuring.**
+`select()` takes a bool, and I called `select("recorded")` — a truthy string, so it
+returned `NullTier`. The first comparison I ran was therefore null against null, and it
+produced a perfectly plausible result: identical numbers, which I nearly wrote up as
+"the LLM changes nothing". It changes nothing when it is not running.
+
+**3. The offline stand-in is not an independent second opinion.** With the tier
+actually enabled, `RecordedTier` enriched all 18 narrations and got the payer name right
+on **8 of 18 — exactly the same 8 the regex tier already got right.** It applies
+essentially the same word-filtering heuristic as `normalize._extract_name`, so it agrees
+with the deterministic tier by construction. A fixture that reimplements the thing it is
+meant to improve on cannot demonstrate improvement.
+
+**Conclusion, and it is a withholding rather than a result:** the LLM tier is
+architecturally complete and the trust boundary around it is genuinely enforced --
+`NarrationFields` has no field for a payment id, a candidate, or a score, so a model
+cannot express a matching preference even in principle, and `parse_with_llm` fills gaps
+only and never overrides deterministic output. All of that is tested.
+
+But **the LLM-on versus LLM-off precision comparison is reported as UNMEASURED.** There
+is no API key in this environment, and the offline stand-in is not a valid proxy for a
+model. Both runs currently show 129/129 at 100% precision with 0 verdicts changed, and
+that number means "the stand-in agrees with the regex tier", not "an LLM would add
+nothing".
+
+**Cost:** ~40 minutes.
+
+**The pattern, again:** every plausible-looking number this block produced was an
+artefact — 0 narrations needing the LLM, then identical on/off metrics from a disabled
+tier, then identical extraction quality from a stand-in that shares the parser's logic.
+Each would have passed unremarked. The only reason any of them surfaced was checking
+what the component actually did rather than what its output looked like.
+
+---
+
+## 2026-09-02-03 — Generator assigned a random counterparty family to real payments
+
+**Timestamp:** 2026-09-02, Block 9
+
+**What broke:** One real (tier R1) payment carried `customer_name = "Acme Retail Pvt
+Ltd"` while filed under `name_family = "acme_industrial"` — its deliberately confusable
+twin from the registry.
+
+**Diagnosis:** Found while auditing why a messy narration named a different counterparty
+than ground truth. Real payments ingested from `data/real_payments.json` do not all
+carry a `name_family` note — the earliest payment links were created before that
+convention existed. The ingest path read
+`cust = BY_KEY.get(fam) if fam else rng.choice(REGISTRY)`: with no family, it picked a
+**random** counterparty and stamped its key onto the record, regardless of the name the
+payment actually carried.
+
+The registry contains three confusable pairs precisely so the matcher can be tested on
+entities with similar names that must NOT be merged. Randomly filing a payment under its
+own confusable twin manufactures that confusion by accident, in the one channel built to
+measure it.
+
+**Fix:** resolve the family from the name the payment actually carries
+(`customers.resolve`), and fall back to random only when there is no name at all.
+Inconsistent records: 1 -> 0.
+
+**Cost:** ~10 minutes.
+
+**Why it mattered more than one record:** it corrupted the Fellegi-Sunter name channel
+for that payment and any measurement over it. It was invisible in every aggregate — the
+batch had 200 payments and one wrong family — and surfaced only because a narration and
+a ground-truth name were compared side by side while investigating something else.

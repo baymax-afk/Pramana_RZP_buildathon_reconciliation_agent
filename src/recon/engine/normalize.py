@@ -209,8 +209,16 @@ def parse_with_llm(narration: str, llm=None) -> ParsedNarration:
     reporting precision both ways a meaningful comparison rather than two labels on the
     same number.
 
-    Fields the regex tier already extracted are never overwritten. The model fills gaps;
-    it does not get to revise deterministic output.
+    Fields the regex tier already extracted are never overwritten. The model fills
+    gaps; it does not get to revise deterministic output.
+
+    That is a real cost, paid deliberately. 'ACME INDUSTRIAL SU PAYMENT AGAINST
+    BILLS' is a poor name extraction and a model could plainly do better, but
+    allowing an override would let model output displace deterministic output on
+    the Fellegi-Sunter name channel -- which feeds match decisions. Fill-gaps-only
+    keeps the boundary absolute at the price of accuracy the LLM could have added,
+    and it is what lets the on/off figures be compared honestly: the LLM can only
+    ever ADD information, never change an answer the deterministic tier gave.
     """
     parsed = parse(narration)
     if llm is None or not getattr(llm, "enabled", False) or not needs_llm(parsed):

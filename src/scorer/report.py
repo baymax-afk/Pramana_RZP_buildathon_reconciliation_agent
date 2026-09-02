@@ -117,6 +117,18 @@ def render(
 
     # ---- honesty about what is not built yet ----
     add("")
+    add("  LLM TIER")
+    add(_THIN)
+    add("    The trust boundary is enforced by the TYPE: NarrationFields carries no")
+    add("    payment id, candidate or score, so a model cannot express a matching")
+    add("    preference. parse_with_llm fills gaps only and never overrides")
+    add("    deterministic output. Both properties are tested.")
+    add("")
+    add("    LLM-on vs LLM-off precision: UNMEASURED. No API key is available in this")
+    add("    environment, and the offline stand-in applies the same word-filtering")
+    add("    heuristic as the regex tier -- it agrees with it by construction and is")
+    add("    not a valid proxy for a model. See DEFECT_LOG 2026-09-02-02.")
+    add("")
     add("  VERIFICATION LAYERS")
     add(_THIN)
     if relations is not None:

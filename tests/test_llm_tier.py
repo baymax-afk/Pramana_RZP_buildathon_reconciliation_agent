@@ -71,8 +71,20 @@ def test_llm_is_offered_only_narrations_regex_could_not_read():
         if t.is_credit and needs_llm(parse(t.narration))
     ]
     assert offered, "no unparseable narrations in the batch; the comparison is vacuous"
+    # The condition is NOT "some field was left empty". When the rail format is
+    # unrecognised the regex tier's field boundaries are guesses: it may have extracted
+    # something, but it cannot know whether it split the string correctly.
+    # 'CR-SILVERLINEPACK-836870 INV-2026-1022' yields a name and a reference that happen
+    # to be right; 'ACME INDUSTRIAL SU PAYMENT AGAINST BILLS' yields a "name" with three
+    # noise words inside it. Both are unrecognised formats and both are legitimately
+    # worth a second look.
+    #
+    # What must hold is the converse: a narration parsed under a KNOWN format is never
+    # offered to a model, and neither is a settlement batch.
     for narration in offered:
-        assert parse(narration).payer_name is None or parse(narration).merchant_ref is None
+        assert parse(narration).style not in {
+            "neft", "rtgs", "imps", "upi", "settlement"
+        }
 
 
 def test_settlement_batches_are_never_sent_to_the_llm():
