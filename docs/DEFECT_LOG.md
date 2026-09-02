@@ -981,3 +981,34 @@ Inconsistent records: 1 -> 0.
 for that payment and any measurement over it. It was invisible in every aggregate — the
 batch had 200 payments and one wrong family — and surfaced only because a narration and
 a ground-truth name were compared side by side while investigating something else.
+
+---
+
+## 2026-09-02-04 — `vite build` succeeded on a page that renders blank
+
+**Timestamp:** 2026-09-02, Block 10 (API and UI)
+
+**What broke:** The React app built cleanly -- 22 modules transformed, 149 kB bundle, no
+warnings -- and rendered a completely blank page. The console said
+`ReferenceError: React is not defined`.
+
+**Diagnosis:** `vite.config.js` imported `@vitejs/plugin-react` but never registered it
+in `plugins: []`. Without the plugin, esbuild's default JSX transform emits
+`React.createElement(...)` calls, and `App.jsx` uses the modern convention of not
+importing React. The references are therefore unresolved at RUNTIME.
+
+The build cannot catch this. Emitting `React.createElement` is valid JavaScript; whether
+`React` happens to be in scope is only knowable when the module executes. So the build
+is green, the bundle is well-formed, and the page is blank.
+
+**Fix:** `plugins: [react()]`, with a comment recording why the line is load-bearing
+rather than boilerplate someone might tidy away.
+
+**Cost:** ~10 minutes.
+
+**The lesson, which is this project's own thesis pointed at its build:** a green build is
+not evidence that the page works, in exactly the way that a high match rate is not
+evidence that the matches are right. Both are checks that pass on the *shape* of the
+output without testing the *claim*. The only thing that caught it was loading the page
+and looking at it -- the frontend equivalent of scoring against ground truth rather than
+counting assignments.

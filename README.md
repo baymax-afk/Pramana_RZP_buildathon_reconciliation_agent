@@ -171,6 +171,17 @@ six metamorphic relations. Drop `--verify` for a single unguarded pass. The engi
 `ReconInputs` alone; ground truth is loaded afterwards, by a different package.
 
 ```bash
+uvicorn api.main:app --port 8000     # read-only API
+cd ui && npm install && npm run dev  # triage UI on :5173
+```
+
+The UI is a single page: exceptions ranked by rupees at risk, each expanding to show
+why the engine declined, what to do next, and — for ambiguous credits — every candidate
+it refused to choose between. The API is **read-only by design**: there is no accept /
+reject endpoint, because a feedback loop is out of scope and a button that did nothing
+would be worse than none.
+
+```bash
 pytest tests/
 ```
 
@@ -197,7 +208,7 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 8** — Layer 4 materiality (AS 2315) + composite confidence
 - [ ] **Block 8b** — BenchRec calibration fit (weights currently UNCALIBRATED)
 - [x] **Block 9** — LLM tier (no verdict changes; see DEFECT_LOG 2026-09-02-03)
-- [ ] **Block 10** — FastAPI + React exception triage UI
+- [x] **Block 10** — FastAPI + React exception triage UI
 
 [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) records what broke during the build, as it
 broke.

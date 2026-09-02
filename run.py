@@ -163,6 +163,17 @@ def cmd_match(args: argparse.Namespace) -> int:
         credits_by_id={x.id: x.credit for x in inputs.bank_txns},
         seed=args.seed,
     )
+    # The UI payload is built from the ENGINE's output only -- no ground truth, no
+    # scoring. What a merchant sees is exactly what the engine could justify without
+    # an answer key.
+    from recon.report import run_output
+
+    payload = run_output.build(
+        inputs, out, seed=args.seed, elapsed_s=elapsed,
+        relations=relations, ensemble=ensemble,
+    )
+    written = run_output.write(payload)
+
     print(render(sc, args.seed, args.payments_per_window,
                  llm_enabled=llm.name, relations=relations, ensemble=ensemble))
     return 0

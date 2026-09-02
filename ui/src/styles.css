@@ -1,0 +1,138 @@
+/*
+ * Restrained on purpose. This is a worklist an analyst reads for an hour at a time, so
+ * the money column is the loudest thing on the page and everything else stays quiet.
+ * Category colour is used to distinguish, never to alarm: an exception is not an error,
+ * it is work the engine correctly declined to guess at.
+ */
+
+:root {
+  --bg: #fbfbfa;
+  --panel: #ffffff;
+  --ink: #1b1b19;
+  --muted: #6b6b66;
+  --line: #e6e5e1;
+  --accent: #1f5c9e;
+  --warn: #8a5300;
+  --warn-bg: #fdf5e7;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 13px; }
+.small { font-size: 12px; }
+
+header {
+  display: flex; flex-wrap: wrap; gap: 24px;
+  align-items: flex-start; justify-content: space-between;
+  padding-bottom: 24px; border-bottom: 1px solid var(--line);
+}
+h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+.sub { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+
+.stats { display: flex; gap: 14px; flex-wrap: wrap; }
+.stat {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 16px; min-width: 132px;
+}
+.stat.warn { background: var(--warn-bg); border-color: #f0dfbe; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.stat-value { font-size: 22px; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.stat.warn .stat-value { color: var(--warn); }
+.stat-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 6px; }
+.filters button {
+  font: inherit; font-size: 13px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 13px; color: var(--ink);
+}
+.filters button:hover { border-color: #cfcec9; }
+.filters button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.filters .n { opacity: 0.6; margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+.showing { color: var(--muted); font-size: 13px; margin: 10px 0 14px; }
+
+.exceptions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.exception { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+
+.exception-head {
+  width: 100%; display: grid; grid-template-columns: 34px 150px 1fr 26px;
+  align-items: center; gap: 14px; text-align: left;
+  background: none; border: 0; padding: 14px 16px; cursor: pointer; font: inherit; color: inherit;
+}
+.exception-head:hover { background: #fafaf8; }
+.rank { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.amount { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.why { color: var(--muted); font-size: 13px; }
+.chev { color: var(--muted); font-size: 18px; text-align: center; }
+
+.badge {
+  display: inline-block; width: fit-content;
+  font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 5px; background: #eef1f5; color: #3d4a5c;
+}
+.cat-multiple_candidates, .cat-solution_cap_reached { background: #fdf1e3; color: #8a5300; }
+.cat-order_dependent_assignment { background: #f4ecfa; color: #6a3e93; }
+.cat-unexplained_residual, .cat-amount_name_conflict { background: #fdeceb; color: #94322c; }
+.cat-no_candidate, .cat-decomposition_out_of_bounds { background: #eef1f5; color: #45505f; }
+
+.exception-body { padding: 4px 16px 18px 62px; border-top: 1px solid var(--line); }
+.next-step { background: #f4f8fc; border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 7px 7px 0; margin: 14px 0; }
+.next-step strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); }
+.next-step p { margin: 4px 0 0; }
+
+.candidates { margin: 14px 0; }
+.candidates-title { font-size: 12px; color: var(--warn); margin-bottom: 7px; font-weight: 500; }
+.candidate {
+  display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+  padding: 8px 12px; border: 1px solid #f0dfbe; background: var(--warn-bg);
+  border-radius: 7px; margin-bottom: 6px; font-size: 13px;
+}
+.candidate-rank { font-weight: 700; color: var(--warn); }
+.candidate-amount { font-weight: 600; font-variant-numeric: tabular-nums; }
+.candidate-ids { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.candidate-cust { color: var(--muted); }
+
+.facts { display: grid; grid-template-columns: 132px 1fr; gap: 5px 14px; margin: 14px 0 0; font-size: 13px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; word-break: break-word; }
+
+.verification { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--line); }
+.verification h2 { font-size: 15px; margin: 0 0 10px; }
+.gate { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.relations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.relations li { display: grid; grid-template-columns: 46px 92px 96px 1fr; gap: 10px; align-items: baseline; font-size: 12.5px; padding: 5px 0; }
+.rel-name { font-weight: 600; }
+.rel-kind, .rel-text { color: var(--muted); }
+.relations li.ok .rel-stat { color: #2c6b41; }
+.relations li.bad .rel-stat { color: #94322c; font-weight: 600; }
+
+footer { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+footer p { margin: 0 0 6px; }
+
+.error { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 28px; }
+.error h1 { font-size: 19px; }
+.error pre { background: #f5f5f3; padding: 12px 14px; border-radius: 7px; font-family: var(--mono); font-size: 13px; overflow-x: auto; }
+
+@media (max-width: 720px) {
+  .exception-head { grid-template-columns: 26px 1fr 22px; }
+  .amount { grid-column: 2; }
+  .meta { grid-column: 2; }
+  .exception-body { padding-left: 16px; }
+  .facts { grid-template-columns: 1fr; }
+  .relations li { grid-template-columns: 42px 1fr; }
+  .rel-text { grid-column: 1 / -1; }
+}
