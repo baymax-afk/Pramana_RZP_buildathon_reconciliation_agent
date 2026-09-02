@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-02T07:00:50.769511+00:00",
+  "generated_at": "2026-09-02T08:58:11.956149+00:00",
   "seed": 20260905,
   "density": 6,
   "totals": {
@@ -536,9 +536,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 2.761,
+      "fs_weight": 1.346,
       "permutation_stability": 1.0,
-      "confidence": 0.9534
+      "confidence": 0.94
     },
     {
       "bank_txn_id": "bank_txn_0089",
@@ -553,7 +553,7 @@
       "residual_paise": 1,
       "residual_tightness": 0.99,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.922
     },
@@ -570,9 +570,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.111,
+      "fs_weight": 5.626,
       "permutation_stability": 1.0,
-      "confidence": 0.9663
+      "confidence": 0.9655
     },
     {
       "bank_txn_id": "bank_txn_0117",
@@ -587,9 +587,9 @@
       "residual_paise": 1,
       "residual_tightness": 0.99,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 5.111,
       "permutation_stability": 1.0,
-      "confidence": 0.9649
+      "confidence": 0.9636
     },
     {
       "bank_txn_id": "bank_txn_0016",
@@ -625,7 +625,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 10.391,
+      "fs_weight": 8.516,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -642,7 +642,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.781,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -659,9 +659,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.263,
+      "fs_weight": 4.848,
       "permutation_stability": 1.0,
-      "confidence": 0.9649
+      "confidence": 0.9642
     },
     {
       "bank_txn_id": "bank_txn_0076",
@@ -676,7 +676,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -693,9 +693,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.626,
+      "fs_weight": 5.111,
       "permutation_stability": 1.0,
-      "confidence": 0.9655
+      "confidence": 0.9646
     },
     {
       "bank_txn_id": "bank_txn_0043",
@@ -727,7 +727,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.806,
+      "fs_weight": 8.168,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -744,9 +744,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.176,
+      "fs_weight": 0.887,
       "permutation_stability": 1.0,
-      "confidence": 0.9382
+      "confidence": 0.935
     },
     {
       "bank_txn_id": "bank_txn_0008",
@@ -761,9 +761,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.433,
+      "fs_weight": 5.433,
       "permutation_stability": 1.0,
-      "confidence": 0.9668
+      "confidence": 0.9652
     },
     {
       "bank_txn_id": "bank_txn_0041",
@@ -778,7 +778,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.654,
+      "fs_weight": 8.806,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -795,9 +795,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.111,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9663
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0007",
@@ -812,9 +812,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.111,
+      "fs_weight": 5.433,
       "permutation_stability": 1.0,
-      "confidence": 0.9663
+      "confidence": 0.9652
     },
     {
       "bank_txn_id": "bank_txn_0121",
@@ -829,7 +829,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.196,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -865,7 +865,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.366,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -882,7 +882,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -918,7 +918,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.781,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -935,7 +935,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.518,
+      "fs_weight": -2.366,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -952,7 +952,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.976,
+      "fs_weight": 8.806,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -969,9 +969,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9659
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0081",
@@ -986,7 +986,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.391,
+      "fs_weight": 8.806,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1020,7 +1020,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.196,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1037,9 +1037,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.848,
+      "fs_weight": 5.111,
       "permutation_stability": 1.0,
-      "confidence": 0.9675
+      "confidence": 0.9646
     },
     {
       "bank_txn_id": "bank_txn_0050",
@@ -1054,7 +1054,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -3.103,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1071,9 +1071,9 @@
       "residual_paise": -1,
       "residual_tightness": 0.99,
       "uniqueness_margin": 1.0,
-      "fs_weight": 2.024,
+      "fs_weight": 1.024,
       "permutation_stability": 1.0,
-      "confidence": 0.9453
+      "confidence": 0.9347
     },
     {
       "bank_txn_id": "bank_txn_0051",
@@ -1088,7 +1088,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.391,
+      "fs_weight": 8.516,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1105,9 +1105,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.761,
+      "fs_weight": 0.887,
       "permutation_stability": 1.0,
-      "confidence": 0.9443
+      "confidence": 0.935
     },
     {
       "bank_txn_id": "bank_txn_0058",
@@ -1122,7 +1122,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.654,
+      "fs_weight": 8.516,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1139,7 +1139,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.391,
+      "fs_weight": 8.516,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1156,9 +1156,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.111,
+      "fs_weight": 4.626,
       "permutation_stability": 1.0,
-      "confidence": 0.9646
+      "confidence": 0.9638
     },
     {
       "bank_txn_id": "bank_txn_0128",
@@ -1192,9 +1192,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 5.433,
       "permutation_stability": 1.0,
-      "confidence": 0.9659
+      "confidence": 0.9652
     },
     {
       "bank_txn_id": "bank_txn_0036",
@@ -1209,7 +1209,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.196,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1226,7 +1226,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.781,
+      "fs_weight": -2.518,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1243,7 +1243,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -2.518,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1294,9 +1294,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.111,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9663
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0054",
@@ -1311,7 +1311,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 10.976,
+      "fs_weight": 9.168,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1328,9 +1328,9 @@
       "residual_paise": 1,
       "residual_tightness": 0.99,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.176,
+      "fs_weight": 0.539,
       "permutation_stability": 1.0,
-      "confidence": 0.9365
+      "confidence": 0.929
     },
     {
       "bank_txn_id": "bank_txn_0075",
@@ -1345,7 +1345,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.366,
+      "fs_weight": -2.897,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1362,9 +1362,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.024,
+      "fs_weight": 0.539,
       "permutation_stability": 1.0,
-      "confidence": 0.9366
+      "confidence": 0.9309
     },
     {
       "bank_txn_id": "bank_txn_0019",
@@ -1379,7 +1379,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.976,
+      "fs_weight": 8.275,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1413,7 +1413,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.168,
+      "fs_weight": 8.516,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1430,9 +1430,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.761,
+      "fs_weight": 0.646,
       "permutation_stability": 1.0,
-      "confidence": 0.9443
+      "confidence": 0.9322
     },
     {
       "bank_txn_id": "bank_txn_0115",
@@ -1500,7 +1500,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.781,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1517,7 +1517,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -0.781,
+      "fs_weight": -2.004,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1534,9 +1534,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.626,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9655
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0071",
@@ -1551,7 +1551,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -2.518,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1585,9 +1585,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9659
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0078",
@@ -1602,7 +1602,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.391,
+      "fs_weight": 8.275,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1619,9 +1619,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.346,
+      "fs_weight": 0.887,
       "permutation_stability": 1.0,
-      "confidence": 0.94
+      "confidence": 0.935
     },
     {
       "bank_txn_id": "bank_txn_0077",
@@ -1636,9 +1636,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.626,
+      "fs_weight": 4.733,
       "permutation_stability": 1.0,
-      "confidence": 0.9655
+      "confidence": 0.964
     },
     {
       "bank_txn_id": "bank_txn_0134",
@@ -1653,7 +1653,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.433,
+      "fs_weight": 7.433,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1670,7 +1670,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.168,
+      "fs_weight": 8.516,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1687,7 +1687,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.196,
+      "fs_weight": -2.518,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1704,7 +1704,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.654,
+      "fs_weight": 8.168,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1721,9 +1721,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.433,
+      "fs_weight": 4.733,
       "permutation_stability": 1.0,
-      "confidence": 0.9652
+      "confidence": 0.964
     },
     {
       "bank_txn_id": "bank_txn_0038",
@@ -1738,9 +1738,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.433,
+      "fs_weight": 5.433,
       "permutation_stability": 1.0,
-      "confidence": 0.9668
+      "confidence": 0.9652
     },
     {
       "bank_txn_id": "bank_txn_0003",
@@ -1755,7 +1755,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -0.781,
+      "fs_weight": -1.518,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1772,7 +1772,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.196,
+      "fs_weight": -2.004,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1789,9 +1789,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.539,
+      "fs_weight": 0.887,
       "permutation_stability": 1.0,
-      "confidence": 0.9421
+      "confidence": 0.935
     },
     {
       "bank_txn_id": "bank_txn_0013",
@@ -1806,9 +1806,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.346,
+      "fs_weight": 1.024,
       "permutation_stability": 1.0,
-      "confidence": 0.94
+      "confidence": 0.9366
     },
     {
       "bank_txn_id": "bank_txn_0122",
@@ -1823,9 +1823,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.433,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9652
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0105",
@@ -1840,7 +1840,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1857,7 +1857,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.518,
+      "fs_weight": -2.366,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1874,9 +1874,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 2.346,
+      "fs_weight": 2.024,
       "permutation_stability": 1.0,
-      "confidence": 0.9498
+      "confidence": 0.9468
     },
     {
       "bank_txn_id": "bank_txn_0126",
@@ -1891,7 +1891,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1908,9 +1908,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.626,
+      "fs_weight": 4.848,
       "permutation_stability": 1.0,
-      "confidence": 0.9655
+      "confidence": 0.9642
     },
     {
       "bank_txn_id": "bank_txn_0039",
@@ -1925,7 +1925,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.518,
+      "fs_weight": -2.196,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -1942,7 +1942,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.168,
+      "fs_weight": 8.391,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -1959,9 +1959,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.626,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9655
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0026",
@@ -1976,9 +1976,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.433,
+      "fs_weight": 5.263,
       "permutation_stability": 1.0,
-      "confidence": 0.9668
+      "confidence": 0.9649
     },
     {
       "bank_txn_id": "bank_txn_0068",
@@ -1993,7 +1993,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.654,
+      "fs_weight": 8.516,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -2010,7 +2010,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.976,
+      "fs_weight": 8.516,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -2027,9 +2027,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 2.024,
+      "fs_weight": 0.761,
       "permutation_stability": 1.0,
-      "confidence": 0.9468
+      "confidence": 0.9336
     },
     {
       "bank_txn_id": "bank_txn_0037",
@@ -2061,9 +2061,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 5.433,
       "permutation_stability": 1.0,
-      "confidence": 0.9659
+      "confidence": 0.9652
     },
     {
       "bank_txn_id": "bank_txn_0044",
@@ -2078,9 +2078,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 0.887,
+      "fs_weight": 0.539,
       "permutation_stability": 1.0,
-      "confidence": 0.935
+      "confidence": 0.9309
     },
     {
       "bank_txn_id": "bank_txn_0001",
@@ -2112,7 +2112,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.004,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -2129,7 +2129,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.518,
+      "fs_weight": -2.004,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -2163,9 +2163,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9659
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0103",
@@ -2180,7 +2180,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 9.168,
+      "fs_weight": 8.275,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -2197,7 +2197,7 @@
       "residual_paise": -1,
       "residual_tightness": 0.99,
       "uniqueness_margin": 1.0,
-      "fs_weight": -0.781,
+      "fs_weight": -2.004,
       "permutation_stability": 1.0,
       "confidence": 0.922
     },
@@ -2214,7 +2214,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.196,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -2231,7 +2231,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.781,
+      "fs_weight": -2.004,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -2248,9 +2248,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9659
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0073",
@@ -2265,9 +2265,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.433,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9652
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0130",
@@ -2282,7 +2282,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.781,
+      "fs_weight": -2.781,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -2299,7 +2299,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -2.366,
+      "fs_weight": -2.656,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     },
@@ -2316,9 +2316,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.761,
+      "fs_weight": 1.346,
       "permutation_stability": 1.0,
-      "confidence": 0.9443
+      "confidence": 0.94
     },
     {
       "bank_txn_id": "bank_txn_0020",
@@ -2333,9 +2333,9 @@
       "residual_paise": -1,
       "residual_tightness": 0.99,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.111,
+      "fs_weight": 5.111,
       "permutation_stability": 1.0,
-      "confidence": 0.9653
+      "confidence": 0.9636
     },
     {
       "bank_txn_id": "bank_txn_0004",
@@ -2350,9 +2350,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 6.433,
+      "fs_weight": 5.626,
       "permutation_stability": 1.0,
-      "confidence": 0.9668
+      "confidence": 0.9655
     },
     {
       "bank_txn_id": "bank_txn_0112",
@@ -2384,7 +2384,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.976,
+      "fs_weight": 8.275,
       "permutation_stability": 1.0,
       "confidence": 0.982
     },
@@ -2418,7 +2418,7 @@
       "residual_paise": -1,
       "residual_tightness": 0.99,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.781,
+      "fs_weight": -2.518,
       "permutation_stability": 1.0,
       "confidence": 0.922
     },
@@ -2435,9 +2435,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9659
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0085",
@@ -2452,9 +2452,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.848,
+      "fs_weight": 4.974,
       "permutation_stability": 1.0,
-      "confidence": 0.9659
+      "confidence": 0.9644
     },
     {
       "bank_txn_id": "bank_txn_0017",
@@ -2469,7 +2469,7 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -1.781,
+      "fs_weight": -2.781,
       "permutation_stability": 1.0,
       "confidence": 0.9241
     }
@@ -2533,5 +2533,5 @@
       "mean_stability": 1.0
     }
   },
-  "throughput_records_per_s": 345
+  "throughput_records_per_s": 565
 }

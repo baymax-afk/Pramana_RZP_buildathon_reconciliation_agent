@@ -20,10 +20,6 @@ from __future__ import annotations
 import config as cfg
 
 from ..schemas import Payment, ReconInputs
-
-
-def cfg_fs_lower() -> float:
-    return cfg.FS_THRESHOLD_LOWER
 from . import (
     confidence as conf,
     fees,
@@ -77,7 +73,6 @@ def _assignment_from(
     )
 
 
-MAX_ROUNDS = 6
 
 
 def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm=None):
@@ -150,6 +145,27 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
         (t for t in inputs.bank_txns if t.is_credit), key=tier2_amount_date.sort_key
     )
 
+    # ---- Fellegi-Sunter prior, fixed before any claiming ----
+    #
+    # lambda = 1/pool_size is the prior that a random (credit, payment) pair inside the
+    # blocking window matches, and BLOCKING is what makes it tractable. The blocking key
+    # is the date window -- nothing else. Measuring the pool *as currently claimed* let
+    # the greedy loop leak into the probabilistic layer: two identical credits got
+    # different priors depending on which happened to be processed first, and the same
+    # credit got a different prior on round 2 than on round 1, because earlier
+    # assignments had drained its window. A prior that moves while the evidence does not
+    # is not a prior.
+    #
+    # Computed once, with nothing claimed, so it is a property of the batch's date
+    # structure rather than of the traversal.
+    unclaimed: set[str] = set()
+    blocking_pool_size = {
+        txn.id: max(
+            2, len(tier2_amount_date.candidate_pool(txn, payments, unclaimed))
+        )
+        for txn in credits
+    }
+
     claimed: set[str] = set()
     assignments: list[Assignment] = []
     tier_counts: dict[str, int] = {}
@@ -158,7 +174,7 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
     no_candidate: list[str] = []
     rounds = 0
 
-    for _ in range(MAX_ROUNDS):
+    for _ in range(cfg.MAX_ROUNDS):
         rounds += 1
         progressed = False
         refusals, no_candidate = [], []
@@ -178,7 +194,7 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
                     parse_with_llm(txn.narration, llm),
                     [by_id[pid] for pid in cand.payment_ids if pid in by_id],
                     u_est,
-                    pool_size=max(2, len(tier2_amount_date.candidate_pool(txn, payments, claimed))),
+                    pool_size=blocking_pool_size[txn.id],
                 )
                 if ev.contradicts:
                     # Names and references actively contradict the amount evidence.

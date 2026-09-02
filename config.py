@@ -154,6 +154,12 @@ MAX_POOL = 20                  # candidates per credit; above this -> refuse, ne
 MAX_SUBSET_K = 6               # max payments per many-to-one decomposition
 MAX_SOLUTIONS = 8              # enumerate up to this many; reaching it means refuse
 
+# Fixpoint bound for the matching loop. The loop stops as soon as a full round adds no
+# assignment, so this is a guard against non-termination, not a tuning parameter: a
+# batch needing more rounds than this has a cycle the engine cannot resolve, and
+# stopping is the right answer. Six is well above the deepest observed (2).
+MAX_ROUNDS = 6
+
 # --------------------------------------------------------------------------
 # Layer 1 -- permutation ensemble.
 #
