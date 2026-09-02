@@ -146,6 +146,14 @@ verdict.
 ## Running it
 
 ```bash
+pip install -e '.[api,test]'      # engine + API + test deps; the engine itself has none
+```
+
+The engine, all four verification layers and the scorer run on the **standard library
+alone** — `pip install -e .` with no extras is enough for every number reported below.
+The extras are for the FastAPI server and the test suite.
+
+```bash
 python run.py generate --seed 20260905
 ```
 
@@ -192,7 +200,7 @@ would be worse than none.
 pytest tests/
 ```
 
-58 tests, including the end-to-end isolation test — which deletes the ground-truth
+191 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*

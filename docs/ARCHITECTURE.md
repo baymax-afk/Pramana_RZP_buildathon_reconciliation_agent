@@ -188,6 +188,38 @@ That gap is precisely what Layer 2 fills. Their optimal solver is MILP; at n ≈
 with date-window bucketing, bounded search with a hard candidate cap is sufficient,
 so no MILP solver is built here.
 
+#### The algorithm, precisely
+
+`src/recon/engine/tier3_subsetsum.py` is **depth-first search with two exact prunes**
+over a pool sorted ascending by lower bound. It is not meet-in-the-middle, and it is
+not dynamic programming. Stating that here because a document that names an algorithm
+the code does not implement is the exact failure this project spends its argument
+criticising, and because the distinction is load-bearing rather than pedantic:
+
+- **Both prunes are exact, never heuristic.** *Overshoot*: all amounts are positive, so
+  once the running lower bound exceeds `target + ε` no extension can come back down —
+  and because the pool is sorted, no later sibling can fit either. *Unreachable*: suffix
+  sums bound the most the remaining candidates could add; if the running upper bound
+  plus that maximum still falls short, stop. A heuristic prune could silently discard a
+  second solution and turn a genuine ambiguity into a confident wrong answer, which is
+  the one outcome Layer 2 exists to prevent.
+- **Meet-in-the-middle would be the wrong tool anyway.** MITM is the right choice when
+  you want *a* solution from a large `n` — it splits the pool in half and hashes partial
+  sums. Layer 2 needs *every* solution up to `MAX_SOLUTIONS`, and it needs the near
+  misses too, because `best_miss` is what makes the uniqueness margin meaningful.
+  Recovering all solutions from a MITM hash table costs the enumeration back.
+- **The bound is on subsets, not on the power set.** With `MAX_POOL = 20` and
+  `MAX_SUBSET_K = 6` the search space is Σ C(20, k) for k ≤ 6 = **60,459** subsets per
+  credit before pruning, against 2²⁰ ≈ 1.05 M for the unbounded power set. At a pool of
+  28 the same bound gives 499,177 — an 8× increase, multiplied by ~135 credits and by
+  `K = 8` permutation passes, which is why `MAX_POOL` is a refusal threshold rather
+  than a number to raise when a batch does not fit.
+
+*(`DEFECT_LOG.md` 2026-09-01-06 uses "meet-in-the-middle" for this cost model. The
+arithmetic quoted there — 38,760 and 376,740 — is C(n, 6), i.e. bounded enumeration, so
+the reasoning holds and only the label was wrong. The entry is left as written because
+that log is append-only; the correction lives here.)*
+
 ### Layer 3 — Fellegi–Sunter evidence weights with a two-threshold band
 
 Hand-tuned similarity scores are replaced with the classical probabilistic record

@@ -148,3 +148,42 @@ def test_select_reports_which_tier_ran():
     """A recorded run must never be mistakable for a live-model run."""
     assert select(disabled=True).name == "disabled"
     assert select().name in {"recorded", "claude:claude-sonnet-5"}
+
+
+def test_every_refusal_category_has_an_explanation_template():
+    """
+    THE test that stops this drifting again.
+
+    The template table used to key on "fs_contradicted", a category the engine has never
+    emitted, so every amount/name conflict fell through to the generic fallback. Nothing
+    caught it because the fallback is a plausible sentence -- the operator saw the
+    engine's internal reason string instead of prose written for them, which reads as
+    terse rather than as broken.
+
+    Coupling the table to the enum makes the next divergence a test failure instead of a
+    silent downgrade.
+    """
+    from recon.engine.results import RefusalCategory
+    from recon.llm.recorded import _TEMPLATES
+
+    missing = sorted(c.value for c in RefusalCategory if c.value not in _TEMPLATES)
+    assert not missing, f"RefusalCategory members with no explanation template: {missing}"
+
+    stale = sorted(k for k in _TEMPLATES if k not in {c.value for c in RefusalCategory})
+    assert not stale, f"templates keyed on categories the engine never emits: {stale}"
+
+
+def test_explanations_are_operator_facing_not_engine_internals():
+    """Each template must actually be used, and must not echo the internal reason."""
+    from recon.engine.results import RefusalCategory
+    from recon.llm.recorded import RecordedTier
+
+    tier = RecordedTier()
+    internal = "fs weight -3.20 below FS_THRESHOLD_LOWER=4.0"
+    for category in RefusalCategory:
+        prose = tier.explain(category.value, internal, 1234.5)
+        assert internal not in prose.explanation, (
+            f"{category.value} fell through to the generic fallback"
+        )
+        assert "1,234.50" in prose.explanation
+        assert prose.proposed_resolution

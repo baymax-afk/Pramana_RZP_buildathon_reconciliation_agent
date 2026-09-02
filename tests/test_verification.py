@@ -286,3 +286,53 @@ def test_mr6_catches_an_engine_that_left_work_undone(batch):
     result = mm.mr6_idempotence(batch.inputs, pretend_missed)
     assert not result.passed
     assert len(result.violations) >= 1
+
+
+def test_parallel_and_sequential_ensembles_are_identical(batch, monkeypatch):
+    """
+    The ensemble runs its K passes in worker processes. That is a speed decision, and it
+    must stay only a speed decision: `match_once` is pure, results are collected by pass
+    index rather than by completion order, and nothing observes which worker finished
+    first. If those stop being true the gate's verdicts start depending on scheduling,
+    which is the exact failure mode the gate exists to catch.
+    """
+    import config as cfg
+    from recon.verify import stability
+
+    parallel = stability.run_with_permutations(batch.inputs, k=4, seed=99)
+    monkeypatch.setattr(cfg, "PERMUTATION_PARALLEL", False)
+    sequential = stability.run_with_permutations(batch.inputs, k=4, seed=99)
+
+    assert parallel.base.assignment_map == sequential.base.assignment_map
+    assert parallel.summary() == sequential.summary()
+    assert {t: s.stability for t, s in parallel.per_txn.items()} == {
+        t: s.stability for t, s in sequential.per_txn.items()
+    }
+
+
+def test_ensemble_falls_back_to_sequential_when_the_llm_tier_cannot_be_pickled(batch):
+    """
+    A live LLM tier holds an open HTTP client and cannot cross a process boundary. That
+    must degrade to the sequential path, not crash the run -- the ensemble is the
+    engine's primary execution path, not an optional extra.
+    """
+    from recon.verify import stability
+
+    class Unpicklable:
+        name, enabled = "unpicklable", True
+
+        def __reduce__(self):
+            raise TypeError("cannot pickle this tier")
+
+        def parse_narration(self, narration):
+            from recon.llm.interface import NarrationFields
+            return NarrationFields()
+
+        def explain(self, category, reason, rupees_at_risk):
+            from recon.llm.interface import ExceptionProse
+            return ExceptionProse(reason, "Review manually.")
+
+    assert stability._is_picklable(Unpicklable()) is False
+    ens = stability.run_with_permutations(batch.inputs, k=2, seed=7, llm=Unpicklable())
+    assert ens.passes == 2
+    assert ens.base is not None

@@ -19,15 +19,28 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-for _p in (str(ROOT), str(ROOT / "src")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-import config as cfg  # noqa: E402
-from loaders import load_inputs  # noqa: E402
-from recon.engine.match import match_once  # noqa: E402
-from recon.generator import build  # noqa: E402
+# The project installs as a package (`pip install -e .`), so `config`, `loaders`,
+# `recon` and `scorer` import normally. This file previously inserted the repo root and
+# `src/` into sys.path before its own imports, which made the entry points work only
+# from inside a checkout and put four `# noqa: E402` comments on the imports to hide the
+# consequence. Running from source without installing still works via `pytest.ini`'s
+# pythonpath for tests, and `python -m` from the repo root for the CLI.
+try:
+    import config as cfg
+    from loaders import load_inputs
+    from recon.engine.match import match_once
+    from recon.generator import build
+except ModuleNotFoundError as _e:  # pragma: no cover - first-run guard
+    # Deliberately an ERROR rather than a sys.path fix-up. Silently repairing the path
+    # is what this file used to do, and it hid the fact that the project was not
+    # actually installable -- everything worked from the checkout and nothing worked
+    # anywhere else. A one-line instruction is a better answer than a bare traceback.
+    raise SystemExit(
+        f"{_e}\n\n"
+        "Pramana is not installed. From the repository root:\n"
+        "    pip install -e .          # engine, generator, scorer, CLI\n"
+        "    pip install -e '.[api]'   # ...plus the read-only API\n"
+    ) from None
 
 
 def _print_block(title: str, rows: list[tuple[str, object]]) -> None:

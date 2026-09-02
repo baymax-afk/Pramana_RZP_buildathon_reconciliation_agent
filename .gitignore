@@ -11,6 +11,9 @@ data/benchrec/
 *.key
 
 # Python
+*.egg-info/
+build/
+dist/
 __pycache__/
 *.py[cod]
 .venv/
