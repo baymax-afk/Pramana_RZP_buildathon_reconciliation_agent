@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Invoices from "./Invoices.jsx";
 
 /*
  * Exception triage.
@@ -163,6 +164,7 @@ function Verification({ block }) {
 export default function App() {
   const run = useRun();
   const [filter, setFilter] = useState("all");
+  const [tab, setTab] = useState("exceptions");
 
   const categories = useMemo(() => {
     if (run.status !== "ready") return [];
@@ -224,6 +226,19 @@ export default function App() {
         </div>
       </header>
 
+      <nav className="tabs">
+        <button className={tab === "exceptions" ? "on" : ""} onClick={() => setTab("exceptions")}>
+          Exceptions
+        </button>
+        <button className={tab === "invoices" ? "on" : ""} onClick={() => setTab("invoices")}>
+          Invoice ledger
+        </button>
+      </nav>
+
+      {tab === "invoices" && <Invoices />}
+
+      {tab === "exceptions" && (
+      <>
       <nav className="filters">
         <button
           className={filter === "all" ? "on" : ""}
@@ -257,6 +272,8 @@ export default function App() {
       )}
 
       <Verification block={verification} />
+      </>
+      )}
 
       <footer>
         <p>

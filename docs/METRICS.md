@@ -97,14 +97,14 @@ the tolerance that produced it.
 | Constant | Value | Meaning |
 |---|---|---|
 | `TOL_ABS_PAISE` | 100 | ₹1.00 absolute tolerance on any residual |
-| `TOL_REL_BPS` | 2 | 2 basis points, additive, for large credits |
+| `TOL_REL_BPS` | **0** | Relative tolerance, DISABLED. A proportional term widens the acceptance band on large credits, which is exactly where coincidental subset collisions become likely; see `config.py` for the derivation. |
 | `MDR_RATE_BAND` | (0.018, 0.025) | The band the **engine** may assume; it never learns a record's true rate |
-| `GST_RATE` / `GST_ROUNDING` | 0.18 / floor | GST on the MDR base. Floor, not round — established empirically, see `DEFECT_LOG.md` 2026-09-01-01 |
+| `GST_RATE` / `GST_ROUNDING` | 0.18 / **round** | GST on the MDR base. `round` is the best fit across 18 real captured payments; the exact rule is not recoverable and the residual is ±2 paise. See `DEFECT_LOG.md` 2026-09-01-01, which records concluding `floor` from a single observation and being falsified. |
 
 A subset `S` satisfies a credit `C` when
 
 ```
-Σ net_lo(S) − ε  ≤  C_adjusted  ≤  Σ net_hi(S) + ε        where ε = TOL_ABS_PAISE + TOL_REL_BPS·C/10000
+Σ net_lo(S) − ε  ≤  C_adjusted  ≤  Σ net_hi(S) + ε        where ε = TOL_ABS_PAISE (TOL_REL_BPS is 0)
 ```
 
 with `C_adjusted` being the credit less known ledger-side TDS, and `net_lo`/`net_hi`

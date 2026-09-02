@@ -94,6 +94,11 @@ class Payment:
     bank_transaction_id: str | None = None
     error_reason: str | None = None
     invoice_id: str | None = None
+    # A refund netted against this payment, in paise. Razorpay records refunds on the
+    # payment, which makes them a KNOWN deduction the engine may subtract before
+    # searching -- exactly like ledger-side TDS, and unlike anything it has to solve for.
+    amount_refunded: int = 0
+    refund_status: str | None = None
     notes: dict[str, str] = field(default_factory=dict)
 
     @property

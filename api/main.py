@@ -3,12 +3,16 @@ Read-only API over a completed reconciliation run.
 
     uvicorn api.main:app --reload --port 8000
 
-**Read-only is a design constraint, not an accident.** There is no POST, no PATCH, no
-accept/reject endpoint, and no way to influence a match through HTTP. The engine's
+**Matching is read-only, and that is a design constraint rather than an accident.**
+No endpoint can accept, reject or re-score a match. The engine's
 verdicts are produced by a deterministic batch run and this server only reads what that
 run wrote. An accept/reject feedback loop is explicitly out of scope for this project,
 and leaving the door closed in the routing table is more convincing than saying so in a
 README.
+
+The invoice-ledger routes in `api/invoices.py` are the one deliberate exception, and
+they are bounded: they replace INPUT DATA (side C), never a verdict. The engine must be
+re-run for an upload to change anything.
 
 The server also never touches ground truth. It serves `reports/run_output.json`, which
 `recon.report.run_output` builds from the engine's output alone -- so the exception list
@@ -46,7 +50,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -108,3 +112,10 @@ def get_summary() -> dict:
 @app.get("/api/health")
 def health() -> dict:
     return {"ok": True, "run_output_present": RUN_OUTPUT.exists()}
+
+
+# Invoice ledger management. The only write endpoints in the system, and scoped to
+# replacing INPUT DATA rather than influencing any verdict -- see api/invoices.py.
+from api.invoices import router as invoices_router  # noqa: E402
+
+app.include_router(invoices_router)

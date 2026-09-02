@@ -1012,3 +1012,95 @@ evidence that the matches are right. Both are checks that pass on the *shape* of
 output without testing the *claim*. The only thing that caught it was loading the page
 and looking at it -- the frontend equivalent of scoring against ground truth rather than
 counting assignments.
+
+---
+
+## 2026-09-02-05 — External code review: five real defects, two of which silently corrupted reported metrics
+
+**Timestamp:** 2026-09-02, post-Block-10 review pass
+
+**What broke:** An external review flagged seven issues. Rather than accept or dismiss
+them, each was reproduced empirically. **All seven validated.** Five were fixed here; two
+were architectural and are recorded in `OUTSTANDING_TASKS.md`.
+
+**1. `fs_scaled()` was non-monotonic (critical).** The sub-threshold branch read
+`0.5 + w / (2 * LOWER)`, putting weight 3.9 — too weak to reach the review band at all —
+at **0.9875**, while weight 4.0, the first value strong enough to enter that band, scored
+**0.5**. Stronger evidence scored lower, for every assignment whose FS weight fell below
+the lower threshold. Confirmed by evaluating the function across its domain. Fixed by
+mapping sub-threshold weights into [0, 0.5): a fraction of the way *towards* the review
+band, never past it.
+
+The reason it looked plausible is instructive: 0.5 was doing double duty as "neutral"
+and as "the review-band floor". Absence of evidence genuinely is neutral, but *evidence
+that cancelled out* is not the same thing, and conflating them made the additive form
+read naturally.
+
+**2. Recall counted assignments that were wrong (critical).** `assigned_txns` was
+`{a.bank_txn_id for a in out.assignments}` — "was it assigned at all". A credit posted to
+entirely the wrong payments still counted as recalled. It agrees with the correct figure
+while precision is 1.0, which is exactly why it survived: the metric was only wrong in
+the situation nobody had produced yet.
+
+**3. Uniqueness margin reported perfect isolation next to a near-twin (critical).** Two
+separate defects in one expression. First, the overshoot prune `break` fired before
+`record_miss`, so a subset 5 paise outside tolerance was never compared against. Fixed by
+recording near overshoots before pruning. That alone did **not** fix the symptom: the
+margin then divided the gap by tolerance, so any rival more than one tolerance away
+scored 1.0 — a rival 3 paise outside the boundary and one 3 rupees outside both reported
+"perfectly isolated". Now measured as excess *beyond the tolerance edge*: a rival 5p
+outside scores 0.03, one far away scores 1.0.
+
+Worth noting the review found the first half and stopped. Fixing only what was reported
+would have left the observable behaviour unchanged.
+
+**4. `refund_netted` was an automatic false negative (high).** The generator deducted
+Rs 50–500 from a credit to simulate a netted refund and recorded that money **nowhere**,
+while ground truth labelled the credit `assign`. Against a Rs 1 tolerance the match was
+arithmetically impossible: all 5 such credits were refused, every one scored as a miss.
+
+The tempting fix was relabelling them `refuse`. That would have been wrong — a netted
+refund *is* reconcilable, because Razorpay records refunds on the payment. The real
+defect was that the generator hid the money. Refunds are now written to
+`payment.amount_refunded` and treated by the engine as a known deduction like TDS.
+**All 5 now match**, and the defect category tests what it was meant to.
+
+**5. Permutation gate exempted the credits most likely to be unstable (high).** The gate
+iterated `base.assignments` — pass 0's output. A credit assigned in 7 of 8 orderings and
+dropped in the 8th never reached the gate if the 8th happened to be pass 0. Those are
+precisely the order-dependent ones. Now every credit seen in any pass is inspected.
+
+**6. `date_u` used the count of distinct dates, not the calendar span (high).** The
+comment said "calendar span"; the code said `len(dates)`. On a sparse batch — eight
+credits across sixty days — span became 8, a six-day lookback covered "most of the
+batch", and `date_u` went to 1.0: chance agreement of 100%, stripping the date field of
+all discriminating power exactly when it was most informative.
+
+**7. Documentation contradicted the code (high).** `METRICS.md` reported
+`TOL_REL_BPS = 2` and `GST_ROUNDING = floor`; the code had `0` and `"round"`. Both had
+been changed with reasons, and the doc had not followed. In a project whose argument is
+that audit-grade documentation should match the system, that is not a cosmetic gap.
+
+**Net effect on the reported run** (seed 20260905):
+
+| | before | after |
+|---|---|---|
+| match rate | 86.08% | **92.78%** |
+| match precision | 100.00% | **100.00%** |
+| exceptions | 11 | **6** |
+| rupees at risk | Rs 4,86,590 | **Rs 57,775** |
+
+**Cost:** ~90 minutes including reproduction of every claim.
+
+**On accepting review findings:** the review also contained a visibly confused item — a
+"typo in exception handling" that argues with itself four times about whether
+`AssertionError` is spelled correctly, and concludes the code is fine. It was written
+against an older snapshot (it counts 58 tests; there are 124). Neither fact makes the
+real findings less real, and reproducing each one before touching anything cost less
+than fixing a bug that was not there would have.
+
+**The pattern, for the fifth time:** three of these were metrics that looked right.
+Recall agreed with the correct value while precision was perfect. The uniqueness margin
+reported 1.0 on a genuinely unique answer *and* on a near-tie. `fs_scaled` returned
+plausible numbers in [0, 1] throughout. None would have been caught by reading the
+output; all were caught by asking what the function does across its whole domain.

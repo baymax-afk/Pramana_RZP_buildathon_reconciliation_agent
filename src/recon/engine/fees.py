@@ -159,13 +159,28 @@ def known_deductions(
     So the engine subtracts what it knows, and searches only over what it does not.
     """
     total = 0
+
+    # TDS is a property of the INVOICE, not of each payment against it. Summing per
+    # payment double-counts whenever a many-to-one batch contains two payments settling
+    # the same invoice -- the engine then expects a credit smaller than the bank
+    # actually sent, and a correct decomposition fails conservation for a reason that
+    # has nothing to do with the matching.
+    seen_invoices: set[str] = set()
     for p in payments:
         inv_no = p.notes.get("invoice_no")
-        if not inv_no:
-            continue
-        inv = invoices_by_no.get(inv_no)
-        if inv:
-            total += inv.tds_amount
+        if inv_no and inv_no not in seen_invoices:
+            inv = invoices_by_no.get(inv_no)
+            if inv:
+                seen_invoices.add(inv_no)
+                total += inv.tds_amount
+
+        # A refund netted inside a settlement batch. Razorpay records it on the payment
+        # itself, so it is a KNOWN quantity exactly like TDS -- not an unknown to solve
+        # for. Before this was accounted for, every refund-netted credit was
+        # arithmetically unmatchable: the gap was Rs 50-500 against a Rs 1 tolerance, so
+        # the engine refused all of them while ground truth expected an assignment.
+        total += p.amount_refunded or 0
+
     return total
 
 

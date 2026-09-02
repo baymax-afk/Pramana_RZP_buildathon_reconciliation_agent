@@ -41,6 +41,7 @@ it on this run's own ground truth would breach the isolation boundary outright.
 from __future__ import annotations
 
 import math
+from datetime import date
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -181,8 +182,13 @@ def estimate_u(
 
     # Chance a random payment falls inside a random credit's lookback: the window width
     # over the batch's calendar span.
-    dates = sorted({t.txn_date for t in bank_txns})
-    span = max(1, len(dates))
+    # The CALENDAR SPAN in days, not the count of distinct dates. Those differ whenever
+    # the batch is sparse: eight credits spread over sixty days gave span=8, so a
+    # six-day lookback covered "most of the batch" and date_u went to 1.0 -- chance
+    # agreement of 100%, which strips the date field of all discriminating power exactly
+    # when it is most informative.
+    dates = sorted({date.fromisoformat(t.txn_date) for t in bank_txns})
+    span = max(1, (dates[-1] - dates[0]).days + 1) if dates else 1
     window = (lookback_days or cfg.LOOKBACK_DAYS) + 1
     date_u = min(1.0, window / span)
 

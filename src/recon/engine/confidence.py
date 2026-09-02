@@ -85,6 +85,18 @@ def fs_scaled(fs_weight: float | None) -> float:
     Within the clerical-review band the contribution is capped, because that band is a
     formalised "I don't know": evidence sitting there must not be able to push an
     assignment into high confidence on its own.
+
+    **This function must be monotonically non-decreasing in `fs_weight`, and once was
+    not.** The sub-threshold branch read `0.5 + w / (2 * LOWER)`, which put weight 3.9 --
+    evidence too weak to reach the review band at all -- at 0.9875, while weight 4.0,
+    the first value strong enough to enter that band, scored 0.5. Stronger evidence
+    scored lower, for every assignment whose FS weight fell below the lower threshold.
+
+    The sub-threshold branch now maps into [0, 0.5): it is a fraction of the way TOWARDS
+    the review band, never past it. Zero weight (evidence exactly balanced) is 0.0, not
+    0.5 -- neutrality is what `fs_weight is None` means, and conflating "no evidence"
+    with "evidence that cancelled out" was what made the old branch look plausible.
+    `tests/test_layer4_confidence.py` now asserts monotonicity directly.
     """
     if fs_weight is None:
         return 0.5
@@ -93,8 +105,8 @@ def fs_scaled(fs_weight: float | None) -> float:
     if fs_weight >= cfg.FS_THRESHOLD_LOWER:
         span = cfg.FS_THRESHOLD_UPPER - cfg.FS_THRESHOLD_LOWER
         frac = (fs_weight - cfg.FS_THRESHOLD_LOWER) / span if span else 0.0
-        return min(cfg.FS_REVIEW_CONFIDENCE_CAP, 0.5 + 0.3 * frac)
-    return max(0.0, 0.5 + fs_weight / (2 * cfg.FS_THRESHOLD_LOWER))
+        return min(cfg.FS_REVIEW_CONFIDENCE_CAP, 0.5 + 0.1 * frac)
+    return max(0.0, min(0.5, fs_weight / (2 * cfg.FS_THRESHOLD_LOWER)))
 
 
 @dataclass(frozen=True, slots=True)

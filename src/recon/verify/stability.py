@@ -154,6 +154,39 @@ def apply_gate(ensemble: Ensemble, credits_by_id: dict[str, int]) -> MatchOutput
     kept = []
     new_refusals = list(base.refusals)
 
+    # Credits that were assigned in SOME pass but not in pass 0 never appear in
+    # base.assignments, so iterating that list alone silently exempts them from the
+    # gate -- and those are precisely the unstable ones. A credit assigned in 7 of 8
+    # orderings and dropped in the 8th is the clearest possible order-dependence, and
+    # if the 8th happened to be pass 0 the gate never looked at it.
+    #
+    # They cannot be ASSIGNED here either: pass 0 declined them, and this function
+    # gates pass 0's output rather than re-deciding it. So each is recorded as an
+    # order-dependent refusal, which is what it is.
+    gated_ids = {a.bank_txn_id for a in base.assignments}
+    already_refused = {r.bank_txn_id for r in base.refusals}
+    for txn_id, st in sorted(ensemble.per_txn.items()):
+        if txn_id in gated_ids or txn_id in already_refused or st.is_stable:
+            continue
+        variants = sorted(st.observed, key=lambda kv: (-kv[1], sorted(kv[0])))
+        detail = "; ".join(
+            f"{{{', '.join(sorted(ids))}}} in {n}/{st.passes} passes"
+            for ids, n in variants
+        )
+        new_refusals.append(
+            Refusal(
+                bank_txn_id=txn_id,
+                category=RefusalCategory.ORDER_DEPENDENT,
+                reason=(
+                    f"assigned under some input orderings and not others "
+                    f"({st.modal_count}/{st.passes} passes) -- decided by iteration "
+                    f"order, not by the data: {detail}"
+                ),
+                paise_at_risk=credits_by_id.get(txn_id, 0),
+                candidates=(),
+            )
+        )
+
     for a in base.assignments:
         st = ensemble.per_txn.get(a.bank_txn_id)
         if st is None or st.is_stable:

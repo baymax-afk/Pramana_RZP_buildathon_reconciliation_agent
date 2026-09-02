@@ -211,7 +211,11 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 10** — FastAPI + React exception triage UI
 
 [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) records what broke during the build, as it
-broke.
+broke. [`docs/FLOWCHARTS.md`](docs/FLOWCHARTS.md) diagrams how the system actually
+behaves — including the places where measurement contradicted the original design.
+[`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) lists what is knowingly
+incomplete, including two claims the project deliberately **withholds** because the
+evidence does not support them.
 
 ---
 

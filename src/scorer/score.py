@@ -160,7 +160,20 @@ def score(
         risk_by_cat[r.category.value] = risk_by_cat.get(r.category.value, 0) + r.paise_at_risk
 
     # ---- recall per relation: what kinds of case does the engine actually reach? ----
-    assigned_txns = {a.bank_txn_id for a in out.assignments}
+    #
+    # Counted against CORRECTLY assigned transactions, not merely assigned ones. Using
+    # "was it assigned at all" credits the engine with recall for posting a credit to
+    # entirely the wrong payments, which inflates the number precisely when the engine
+    # is doing the most damage. It happens to agree while precision is 1.0, and would
+    # diverge silently the moment it is not.
+    assigned_txns = {
+        a.bank_txn_id
+        for a in out.assignments
+        if (l := truth_by_txn.get(a.bank_txn_id))
+        and l.expected_verdict == "assign"
+        and set(l.payment_ids) == set(a.payment_ids)
+    }
+    any_assigned_txns = {a.bank_txn_id for a in out.assignments}
     recall: dict[str, list[int]] = {}
     for link in links:
         if not link.bank_txn_id or link.expected_verdict != "assign":
@@ -179,7 +192,7 @@ def score(
     # ---- the ambiguity case ----
     if not ambiguity_bank_txn_id:
         verdict = "not present"
-    elif ambiguity_bank_txn_id in assigned_txns:
+    elif ambiguity_bank_txn_id in any_assigned_txns:
         verdict = "ASSIGNED -- WRONG, it must be refused"
     elif ambiguity_bank_txn_id in {r.bank_txn_id for r in out.refusals}:
         verdict = "refused (correct)"

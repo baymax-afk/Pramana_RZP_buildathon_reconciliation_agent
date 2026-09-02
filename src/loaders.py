@@ -44,6 +44,8 @@ def load_payments(path: Path) -> tuple[Payment, ...]:
             bank_transaction_id=r.get("bank_transaction_id"),
             error_reason=r.get("error_reason"),
             invoice_id=r.get("invoice_id"),
+            amount_refunded=int(r.get("amount_refunded") or 0),
+            refund_status=r.get("refund_status"),
             notes=dict(r.get("notes") or {}),
         )
         for r in raw

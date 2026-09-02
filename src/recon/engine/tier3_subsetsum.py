@@ -171,6 +171,17 @@ def search(
             if nlo > target + tol:
                 # Items are sorted ascending by lo, so every later item is at least as
                 # large: no sibling at this level can fit either.
+                #
+                # Record the overshoot BEFORE pruning. The prune is correct -- nothing
+                # below here can fit -- but the subset we are about to discard may be
+                # the closest thing to a rival the search will ever see. Breaking first
+                # meant a decomposition sitting 5p outside tolerance was never compared
+                # against, `best_miss` kept a far worse value, and uniqueness_margin
+                # reported 1.0: perfect isolation, on a credit that had a near-twin.
+                # Only near overshoots are recorded; a wildly oversized subset is not
+                # evidence about anything.
+                if nlo - target <= 2 * tol:
+                    record_miss(target - nlo)
                 break
             if hi + suffix_hi[i] < target - tol:
                 break
@@ -188,19 +199,29 @@ def uniqueness_margin(result: SearchResult, tolerance: int) -> float:
     """
     How isolated the single solution is, in [0, 1].
 
-    1.0 means the next-best subset is at least a full tolerance away -- nothing else
-    came close. 0.0 means another subset sits right at the boundary and only a
-    threshold separates them.
+    1.0 means the next-best subset is at least a full tolerance BEYOND the tolerance
+    boundary -- nothing else came close. 0.0 means another subset sits right on the
+    boundary, and only the threshold separates a unique answer from a tie.
 
     When no near-miss exists at all, the margin is 1.0: the search explored the pool and
     found exactly one arrangement of the money that works.
+
+    **The distance is measured from the tolerance EDGE, not from the winning residual.**
+    Measuring from the residual divided a rival's absolute distance by the tolerance, so
+    anything further than one tolerance away scored 1.0 -- a rival 3 paise outside the
+    boundary and a rival 3 rupees outside both reported "perfectly isolated". The first
+    is a coin toss that happened to land on one side of a threshold; the second is a
+    genuinely unique answer. Compressing them into the same number is exactly the
+    overclaim Layer 2 exists to prevent, and it survived the near-miss recording fix
+    because it is a separate defect in the same expression.
     """
     if len(result.solutions) != 1 or tolerance <= 0:
         return 0.0
     if result.best_miss is None:
         return 1.0
-    gap = abs(result.best_miss) - abs(result.solutions[0].residual)
-    return max(0.0, min(1.0, gap / tolerance))
+    # How far OUTSIDE tolerance the nearest rival sits.
+    excess = abs(result.best_miss) - tolerance
+    return max(0.0, min(1.0, excess / tolerance))
 
 
 def match(

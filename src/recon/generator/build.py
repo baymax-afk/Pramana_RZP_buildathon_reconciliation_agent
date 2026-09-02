@@ -77,6 +77,8 @@ def _load_real_payments(path: Path) -> list[Payment]:
                 wallet=r.get("wallet"),
                 bank_transaction_id=r.get("bank_transaction_id"),
                 error_reason=r.get("error_reason"),
+                amount_refunded=int(r.get("amount_refunded") or 0),
+                refund_status=r.get("refund_status"),
                 notes=dict(r.get("notes") or {}),
             )
         )
@@ -397,7 +399,30 @@ def generate(
                 # refund netted inside the batch
                 if rng.random() < 0.20:
                     refund = rng.randrange(5_000, 50_000, 100)
+                    # Cap the refund at the payment it is recorded against: a refund
+                    # cannot exceed the payment that generated it.
+                    target_idx = rng.randrange(len(group))
+                    target = group[target_idx]
+                    refund = min(refund, target.amount - (target.fee or 0))
                     credit -= refund
+                    # RECORD it on the payment, as Razorpay does. An unrecorded
+                    # deduction is not a defect the engine can be expected to resolve --
+                    # it is missing data, and labelling the credit "assign" while hiding
+                    # the money made every refund-netted case an automatic false
+                    # negative. Recorded, it becomes a known deduction like TDS and the
+                    # decomposition is genuinely recoverable.
+                    group[target_idx] = replace(
+                        target,
+                        amount_refunded=refund,
+                        refund_status="partial",
+                    )
+                    payments = [
+                        group[target_idx] if p.id == target.id else p for p in payments
+                    ]
+                    settleable = [
+                        group[target_idx] if p.id == target.id else p
+                        for p in settleable
+                    ]
                     labels.append("refund_netted")
 
                 drift = rng.choice([0, 1, 1, 2])

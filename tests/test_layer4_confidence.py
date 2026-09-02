@@ -226,3 +226,97 @@ def test_confidence_currently_has_little_spread_and_that_is_reported(batch):
     assert spread < 0.25, (
         "spread has widened -- revisit the metrics block's caveat about calibration"
     )
+
+
+# --------------------------------------------------------------------------
+# Regressions from the external review (DEFECT_LOG 2026-09-02-05)
+# --------------------------------------------------------------------------
+def test_fs_scaled_is_monotonic_across_its_whole_domain():
+    """
+    Stronger Fellegi-Sunter evidence must never score lower than weaker evidence.
+
+    This failed before the review: weight 3.9 (too weak to reach the review band)
+    scored 0.9875 while weight 4.0 (the first value strong enough to enter it) scored
+    0.5. Every returned value was inside [0, 1] and looked entirely plausible, which is
+    why reading the output never surfaced it -- only sweeping the domain did.
+    """
+    from recon.engine.confidence import fs_scaled
+
+    xs = [i / 10 for i in range(-60, 121)]
+    for a, b in zip(xs, xs[1:]):
+        assert fs_scaled(a) <= fs_scaled(b) + 1e-9, (
+            f"fs_scaled({a}) = {fs_scaled(a)} > fs_scaled({b}) = {fs_scaled(b)}"
+        )
+
+
+def test_fs_scaled_sub_threshold_never_reaches_the_review_band():
+    """Weight below the lower threshold must stay below the band's floor."""
+    from recon.engine.confidence import fs_scaled
+
+    assert fs_scaled(cfg.FS_THRESHOLD_LOWER - 0.1) < 0.5
+    assert fs_scaled(cfg.FS_THRESHOLD_LOWER) >= 0.5
+    assert fs_scaled(0.0) == 0.0
+    assert fs_scaled(-99) == 0.0
+    # Absence of evidence is neutral, and is NOT the same as evidence that cancelled out.
+    assert fs_scaled(None) == 0.5
+
+
+def test_uniqueness_margin_distinguishes_a_near_tie_from_a_unique_answer():
+    """
+    A rival just outside tolerance and a rival far away must not both score 1.0.
+
+    Two defects lived in one expression here: the overshoot prune discarded near-misses
+    before recording them, and the margin then normalised by tolerance so anything
+    beyond one tolerance saturated. Fixing only the first left the behaviour unchanged.
+    """
+    from recon.engine.tier3_subsetsum import search, uniqueness_margin
+    from recon.schemas import Payment
+
+    def pay(pid: str, net: int) -> Payment:
+        return Payment(
+            id=pid, amount=net, currency="INR", status="captured", captured=True,
+            method="netbanking", order_id=None, created_at=1780000000, description="",
+            contact="", email="", provenance="S", fee=0, tax=0, notes={},
+        )
+
+    base = [pay("A", 5000), pay("B", 3000)]  # A+B == 8000 exactly
+    tol = 100
+
+    near = search(8000, base + [pay("C", 8105)], {}, tolerance=tol)
+    far = search(8000, base + [pay("C", 12000)], {}, tolerance=tol)
+
+    assert len(near.solutions) == 1 and len(far.solutions) == 1
+    assert near.best_miss is not None, "the near-miss was pruned without being recorded"
+    assert uniqueness_margin(near, tol) < 0.2, "a 5p near-tie must not look isolated"
+    assert uniqueness_margin(far, tol) == 1.0
+    assert uniqueness_margin(near, tol) < uniqueness_margin(far, tol)
+
+
+def test_recall_does_not_credit_incorrect_assignments():
+    """
+    Recall must count CORRECTLY assigned transactions. Counting "assigned at all"
+    credits the engine for posting a credit to the wrong payments -- and agrees with
+    the right answer whenever precision is 1.0, which is exactly why it survived.
+    """
+    from dataclasses import replace
+
+    from recon.engine.match import match_once
+    from recon.generator import build
+    from scorer.score import score
+
+    batch = build.generate(seed=cfg.SEED_PRIMARY)
+    out = match_once(batch.inputs)
+    assert out.assignments
+
+    # Corrupt one assignment: right transaction, wrong payments.
+    corrupted = replace(
+        out,
+        assignments=(replace(out.assignments[0], payment_ids=("pay_DOES_NOT_EXIST",)),)
+        + tuple(out.assignments[1:]),
+    )
+    clean = score(out, batch.truth, 200, 194)
+    dirty = score(corrupted, batch.truth, 200, 194)
+
+    got_clean = sum(v[0] for v in clean.recall_by_relation.values())
+    got_dirty = sum(v[0] for v in dirty.recall_by_relation.values())
+    assert got_dirty < got_clean, "recall did not fall when an assignment became wrong"
