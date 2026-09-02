@@ -125,6 +125,26 @@ def render(
     if sc.no_candidate:
         add(f"    no candidate found:   {sc.no_candidate}   {sc.no_candidate_by_relation}")
 
+    # ---- what the engine never looked at ----
+    #
+    # A disclosure, not a score. The engine reads `is_credit` transactions only, so
+    # every debit on the statement -- a chargeback, a reversal, a bank fee -- is
+    # invisible to it: not matched, not refused, not counted. The statement carried no
+    # debits at all until `chargeback_debit` existed, which is exactly why the blind
+    # spot went unnoticed. Reporting the gap is the honest alternative to inventing a
+    # ground-truth verdict the engine structurally cannot produce.
+    if sc.unexamined_lines:
+        add("")
+        add("  NOT EXAMINED  (the engine reads credits only)")
+        add(_THIN)
+        add(f"    {sc.unexamined_lines} debit line(s) on the statement, "
+            f"Rs {sc.unexamined_paise / 100:,.2f}")
+        add("    Money LEAVING the account -- chargebacks, reversals, bank fees -- is")
+        add("    outside the engine's model. It is not scored either way, because")
+        add("    scoring it against a verdict the engine cannot produce would be")
+        add("    theatre. It is disclosed so the exception list is not mistaken for a")
+        add("    complete account of the statement.")
+
     # ---- the finer cut: what the engine does with each KIND of hard case ----
     if sc.outcome_by_defect:
         add("")

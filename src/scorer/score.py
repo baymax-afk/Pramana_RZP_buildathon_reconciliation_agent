@@ -93,6 +93,9 @@ class Scorecard:
     confidence_deciles: tuple[tuple[float, int, float], ...] = ()
     confidence_calibrated: bool = False
     throughput_records_per_s: float | None = None
+    # Bank lines the engine structurally never reads. Not a score -- a disclosure.
+    unexamined_lines: int = 0
+    unexamined_paise: int = 0
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -109,6 +112,7 @@ def score(
     throughput: float | None = None,
     credits_by_id: dict[str, int] | None = None,
     seed: int = 0,
+    unexamined: tuple[int, int] = (0, 0),
 ) -> Scorecard:
     """
     Score one engine run.
@@ -304,6 +308,8 @@ def score(
         confidence_deciles=deciles,
         confidence_calibrated=_calibrated(),
         throughput_records_per_s=throughput,
+        unexamined_lines=unexamined[0],
+        unexamined_paise=unexamined[1],
     )
 
 

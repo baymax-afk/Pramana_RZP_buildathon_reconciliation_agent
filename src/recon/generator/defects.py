@@ -50,6 +50,26 @@ own model runs out.
                           match the invoice customer. The amount channel is right and
                           the name channel is wrong, which is exactly the disagreement
                           Layer 3 must not resolve by vetoing a correct match.
+Two more that stress the ENGINE'S MODEL rather than its arithmetic. Both are labelled
+`refuse`, and in both cases refusing is the correct output -- but the coverage they cost
+is real and is reported rather than absorbed.
+
+15. `split_settlement`  -- one payment is settled across TWO bank credits. Razorpay does
+                          this for on-demand settlements and when a batch crosses a
+                          limit. The engine cannot represent it: a payment is claimed
+                          once, and each credit needs a SUBSET of payments that sums to
+                          it, so half a payment has nowhere to go. Refusing is right --
+                          posting a part-settlement against a whole payment would be
+                          worse -- but the relation is genuinely outside the model, and
+                          `docs/ARCHITECTURE.md` names it as a limitation rather than
+                          letting a correct-looking refusal hide it.
+16. `chargeback_debit`  -- a settled payment is clawed back later by a DEBIT line. The
+                          engine reads credits only, so the money leaving is invisible
+                          to it: not matched, not refused, not counted. The statement
+                          carried no debits at all before this defect existed, which is
+                          why nobody noticed. The metrics block now reports what the
+                          engine did not examine.
+
 14. `weekend_bunching` -- Friday, Saturday and Sunday payments all settle on Monday, so
                           realised drift reaches 3 days on top of the settlement window.
                           It is the ordinary reason a lookback has to be generous, and

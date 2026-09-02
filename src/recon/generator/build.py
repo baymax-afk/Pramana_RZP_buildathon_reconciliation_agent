@@ -720,6 +720,99 @@ def generate(
                 )
             )
 
+    # ---- split_settlement: one payment arriving as TWO credits ----
+    #
+    # Razorpay splits a settlement for on-demand payouts and when a batch crosses a
+    # limit, so one payment's net arrives as two separate credits. The engine cannot
+    # represent this: `claimed` is a set so a payment is taken once, and every tier asks
+    # which SUBSET OF PAYMENTS sums to a credit -- there is no way to express half a
+    # payment. Both credits are therefore labelled `refuse`.
+    #
+    # Refusing is genuinely correct: posting a part-settlement against a whole payment
+    # would be a wrong answer, not a partial one. But the coverage it costs is real, so
+    # ARCHITECTURE.md names it as a limitation and the outcome-by-defect table shows it
+    # rather than letting a correct-looking refusal hide an unmodelled relation.
+    # Two, and not one drawn at random: a single instance of an unmodelled relation
+    # reads as an anomaly, and the point is that it is a category.
+    split_candidates: list[TruthLink] = []
+    for link in list(truth):
+        if len(split_candidates) >= 2:
+            break
+        if (
+            link.relation == "one_to_one"
+            and link.expected_verdict == "assign"
+            and len(link.payment_ids) == 1
+            and not ({"bank_charge", "refund_netted"} & set(link.defect_labels))
+        ):
+            split_candidates.append(link)
+
+    by_txn_id = {t.id: t for t in bank_txns}
+    for link in split_candidates:
+        original = by_txn_id.get(link.bank_txn_id)
+        if original is None or original.credit < 2 * cfg.MIN_PAYMENT_PAISE:
+            continue
+        first = int(original.credit * rng.uniform(0.4, 0.6))
+        second = original.credit - first
+        idx = bank_txns.index(original)
+        setl = defects.make_settlement_id(rng)
+        bank_txns[idx] = BankTxn(
+            id=original.id, txn_date=original.txn_date, value_date=original.value_date,
+            narration=f"RAZORPAY SETTLEMENT {setl} PART 1 OF 2",
+            ref_no=original.ref_no, credit=first, debit=0, balance=original.balance,
+        )
+        txn_seq += 1
+        second_id = f"bank_txn_{txn_seq:04d}"
+        bank_txns.append(
+            BankTxn(
+                id=second_id, txn_date=original.txn_date, value_date=original.value_date,
+                narration=f"RAZORPAY SETTLEMENT {setl} PART 2 OF 2",
+                ref_no=defects.make_utr(rng), credit=second, debit=0,
+                balance=original.balance,
+            )
+        )
+        labels = tuple(link.defect_labels) + ("split_settlement",)
+        truth[truth.index(link)] = TruthLink(
+            link.bank_txn_id, link.payment_ids, link.invoice_nos, labels,
+            "split", "refuse",
+        )
+        truth.append(
+            TruthLink(second_id, link.payment_ids, link.invoice_nos, labels,
+                      "split", "refuse")
+        )
+
+    # ---- chargeback_debit: money leaving, on a line the engine never reads ----
+    #
+    # A settled payment is disputed and clawed back. The debit is a real bank line
+    # carrying a real reference, and the engine reads `is_credit` transactions only --
+    # so the money leaving is not matched, not refused, and not counted anywhere.
+    #
+    # The statement contained ZERO debits before this defect existed, which is why the
+    # blind spot went unnoticed: the engine had never been shown the half of a bank
+    # statement it ignores. No truth link is created for a debit. Inventing one would
+    # score the engine against a verdict it structurally cannot produce; the metrics
+    # block reports the unexamined lines instead, which is the honest form of the same
+    # information.
+    for link in list(truth)[:]:
+        if link.relation != "one_to_one" or link.expected_verdict != "assign":
+            continue
+        if rng.random() >= 0.05:
+            continue
+        original = by_txn_id.get(link.bank_txn_id)
+        if original is None:
+            continue
+        txn_seq += 1
+        cb_date = date.fromisoformat(original.txn_date) + timedelta(days=rng.randint(3, 9))
+        balance -= original.credit
+        bank_txns.append(
+            BankTxn(
+                id=f"bank_txn_{txn_seq:04d}",
+                txn_date=cb_date.isoformat(), value_date=cb_date.isoformat(),
+                narration=f"CHARGEBACK REV {original.ref_no} DISPUTE",
+                ref_no=original.ref_no, credit=0, debit=original.credit,
+                balance=balance,
+            )
+        )
+
     # ---- duplicate UTR: clone one existing credit's reference onto another ----
     credits = [t for t in bank_txns if t.is_credit]
     if len(credits) >= 2:

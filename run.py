@@ -187,6 +187,10 @@ def cmd_match(args: argparse.Namespace) -> int:
         throughput=records / elapsed if elapsed else None,
         credits_by_id={x.id: x.credit for x in inputs.bank_txns},
         seed=args.seed,
+        unexamined=(
+            sum(1 for x in inputs.bank_txns if x.debit),
+            sum(x.debit for x in inputs.bank_txns if x.debit),
+        ),
     )
     # The UI payload is built from the ENGINE's output only -- no ground truth, no
     # scoring. What a merchant sees is exactly what the engine could justify without

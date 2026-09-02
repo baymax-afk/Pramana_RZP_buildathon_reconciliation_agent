@@ -127,7 +127,7 @@ No real card, account, or credential was used at any point.
 
 ### Injected defects
 
-**Fourteen categories**, each ground-truth labelled.
+**Sixteen categories**, each ground-truth labelled.
 
 The original nine: MDR/gateway fee deduction · TDS deduction · T+1 and T+2 settlement
 date drift · one bank credit covering N payments · partial payment · duplicate UTR ·
@@ -145,6 +145,24 @@ matching available far more often than reality allows:
 | **bank charge** | The receiving bank takes its own NEFT/RTGS fee | Appears on no Razorpay object and in no ledger. **Labelled `refuse`**: at ₹5–50 against a ₹1 tolerance it is unmatchable, and declining it is the correct output |
 | **third-party payer** | A parent company settles a subsidiary's invoice | The amount channel is right and the name channel is wrong |
 | **weekend bunching** | Fri/Sat/Sun payments all settle Monday | Realised drift reaches 3 days on top of the window |
+
+And two that stress the engine's **model** rather than its arithmetic:
+
+| Defect | What it is | Why the engine cannot reach it |
+|---|---|---|
+| **split settlement** | One payment arrives as *two* bank credits | `claimed` is a set and every tier asks which *subset of payments* sums to a credit — there is nowhere to put half a payment |
+| **chargeback debit** | A settled payment is clawed back by a debit line | The engine reads `is_credit` only, so money leaving is invisible: not matched, not refused, not counted |
+
+Both are labelled `refuse`, and in both cases refusing is correct — posting a
+part-settlement against a whole payment would be a wrong answer, not a partial one. But
+the coverage they cost is real, so they are named as
+[limitations](docs/ARCHITECTURE.md#two-named-limitations-of-the-model) rather than left
+to hide behind a correct-looking refusal. Ground truth creates **no link for a debit**:
+scoring the engine against a verdict it structurally cannot produce is theatre, so the
+metrics block discloses the unexamined lines and their value instead.
+
+The statement contained **zero debits** until `chargeback_debit` existed, which is
+exactly why that blind spot went unnoticed.
 
 **`bank_charge` is the one deliberately labelled unmatchable.** An engine that widened
 its tolerance to absorb bank charges would also start absorbing genuine coincidences,
@@ -231,7 +249,7 @@ would be worse than none.
 pytest tests/
 ```
 
-251 tests, including the end-to-end isolation test — which deletes the ground-truth
+261 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*

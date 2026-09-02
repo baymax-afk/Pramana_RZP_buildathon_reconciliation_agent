@@ -314,6 +314,56 @@ Both candidates are emitted, ranked by FS weight, and a human picks.
 
 ---
 
+## Two named limitations of the model
+
+Both are places where the engine **refuses correctly** and the refusal nonetheless costs
+real coverage. They are recorded here because a correct-looking refusal is the easiest
+possible place for an unmodelled relation to hide: the metrics say the engine declined,
+ground truth says declining was right, and nothing anywhere says the engine *could not
+have done otherwise*.
+
+### One payment, many credits — `split_settlement`
+
+Razorpay splits a settlement for on-demand payouts and when a batch crosses a limit, so
+one payment's net arrives as two separate bank credits.
+
+**The engine cannot represent this.** `claimed` is a set, so a payment is taken exactly
+once, and every tier asks the same question — *which subset of payments sums to this
+credit?* There is no way to express half a payment on either side of that question.
+
+Refusing is genuinely the right output: posting a part-settlement against a whole
+payment is a wrong answer, not a partial one. But the relation is outside the model, not
+merely hard, and no amount of tuning reaches it.
+
+*What it would take:* the claim unit would have to become (payment, fraction) rather than
+payment, and Layer 2's uniqueness test would have to enumerate over partitions rather
+than subsets — which is a strictly larger search whose uniqueness question is harder
+again. That is a different engine, not a patch, which is why it is documented rather
+than attempted.
+
+### The engine reads credits only — `chargeback_debit`
+
+`match_once` iterates `t for t in inputs.bank_txns if t.is_credit`. Every debit on the
+statement — a chargeback, a reversal, a bank fee, a payout — is invisible to it: not
+matched, not refused, not counted.
+
+This went unnoticed for the life of the project for a simple reason: **the generated
+statement contained no debits at all.** The engine had never been shown the half of a
+bank statement it ignores by construction, so nothing could reveal the gap.
+
+Ground truth deliberately creates **no link for a debit**. Inventing one would score the
+engine against a verdict it structurally cannot produce — a permanent miss that no
+engine work could ever close, which is scoring theatre rather than measurement. The
+metrics block reports the unexamined lines and their value instead, under `NOT EXAMINED`,
+so the exception list is not mistaken for a complete account of the statement.
+
+*What it would take:* a debit is not a credit with a sign flipped. It reverses a prior
+assignment, which means the engine would need to un-post a match it has already made and
+the conservation relations (MR4, MR5) would need to balance across time rather than
+within one batch. Also a different engine.
+
+---
+
 ## Out of scope
 
 Deliberately excluded, and not partially built: cash-flow forecasting; settlement

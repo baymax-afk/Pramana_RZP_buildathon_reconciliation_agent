@@ -243,3 +243,111 @@ def test_precision_survives_the_richer_batch(seed):
         credits_by_id={t.id: t.credit for t in b.inputs.bank_txns}, seed=seed,
     )
     assert sc.match_precision == 1.0, f"wrong assignments: {sc.wrong_assignments}"
+
+
+# --------------------------------------------------------------------------
+# split_settlement — a relation the engine's model cannot express
+# --------------------------------------------------------------------------
+
+def test_a_split_settlement_is_two_credits_for_one_payment(batch):
+    links = _labelled(batch, "split_settlement")
+    assert links, "no split settlements in this batch"
+    by_payment = {}
+    for l in links:
+        by_payment.setdefault(l.payment_ids, []).append(l.bank_txn_id)
+    assert any(len(v) == 2 for v in by_payment.values()), (
+        "no payment is settled across two credits; the defect did not fire"
+    )
+
+
+def test_a_split_settlement_is_labelled_refuse_because_the_model_cannot_hold_it(batch):
+    """
+    `claimed` is a set, so a payment is taken once, and every tier asks which SUBSET OF
+    PAYMENTS sums to a credit. There is nowhere to put half a payment.
+
+    Labelling it `assign` would make it an automatic false negative -- the shape this
+    project has shipped three times. Labelling it `refuse` is honest, because refusing
+    IS correct: posting a part-settlement against a whole payment is a wrong answer, not
+    a partial one. The coverage cost is real and is reported in the outcome-by-defect
+    table rather than hidden behind a correct-looking refusal.
+    """
+    links = _labelled(batch, "split_settlement")
+    assert all(l.expected_verdict == "refuse" for l in links)
+    assert all(l.relation == "split" for l in links)
+
+
+def test_the_engine_never_posts_half_a_payment(batch):
+    out = match_once(batch.inputs)
+    assigned = {a.bank_txn_id for a in out.assignments}
+    for l in _labelled(batch, "split_settlement"):
+        assert l.bank_txn_id not in assigned, (
+            f"{l.bank_txn_id} is one half of a split settlement and was posted against "
+            f"the whole payment"
+        )
+
+
+# --------------------------------------------------------------------------
+# chargeback_debit — money leaving, on a line the engine never reads
+# --------------------------------------------------------------------------
+
+def test_the_statement_now_contains_debits(batch):
+    """
+    It contained ZERO before this defect existed, which is why the blind spot went
+    unnoticed: the engine had never been shown the half of a bank statement it ignores
+    by construction.
+    """
+    debits = [t for t in batch.inputs.bank_txns if t.debit]
+    assert debits, "the statement has no debit lines at all"
+    assert all(t.credit == 0 for t in debits)
+    assert all(not t.is_credit for t in debits)
+
+
+def test_a_chargeback_carries_the_reference_of_the_credit_it_reverses(batch):
+    debits = [t for t in batch.inputs.bank_txns if t.debit and "CHARGEBACK" in t.narration]
+    assert debits, "no chargebacks in this batch"
+    credit_refs = {t.ref_no for t in batch.inputs.bank_txns if t.is_credit}
+    for d in debits:
+        assert d.ref_no in credit_refs, (
+            "a chargeback must reference the credit it reverses, or it is unattributable"
+        )
+
+
+def test_no_truth_link_is_invented_for_a_debit(batch):
+    """
+    The engine structurally cannot produce a verdict for a debit, so scoring it against
+    one would be theatre -- it would show up as a permanent miss that no amount of
+    engine work could ever close. The metrics block DISCLOSES the unexamined lines
+    instead, which is the honest form of the same information.
+    """
+    debit_ids = {t.id for t in batch.inputs.bank_txns if t.debit}
+    linked = {l.bank_txn_id for l in batch.truth if l.bank_txn_id}
+    assert not (debit_ids & linked), (
+        f"ground truth invents a verdict for debit lines: {debit_ids & linked}"
+    )
+
+
+def test_the_metrics_block_discloses_what_it_did_not_examine(batch):
+    from scorer.report import render
+    from scorer.score import score
+
+    out = match_once(batch.inputs)
+    debits = [t for t in batch.inputs.bank_txns if t.debit]
+    sc = score(
+        out, batch.truth, total_payments=len(batch.inputs.payments),
+        captured_payments=sum(1 for p in batch.inputs.payments if p.captured),
+        ambiguity_bank_txn_id=batch.ambiguity_bank_txn_id or "",
+        credits_by_id={t.id: t.credit for t in batch.inputs.bank_txns},
+        seed=cfg.SEED_PRIMARY,
+        unexamined=(len(debits), sum(t.debit for t in debits)),
+    )
+    text = render(sc, cfg.SEED_PRIMARY, cfg.TARGET_POOL_SIZE, llm_enabled=False)
+    assert "NOT EXAMINED" in text
+    assert f"{len(debits)} debit line" in text
+
+
+@pytest.mark.parametrize("seed", [20260905, 77771, 44444])
+def test_the_structural_defects_appear_at_every_seed(seed):
+    b = build.generate(seed=seed)
+    seen = {lab for l in b.truth for lab in l.defect_labels}
+    assert "split_settlement" in seen, f"no split settlement at seed {seed}"
+    assert any(t.debit for t in b.inputs.bank_txns), f"no debit lines at seed {seed}"
