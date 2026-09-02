@@ -226,7 +226,14 @@ Not oversights — decisions, recorded so they are not mistaken for gaps.
 3. **W1** — download BenchRec and complete the calibration, or state the limitation in the submission and move on.
 4. **C2** — conflict-resolution matching, which would retire an entire class of order-dependence rather than detecting it.
 
-### O6. The batch is still too clean to demonstrate the refusal machinery
+### ~~O6. The batch is still too clean to demonstrate the refusal machinery~~ — **closed**
+Not by changing the reported density, but by making the data honest. Seven new defect
+categories took refusal rate from 0.74% to 9.2% at the primary seed and 7.9–13.8% across
+the sweep, with precision holding at 1.0000 in every arm. The refusal machinery is now
+visible at every density rather than only at ppw=24, so the ppw=24 swap is no longer
+needed. Original item kept below.
+
+### O6 (original). The batch is still too clean to demonstrate the refusal machinery
 **Partially addressed, and the fix did not do what this item predicted.**
 
 The headline now reports `ppw=12` beside `ppw=6` (`--compare-density`, default 12). That
@@ -249,3 +256,19 @@ The sweep now asserts every batch it builds. That is exactly where the orphaning
 hid: `generate` checked the primary seed and the sweep never checked its own five, so a
 sweep could quietly average over unsatisfiable ground truth and report the generator's
 bugs as the engine's coverage. All 20 batches (4 densities x 5 seeds) pass.
+
+### O8. Two named model limitations, recorded not scheduled
+`split_settlement` (one payment, many credits) and `chargeback_debit` (the engine reads
+credits only) are outside the model rather than merely hard. Both refuse correctly and
+both cost real coverage. `docs/ARCHITECTURE.md` states what lifting each would take —
+in both cases a different engine, not a patch. Recorded so a correct-looking refusal
+cannot hide an unmodelled relation.
+
+### O9. `third_party_payer` refusals are correct but expensive
+Three of seven third-party payments are refused with `amount_name_conflict`. The split
+is not arbitrary: the ones that match carry a quoted invoice reference, and that
+evidence outweighs the name disagreement. Refusing the rest is the right call — the
+amounts reconcile and the counterparty does not — but it is the largest remaining
+source of conservative refusals, and an investigating agent (see `AGENTIC.md`) checking
+whether a payer is an authorised group entity is exactly the evidence that would close
+it.
