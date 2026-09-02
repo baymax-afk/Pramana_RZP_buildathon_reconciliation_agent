@@ -88,9 +88,15 @@ flowchart TD
     T3 -->|2+ subsets fit| MULTI3["REFUSE<br/>Layer 2 uniqueness"]
     T3 -->|exactly one subset| ASSIGN
 
-    ASSIGN["Candidate assignment"] --> FS{"Layer 3 · Fellegi-Sunter<br/>does the name/reference<br/>evidence CONTRADICT?"}
+    ASSIGN["Candidate assignment"] --> COUNT{"narration states a<br/>transaction count?<br/>does it MATCH the<br/>number of payments?"}
+    COUNT -->|"count disagrees"| CNTNO["REFUSE<br/>narration_count_conflict"]
+    COUNT -->|"agrees, or silent"| FS{"Layer 3 · Fellegi-Sunter<br/>does the name/reference<br/>evidence CONTRADICT?"}
     FS -->|contradicts| FSNO["REFUSE<br/>counterparty disagrees"]
-    FS -->|silent or supports| GATE{"Layer 1 · permutation gate<br/>stable across K=8 orderings?"}
+    FS -->|silent or supports| PROP["PROPOSE<br/>bid for these payments<br/>nothing is granted yet"]
+
+    PROP --> RES{"Layer 2 · resolve<br/>does another credit bid<br/>for the same payment?"}
+    RES -->|"rival evidence >= mine"| CONT["REFUSE<br/>contested_payment<br/>a tie refuses BOTH"]
+    RES -->|"uncontested, or I win strictly"| GATE{"Layer 1 · permutation gate<br/>stable across K=8 orderings?"}
     GATE -->|no| ORD["REFUSE<br/>decided by iteration order"]
     GATE -->|yes| FINAL(["ASSIGN"])
 
@@ -100,14 +106,34 @@ flowchart TD
     style MULTI3 fill:#fdf1e3,stroke:#8a5300,stroke-width:2px
     style BOUNDS fill:#fdeceb,stroke:#c0392b
     style NONE fill:#fdeceb,stroke:#c0392b
+    style CNTNO fill:#fdeceb,stroke:#c0392b
     style FSNO fill:#fdeceb,stroke:#c0392b
+    style CONT fill:#fdf1e3,stroke:#8a5300,stroke-width:2px
     style ORD fill:#f4ecfa,stroke:#6a3e93
     style FINAL fill:#eaf5ee,stroke:#2c6b41,stroke-width:2px
 ```
 
-**Seven distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
+**Nine distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
 Every refusal names its cause, so an exception says which mechanism objected rather than
 merely that something did.
+
+Two of the nine were added after the diagram was first drawn, and both are worth calling
+out because they are the only places the engine uses evidence that is not an amount:
+
+- **`narration_count_conflict`.** A settlement narration states how many transactions it
+  covers — `RAZORPAY SETTLEMENT setl_... 2 TXNS`. The engine had parsed that count since
+  Block 3 and never consulted it, so a credit covering two payments could be posted to
+  one whenever a netted refund happened to make the batch total equal a single payment's
+  net. Tier 2 took the exact one-to-one fit and never reached tier 3, where enumeration
+  would have found both decompositions and Layer 2 would have refused — the tier ordering
+  short-circuited the uniqueness test. The count is admissible precisely because it is
+  *independent of the amounts*: it can contradict an arithmetic fit without being derived
+  from one.
+- **`contested_payment`.** Claiming used to be greedy — credits were walked in sorted
+  order and each took what it wanted, so two credits with equal claims on one payment
+  were separated by the sort. The round is now propose-then-resolve, and equal evidence
+  refuses **both**. A tie is not something to break; it is the same underdetermination
+  Layer 2 already refuses on, reaching the engine through a different door.
 
 ---
 
@@ -142,10 +168,17 @@ Two things this diagram had to be corrected for:
   assigned in 7 of 8 orderings and dropped in the 8th never reached the gate if the 8th
   happened to be pass 0.
 
-The gate currently refuses nothing: the matcher sorts credits into a total order and
-every tier refuses rather than chooses on ties, so it is order-independent by
-construction. That zero is only meaningful because the gate is separately shown to fire
-against a deliberately order-dependent matcher — see `tests/test_verification.py`.
+The gate currently refuses nothing, and the reason has changed since this was written.
+Three properties now make the matcher order-independent *by construction*: credits are
+walked in a total, data-derived order; every tier refuses rather than chooses on ties;
+and — new — claiming is no longer greedy. Each round proposes against a frozen `claimed`
+set and then resolves contested payments on evidence, refusing when evidence ties, so no
+credit's bid can shrink a later credit's pool.
+
+That last one used to be the gap the gate existed to cover. Covering a design weakness
+with a detector is weaker than not having it, so the gate is now a safety net rather than
+load-bearing. Its zero is only meaningful because it is separately shown to fire against
+a deliberately order-dependent matcher — see `tests/test_verification.py`.
 
 ---
 

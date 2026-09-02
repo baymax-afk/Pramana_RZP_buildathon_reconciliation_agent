@@ -125,3 +125,52 @@ def test_missing_run_output_is_a_503_with_the_command_to_fix_it(tmp_path, monkey
         api_main._load()
     assert e.value.status_code == 503
     assert "run.py" in e.value.detail
+
+
+# --------------------------------------------------------------------------
+# The UI's category vocabulary must not drift from the engine's
+# --------------------------------------------------------------------------
+
+def test_every_refusal_category_has_a_ui_label_and_a_badge_style():
+    """
+    The same coupling H3 was about, one layer further out.
+
+    `RefusalCategory` is the engine's vocabulary; `App.jsx` renders it to an operator.
+    The JSX falls back to the raw enum value when a label is missing, so a new category
+    does not break the page -- it silently shows `narration_count_conflict` in a grey
+    badge next to properly-labelled rows. That is a degradation nobody notices in review
+    and everybody notices in a demo.
+
+    Adding a refusal category is a deliberate act. Having to name it for a human is part
+    of the cost, and this test is what charges it.
+    """
+    import re
+    from pathlib import Path
+
+    from recon.engine.results import RefusalCategory
+
+    ui = Path(__file__).resolve().parents[1] / "ui" / "src"
+    jsx = (ui / "App.jsx").read_text(encoding="utf-8")
+    css = (ui / "styles.css").read_text(encoding="utf-8")
+
+    label_block = re.search(r"const CATEGORY_LABEL = \{(.*?)\};", jsx, re.S)
+    assert label_block, "CATEGORY_LABEL map not found in App.jsx"
+    labelled = set(re.findall(r"([a-z_]+)\s*:", label_block.group(1)))
+
+    missing_label = sorted(c.value for c in RefusalCategory if c.value not in labelled)
+    assert not missing_label, (
+        f"refusal categories with no operator-facing label in App.jsx: {missing_label}"
+    )
+
+    missing_style = sorted(
+        c.value for c in RefusalCategory if f".cat-{c.value}" not in css
+    )
+    assert not missing_style, (
+        f"refusal categories with no badge style in styles.css: {missing_style}"
+    )
+
+    stale = sorted(
+        k for k in labelled
+        if k not in {c.value for c in RefusalCategory} and k != "no_candidate"
+    )
+    assert not stale, f"UI labels for categories the engine never emits: {stale}"

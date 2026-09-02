@@ -33,6 +33,8 @@ const CATEGORY_LABEL = {
   fs_below_lower_threshold: "Counterparty disagrees",
   fs_review_band: "Weak evidence",
   amount_name_conflict: "Amount/name conflict",
+  narration_count_conflict: "Statement says a different count",
+  contested_payment: "Two credits, one payment",
   unexplained_residual: "Unexplained shortfall",
   no_candidate: "Nothing accounts for it",
 };
