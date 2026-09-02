@@ -200,6 +200,10 @@ verdict.
 pip install -e '.[api,test]'      # engine + API + test deps; the engine itself has none
 ```
 
+`pramana ...` and `python run.py ...` are the same code: the root `run.py` is a shim over
+the packaged `pramana_cli:main`, so both work and neither depends on the current
+directory.
+
 The engine, all four verification layers and the scorer run on the **standard library
 alone** — `pip install -e .` with no extras is enough for every number reported below.
 The extras are for the FastAPI server and the test suite.
@@ -244,7 +248,7 @@ the `ppw=6` run. `--compare-density 0` turns it off, `--compare-density 24` poin
 the crowded arm. See `docs/METRICS.md` for what that comparison does and does not show.
 
 ```bash
-uvicorn api.main:app --port 8000     # read-only API
+uvicorn api.main:app --port 8000     # read-only API (importable from anywhere)
 cd ui && npm install && npm run dev  # triage UI on :5173
 ```
 
@@ -266,7 +270,7 @@ would be worse than none.
 pytest tests/
 ```
 
-265 tests, including the end-to-end isolation test — which deletes the ground-truth
+278 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*

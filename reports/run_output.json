@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-02T23:36:37.831361+00:00",
+  "generated_at": "2026-09-02T23:40:17.748103+00:00",
   "seed": 20260905,
   "density": 6,
   "totals": {
@@ -2598,63 +2598,8 @@
     }
   ],
   "verification": {
-    "relations": [
-      {
-        "name": "MR1",
-        "kind": "metamorphic",
-        "statement": "shuffling input order must not change any assignment",
-        "checked": 126,
-        "violations": 0,
-        "passed": true
-      },
-      {
-        "name": "MR2",
-        "kind": "metamorphic",
-        "statement": "splitting a payment (with the credit adjusted by the fee delta) must not change settlement-level grouping elsewhere",
-        "checked": 5,
-        "violations": 0,
-        "passed": true
-      },
-      {
-        "name": "MR3",
-        "kind": "metamorphic",
-        "statement": "adding a constructively unmatchable record must not change any existing match",
-        "checked": 126,
-        "violations": 0,
-        "passed": true
-      },
-      {
-        "name": "MR4",
-        "kind": "invariant",
-        "statement": "assigned payments + MDR + TDS must equal the bank credit within tolerance",
-        "checked": 127,
-        "violations": 0,
-        "passed": true
-      },
-      {
-        "name": "MR5",
-        "kind": "invariant",
-        "statement": "every credit and every captured payment is accounted for exactly once",
-        "checked": 335,
-        "violations": 0,
-        "passed": true
-      },
-      {
-        "name": "MR6",
-        "kind": "metamorphic",
-        "statement": "rerunning on the unassigned residue must produce no new assignments",
-        "checked": 20,
-        "violations": 0,
-        "passed": true
-      }
-    ],
-    "permutation_gate": {
-      "passes": 8,
-      "txns_observed": 127,
-      "unstable": 0,
-      "min_stability": 1.0,
-      "mean_stability": 1.0
-    }
+    "relations": [],
+    "permutation_gate": null
   },
-  "throughput_records_per_s": 1041
+  "throughput_records_per_s": 18062
 }
