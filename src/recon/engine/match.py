@@ -17,13 +17,11 @@ and are labelled as such.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import config as cfg
 
 from ..schemas import Payment, ReconInputs
-
-
-def cfg_fs_lower() -> float:
-    return cfg.FS_THRESHOLD_LOWER
 from . import (
     confidence as conf,
     fees,
@@ -77,7 +75,6 @@ def _assignment_from(
     )
 
 
-MAX_ROUNDS = 6
 
 
 def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm=None):
@@ -93,31 +90,194 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
     # for why that is a type-level guarantee rather than a convention.
     parsed = parse_with_llm(txn.narration, llm)
 
+    def count_conflict(cands) -> bool:
+        """
+        Does the bank's own narration contradict the size of this match?
+
+        A settlement narration states how many transactions it covers -- "RAZORPAY
+        SETTLEMENT setl_... 2 TXNS". The engine has always PARSED that count and never
+        used it, which let a credit covering two payments be posted to one whenever a
+        single payment's net happened to equal the batch total.
+
+        That is not hypothetical. At seed 11111 a netted refund came to exactly the
+        second payment's net, so the batch total equalled the first payment alone.
+        Tier 2 found an exact one-to-one fit with residual 0, assigned it, and never
+        reached tier 3 -- where enumeration would have found BOTH decompositions and
+        Layer 2 would have refused. The tier ordering short-circuited the uniqueness
+        test, and the result was a confident wrong answer at confidence 0.96.
+
+        The count is a genuinely independent, label-free channel: it comes from the
+        bank's text, not from the amounts, so it can contradict an arithmetic fit
+        without being derived from one. Using it is the same move as Layer 3 -- when
+        two independent channels disagree, neither is trusted alone.
+        """
+        return bool(cands) and parsed.txn_count is not None and (
+            len(cands[0].payment_ids) != parsed.txn_count
+        )
+
+    def conflict_reason(cands) -> str:
+        return (
+            f"the bank's narration states this settlement covers "
+            f"{parsed.txn_count} transaction(s), but the amount evidence fits "
+            f"{len(cands[0].payment_ids)}: "
+            + ", ".join(cands[0].payment_ids)
+            + ". Two independent channels disagree, so neither is trusted alone"
+        )
+
     cands, cat, reason = tier1_reference.match(
         txn, parsed, index, by_id, claimed, invoices_by_no
     )
     if cat is not None:
         return ("refuse", cands, cat, reason, 1.0, None)
-    if cands:
+    if cands and not count_conflict(cands):
         return ("assign", cands, None, "", 1.0, None)
+    tier1_conflict = cands if count_conflict(cands) else []
 
     cands, cat, reason = tier2_amount_date.match(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
         return ("refuse", cands, cat, reason, 1.0, None)
-    if cands:
+    if cands and not count_conflict(cands):
         return ("assign", cands, None, "", 1.0, None)
+    tier2_conflict = cands if count_conflict(cands) else []
 
     cands, cat, reason, uniq = tier3_subsetsum.match_with_margin(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
         return ("refuse", cands, cat, reason, 0.0, None)
-    if cands:
+    if cands and not count_conflict(cands):
         return ("assign", cands, None, "", uniq, None)
 
+    # Tier 3 could not produce a decomposition of the stated size either. Whatever a
+    # single-payment tier found earlier is reported as the refusal's candidate, because
+    # an exception that names what it declined to post is actionable and one that says
+    # only "conflict" is not.
+    blocked = cands or tier2_conflict or tier1_conflict
+    if blocked:
+        return (
+            "refuse", blocked, RefusalCategory.NARRATION_COUNT_CONFLICT,
+            conflict_reason(blocked), 0.0, None,
+        )
+
     return ("none", [], None, "", 0.0, None)
+
+
+# Tier precedence IS the engine's declared evidence hierarchy -- tier 1 is an exact
+# reference agreement, tier 2 a unique amount/date fit, tier 3 a searched decomposition.
+# Naming it here keeps "which evidence is stronger" a single fact rather than something
+# re-derived at each comparison.
+_TIER_RANK = {
+    tier1_reference.TIER: 2,
+    tier2_amount_date.TIER: 1,
+    tier3_subsetsum.TIER: 0,
+}
+
+
+@dataclass(frozen=True, slots=True)
+class _Proposal:
+    """One credit's bid for a set of payments, before any of it is granted."""
+
+    txn_id: str
+    credit: int
+    cand: Candidate
+    uniqueness: float
+    # None means "there was nothing at all to weigh" -- explicitly NOT the same as a
+    # weight of zero, which means the evidence balanced out. See fellegi_sunter.Evidence.
+    fs_weight: float | None
+
+    @property
+    def evidence_key(self) -> tuple[int, float]:
+        """
+        How strong this bid is, for comparison against a rival bid.
+
+        Two components, both already part of the engine's stated evidence model: the
+        tier that produced it, and the Fellegi-Sunter weight of its non-amount evidence.
+        The FS weight is rounded because it is a float sum -- without that, two bids
+        that are equal in every respect that matters could differ in the last bit and
+        produce a "strict" winner that is really a coin toss.
+
+        Deliberately NOT included: residual tightness, subset size, recency, or
+        anything else that would break a tie. A tie here means the evidence does not
+        separate two claims on the same money, and the correct output is a refusal.
+
+        **An absent weight ranks below every real one, and never as zero.** `None` means
+        the Fellegi-Sunter layer had nothing to weigh -- no usable name, no usable
+        reference -- which the evidence model treats as categorically different from
+        evidence that cancelled to zero. Mapping it to 0.0 would let a credit with *no*
+        supporting evidence outrank one carrying real but slightly negative evidence, and
+        would let it win contested money outright. Ranking it at -inf means it can only
+        lose a contest or tie with another evidence-free bid, and a tie refuses both.
+
+        (This was a live crash, not a hypothetical: `round(None, 6)` raised TypeError.
+        It surfaced only when the density sweep was re-run at ppw=12 -- neither the
+        primary seed nor the test suite contained a credit whose FS layer found nothing
+        to weigh.)
+        """
+        weight = float("-inf") if self.fs_weight is None else round(self.fs_weight, 6)
+        return (_TIER_RANK.get(self.cand.tier, -1), weight)
+
+
+def _fmt_weight(w: float | None) -> str:
+    """Render an FS weight for an operator, distinguishing absent from zero."""
+    return "no non-amount evidence" if w is None else f"{w:+.2f}"
+
+
+def _resolve_contested(
+    proposals: list[_Proposal],
+) -> tuple[list[_Proposal], list[tuple[_Proposal, list[_Proposal]]]]:
+    """
+    Award each contested payment on evidence, and refuse where evidence cannot separate.
+
+    **Why this replaces greedy claiming.** The loop used to walk credits in sorted order
+    and let each take what it wanted, so when two credits both had a viable claim on one
+    payment, the winner was whichever the sort happened to reach first. That is a
+    decision made by iteration order, on money, and the permutation gate could only
+    detect it after the fact. Detecting a design weakness is weaker than not having it:
+    the gate is now a safety net rather than a load-bearing part of the answer.
+
+    A proposal is granted when it is uncontested, or when its evidence STRICTLY beats
+    every rival bidding for any payment it wants. Equal evidence is not a tie to be
+    broken -- it is the engine saying two credits have an equally good claim on the same
+    money, which is the same underdetermination Layer 2 refuses on, arriving through a
+    different door. Both are refused and both are handed to a human.
+
+    Returns (granted, contested) where each contested entry pairs a losing proposal with
+    the rivals that beat or tied it, so the refusal can name them.
+    """
+    wanted: dict[str, list[_Proposal]] = {}
+    for prop in proposals:
+        for pid in prop.cand.payment_ids:
+            wanted.setdefault(pid, []).append(prop)
+
+    granted: list[_Proposal] = []
+    contested: list[tuple[_Proposal, list[_Proposal]]] = []
+
+    for prop in proposals:
+        rivals = {
+            other.txn_id: other
+            for pid in prop.cand.payment_ids
+            for other in wanted[pid]
+            if other.txn_id != prop.txn_id
+        }
+        if not rivals:
+            granted.append(prop)
+            continue
+        mine = prop.evidence_key
+        # max() over rival keys and a STRICT comparison: both are symmetric in the
+        # rivals, so the outcome does not depend on the order the rivals were found.
+        strongest = max(r.evidence_key for r in rivals.values())
+        if mine > strongest:
+            granted.append(prop)
+        else:
+            blockers = sorted(
+                (r for r in rivals.values() if r.evidence_key >= mine),
+                key=lambda r: r.txn_id,
+            )
+            contested.append((prop, blockers))
+
+    return granted, contested
 
 
 def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
@@ -150,6 +310,27 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
         (t for t in inputs.bank_txns if t.is_credit), key=tier2_amount_date.sort_key
     )
 
+    # ---- Fellegi-Sunter prior, fixed before any claiming ----
+    #
+    # lambda = 1/pool_size is the prior that a random (credit, payment) pair inside the
+    # blocking window matches, and BLOCKING is what makes it tractable. The blocking key
+    # is the date window -- nothing else. Measuring the pool *as currently claimed* let
+    # the greedy loop leak into the probabilistic layer: two identical credits got
+    # different priors depending on which happened to be processed first, and the same
+    # credit got a different prior on round 2 than on round 1, because earlier
+    # assignments had drained its window. A prior that moves while the evidence does not
+    # is not a prior.
+    #
+    # Computed once, with nothing claimed, so it is a property of the batch's date
+    # structure rather than of the traversal.
+    unclaimed: set[str] = set()
+    blocking_pool_size = {
+        txn.id: max(
+            2, len(tier2_amount_date.candidate_pool(txn, payments, unclaimed))
+        )
+        for txn in credits
+    }
+
     claimed: set[str] = set()
     assignments: list[Assignment] = []
     tier_counts: dict[str, int] = {}
@@ -158,11 +339,15 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
     no_candidate: list[str] = []
     rounds = 0
 
-    for _ in range(MAX_ROUNDS):
+    for _ in range(cfg.MAX_ROUNDS):
         rounds += 1
-        progressed = False
         refusals, no_candidate = [], []
+        proposals: list[_Proposal] = []
 
+        # ---- PROPOSE ----------------------------------------------------------
+        # Every unsettled credit bids against the SAME claimed set. Nothing is granted
+        # inside this loop, so no credit's bid can shrink a later credit's pool -- which
+        # is precisely how sort order used to leak into the answer.
         for txn in credits:
             if txn.id in settled:
                 continue
@@ -178,7 +363,7 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
                     parse_with_llm(txn.narration, llm),
                     [by_id[pid] for pid in cand.payment_ids if pid in by_id],
                     u_est,
-                    pool_size=max(2, len(tier2_amount_date.candidate_pool(txn, payments, claimed))),
+                    pool_size=blocking_pool_size[txn.id],
                 )
                 if ev.contradicts:
                     # Names and references actively contradict the amount evidence.
@@ -196,16 +381,9 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
                         )
                     )
                     continue
-                assignments.append(
-                    _assignment_from(
-                        txn.id, txn.credit, cand, by_id,
-                        uniqueness=uniq, fs_weight=ev.weight,
-                    )
+                proposals.append(
+                    _Proposal(txn.id, txn.credit, cand, uniq, ev.weight)
                 )
-                claimed.update(cand.payment_ids)
-                settled.add(txn.id)
-                tier_counts[cand.tier] = tier_counts.get(cand.tier, 0) + 1
-                progressed = True
             elif verdict == "refuse":
                 refusals.append(
                     Refusal(txn.id, cat, reason, txn.credit, tuple(cands))
@@ -213,7 +391,45 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
             else:
                 no_candidate.append(txn.id)
 
-        if not progressed:
+        # ---- RESOLVE ----------------------------------------------------------
+        granted, contested = _resolve_contested(proposals)
+
+        for prop in granted:
+            assignments.append(
+                _assignment_from(
+                    prop.txn_id, prop.credit, prop.cand, by_id,
+                    uniqueness=prop.uniqueness, fs_weight=prop.fs_weight,
+                )
+            )
+            claimed.update(prop.cand.payment_ids)
+            settled.add(prop.txn_id)
+            tier_counts[prop.cand.tier] = tier_counts.get(prop.cand.tier, 0) + 1
+
+        for prop, blockers in contested:
+            shared = sorted(
+                set(prop.cand.payment_ids).intersection(
+                    *(set(b.cand.payment_ids) for b in blockers)
+                )
+                or set(prop.cand.payment_ids)
+            )
+            refusals.append(
+                Refusal(
+                    prop.txn_id, RefusalCategory.CONTESTED_PAYMENT,
+                    f"{len(blockers) + 1} credits have an equally good or better claim "
+                    f"on {', '.join(shared)}: this credit at Fellegi-Sunter weight "
+                    f"{_fmt_weight(prop.fs_weight)} (tier {prop.cand.tier}) against "
+                    + "; ".join(
+                        f"{b.txn_id} at {_fmt_weight(b.fs_weight)} "
+                        f"(tier {b.cand.tier})"
+                        for b in blockers
+                    )
+                    + ". The evidence does not separate them, so neither is posted",
+                    prop.credit, (prop.cand,),
+                )
+            )
+
+        # A round that granted nothing cannot change what the next round would see.
+        if not granted:
             break
 
     unassigned = tuple(

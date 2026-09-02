@@ -37,6 +37,8 @@ class RefusalCategory(str, Enum):
     OUT_OF_BOUNDS = "decomposition_out_of_bounds"        # pool or k exceeded
     FS_BELOW_THRESHOLD = "fs_below_lower_threshold"      # Layer 3
     FS_REVIEW_BAND = "fs_review_band"                    # Layer 3, clerical review
+    NARRATION_COUNT_CONFLICT = "narration_count_conflict"  # credit says N, match says M
+    CONTESTED_PAYMENT = "contested_payment"              # two credits, equal evidence
     AMOUNT_NAME_CONFLICT = "amount_name_conflict"        # layers disagree
     UNEXPLAINED_RESIDUAL = "unexplained_residual"        # layers disagree
 

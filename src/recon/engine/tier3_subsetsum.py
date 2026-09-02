@@ -224,22 +224,31 @@ def uniqueness_margin(result: SearchResult, tolerance: int) -> float:
     return max(0.0, min(1.0, excess / tolerance))
 
 
-def match(
+def _decompose(
     txn: BankTxn,
     payments: tuple[Payment, ...],
     claimed: set[str],
     invoices_by_no: dict[str, Invoice],
-) -> tuple[list[Candidate], RefusalCategory | None, str]:
+) -> tuple[list[Candidate], RefusalCategory | None, str, float]:
     """
-    Decompose one bank credit into the payments it covers.
+    Decompose one bank credit into the payments it covers, in a SINGLE search.
 
-    Returns (candidates, refusal_category, reason). Every outcome except "exactly one
-    solution" declines to assign, and each declines for a *named* reason rather than
-    silently returning nothing.
+    Returns (candidates, refusal_category, reason, uniqueness_margin). Every outcome
+    except "exactly one solution" declines to assign, and each declines for a *named*
+    reason rather than silently returning nothing.
+
+    **Why one function and not two.** `match_with_margin` used to build the candidate
+    pool, call `match` (which rebuilt the pool and searched), and then search a second
+    time purely to recover the margin -- two pools and two identical searches on exactly
+    the credits where the search is most expensive, since a credit only reaches tier 3
+    when tiers 1 and 2 have already declined it. The margin is not extra information
+    obtained by looking again; it is a property of the `SearchResult` the first search
+    already produced. Computing it here keeps the two derived from the same search by
+    construction, so they cannot disagree.
     """
     pool = tier2_amount_date.candidate_pool(txn, payments, claimed)
     if not pool:
-        return [], None, ""
+        return [], None, "", 0.0
 
     # Pool larger than the search bound. Refuse rather than truncate: dropping
     # candidates to fit a cap could remove the true decomposition and leave a wrong one
@@ -251,6 +260,7 @@ def match(
             f"candidate pool is {len(pool)} payments, above MAX_POOL={cfg.MAX_POOL}; "
             f"the decomposition cannot be searched exhaustively, so no answer is "
             f"claimed (truncating the pool could hide the true subset)",
+            0.0,
         )
 
     tol = fees.tolerance_for(txn.credit)
@@ -268,6 +278,7 @@ def match(
             RefusalCategory.SOLUTION_CAP_REACHED,
             f"at least {len(result.solutions)} distinct decompositions satisfy this "
             f"credit within {tol}p; the constraint has not identified an answer",
+            0.0,
         )
 
     if not result.solutions:
@@ -277,6 +288,7 @@ def match(
             f"no subset of the {result.pool_size} candidates sums to {txn.credit}p "
             f"within {tol}p at k<={cfg.MAX_SUBSET_K}"
             + (f" (closest miss {result.best_miss:+d}p)" if result.best_miss is not None else ""),
+            0.0,
         )
 
     if len(result.solutions) > 1:
@@ -294,9 +306,21 @@ def match(
                 "{" + ", ".join(s.payment_ids) + "}" for s in ranked[:4]
             )
             + "; amount evidence cannot identify one",
+            0.0,
         )
 
-    return [to_candidate(result.solutions[0])], None, ""
+    return [to_candidate(result.solutions[0])], None, "", uniqueness_margin(result, tol)
+
+
+def match(
+    txn: BankTxn,
+    payments: tuple[Payment, ...],
+    claimed: set[str],
+    invoices_by_no: dict[str, Invoice],
+) -> tuple[list[Candidate], RefusalCategory | None, str]:
+    """`_decompose` without the margin, for callers that do not need it."""
+    cands, cat, reason, _ = _decompose(txn, payments, claimed, invoices_by_no)
+    return cands, cat, reason
 
 
 def match_with_margin(
@@ -312,10 +336,4 @@ def match_with_margin(
     composite confidence score: a lone solution with nothing else nearby deserves more
     confidence than a lone solution that only just outran a rival.
     """
-    pool = tier2_amount_date.candidate_pool(txn, payments, claimed)
-    cands, cat, reason = match(txn, payments, claimed, invoices_by_no)
-    if cat is not None or not cands:
-        return cands, cat, reason, 0.0
-    tol = fees.tolerance_for(txn.credit)
-    result = search(txn.credit, pool, invoices_by_no, tolerance=tol)
-    return cands, None, "", uniqueness_margin(result, tol)
+    return _decompose(txn, payments, claimed, invoices_by_no)

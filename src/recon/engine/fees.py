@@ -62,7 +62,12 @@ ZERO = NetInterval(0, 0, True)
 
 # Bank-side rounding slack when the true fee is known. The measured fee-model residual
 # against real API output is [-1, +2] paise; +/-2 covers it with the sign symmetric.
-_KNOWN_FEE_SLACK = 2
+#
+# This is the SAME measured quantity as cfg.FEE_MODEL_MAX_RESIDUAL_PAISE, so it is read
+# from there rather than restated. A local literal silently duplicating a config
+# constant means widening the band in config.py would leave this path unchanged -- the
+# fee model and the interval it produces would disagree about their own error bar.
+_KNOWN_FEE_SLACK = cfg.FEE_MODEL_MAX_RESIDUAL_PAISE
 
 
 def net_interval(payment: Payment) -> NetInterval:

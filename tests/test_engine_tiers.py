@@ -233,14 +233,47 @@ def test_reference_match_with_a_wrong_amount_is_refused_not_assigned(written):
     Reference and conservation are independent channels. When they disagree the amount
     channel wins and the engine refuses, rather than letting a matching reference
     override money that does not balance.
+
+    **This test used to pass because of a generator defect.** It searched the batch for
+    an existing `unexplained_residual` refusal and asserted its truth relation was
+    `partial` or `many_to_one` -- which is to say it encoded the broken behaviour as the
+    expected one. Those refusals existed only because `partial_payment` shrank the credit
+    and left the payment at full value, hiding the money (DEFECT_LOG 2026-09-02-08). Fix
+    the generator and the batch stops containing the conflict, and the test fails for
+    finding nothing rather than for the property being false.
+
+    The property is real, so it is now CONSTRUCTED: take a credit the reference tier
+    matched, move its amount far outside tolerance, and assert the engine stops assigning
+    it. That works whatever the generator happens to emit.
     """
+    from dataclasses import replace
+
     batch, inputs, _ = written
     out = match_once(inputs)
-    truth = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
-    resid = [r for r in out.refusals if r.category is RefusalCategory.UNEXPLAINED_RESIDUAL]
-    assert resid, "expected at least one reference/amount conflict in this batch"
-    for r in resid:
-        assert truth[r.bank_txn_id].relation in {"partial", "many_to_one"}
+
+    by_ref = [a for a in out.assignments if a.tier == "tier1_reference"]
+    assert by_ref, "batch contains no tier-1 reference match to corrupt"
+    victim = by_ref[0]
+
+    # Move the money far enough that no fee model or tolerance could explain it.
+    corrupted = tuple(
+        replace(t, credit=t.credit + 5_000_00) if t.id == victim.bank_txn_id else t
+        for t in inputs.bank_txns
+    )
+    after = match_once(replace(inputs, bank_txns=corrupted))
+
+    assert victim.bank_txn_id not in after.assignment_map, (
+        f"{victim.bank_txn_id} still assigned after its amount was moved Rs 5,000 away "
+        f"-- a matching reference overrode money that does not balance"
+    )
+    refusal = next(
+        (r for r in after.refusals if r.bank_txn_id == victim.bank_txn_id), None
+    )
+    assert refusal is not None, "the credit vanished rather than being refused"
+    assert refusal.category in {
+        RefusalCategory.UNEXPLAINED_RESIDUAL,
+        RefusalCategory.OUT_OF_BOUNDS,
+    }, f"unexpected refusal category {refusal.category}"
 
 
 def test_refusals_carry_rupees_at_risk_and_an_actionable_reason(written):
@@ -388,3 +421,81 @@ def test_ambiguity_case_is_never_reported_as_assigned(written):
         ambiguity_bank_txn_id=batch.ambiguity_bank_txn_id,
     )
     assert "WRONG" not in sc.ambiguity_case_verdict
+
+
+def test_a_settlement_narration_count_blocks_a_single_payment_match(written):
+    """
+    The bank's narration states how many transactions a settlement covers. The engine
+    has always PARSED that count and, until now, never used it -- so a credit covering
+    two payments could be posted to one whenever a single payment's net happened to
+    equal the batch total.
+
+    Not hypothetical. At seed 11111, ppw=6, a netted refund came to exactly the second
+    payment's net, so the batch total equalled the first payment alone. Tier 2 found an
+    exact one-to-one fit at residual 0, assigned it, and never reached tier 3 -- where
+    enumeration would have found both decompositions and Layer 2 would have refused.
+    The tier ordering short-circuited the uniqueness test and produced a confident wrong
+    answer at confidence 0.96.
+
+    The count is an independent, label-free channel: it comes from the bank's text, not
+    from the amounts, so it can contradict an arithmetic fit without being derived from
+    one.
+    """
+    from dataclasses import replace
+
+    from recon.engine.normalize import parse
+
+    batch, inputs, _ = written
+    out = match_once(inputs)
+
+    single = next(
+        a for a in out.assignments
+        if len(a.payment_ids) == 1 and a.tier in {"tier1_reference", "tier2_amount_date"}
+    )
+    original = next(t for t in inputs.bank_txns if t.id == single.bank_txn_id)
+
+    # Restate the same credit as a settlement batch covering three transactions.
+    relabelled = replace(
+        original,
+        narration="RAZORPAY SETTLEMENT setl_TESTCOUNT0001 3 TXNS",
+        ref_no=original.ref_no,
+    )
+    assert parse(relabelled.narration).txn_count == 3, "fixture narration did not parse"
+
+    after = match_once(
+        replace(inputs, bank_txns=tuple(
+            relabelled if t.id == original.id else t for t in inputs.bank_txns
+        ))
+    )
+    assert single.bank_txn_id not in after.assignment_map, (
+        "a credit whose narration says 3 transactions was still posted to one payment"
+    )
+    refusal = next(r for r in after.refusals if r.bank_txn_id == single.bank_txn_id)
+    assert refusal.category is RefusalCategory.NARRATION_COUNT_CONFLICT
+    assert "3 transaction(s)" in refusal.reason
+    assert refusal.candidates, "the refusal must name what it declined to post"
+
+
+def test_a_matching_narration_count_still_assigns(written):
+    """
+    The guard must not refuse everything. A settlement saying "1 TXN" that fits one
+    payment is exactly consistent and must still be posted.
+    """
+    from dataclasses import replace
+
+    batch, inputs, _ = written
+    out = match_once(inputs)
+    single = next(
+        a for a in out.assignments
+        if len(a.payment_ids) == 1 and a.tier == "tier2_amount_date"
+    )
+    original = next(t for t in inputs.bank_txns if t.id == single.bank_txn_id)
+    relabelled = replace(
+        original, narration="RAZORPAY SETTLEMENT setl_TESTCOUNT0002 1 TXNS"
+    )
+    after = match_once(
+        replace(inputs, bank_txns=tuple(
+            relabelled if t.id == original.id else t for t in inputs.bank_txns
+        ))
+    )
+    assert set(after.assignment_map.get(single.bank_txn_id, ())) == set(single.payment_ids)

@@ -19,15 +19,28 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-for _p in (str(ROOT), str(ROOT / "src")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-import config as cfg  # noqa: E402
-from loaders import load_inputs  # noqa: E402
-from recon.engine.match import match_once  # noqa: E402
-from recon.generator import build  # noqa: E402
+# The project installs as a package (`pip install -e .`), so `config`, `loaders`,
+# `recon` and `scorer` import normally. This file previously inserted the repo root and
+# `src/` into sys.path before its own imports, which made the entry points work only
+# from inside a checkout and put four `# noqa: E402` comments on the imports to hide the
+# consequence. Running from source without installing still works via `pytest.ini`'s
+# pythonpath for tests, and `python -m` from the repo root for the CLI.
+try:
+    import config as cfg
+    from loaders import load_inputs
+    from recon.engine.match import match_once
+    from recon.generator import build
+except ModuleNotFoundError as _e:  # pragma: no cover - first-run guard
+    # Deliberately an ERROR rather than a sys.path fix-up. Silently repairing the path
+    # is what this file used to do, and it hid the fact that the project was not
+    # actually installable -- everything worked from the checkout and nothing worked
+    # anywhere else. A one-line instruction is a better answer than a bare traceback.
+    raise SystemExit(
+        f"{_e}\n\n"
+        "Pramana is not installed. From the repository root:\n"
+        "    pip install -e .          # engine, generator, scorer, CLI\n"
+        "    pip install -e '.[api]'   # ...plus the read-only API\n"
+    ) from None
 
 
 def _print_block(title: str, rows: list[tuple[str, object]]) -> None:
@@ -64,6 +77,12 @@ def cmd_generate(args: argparse.Namespace) -> int:
             checks.append(("tolerance", f"FAILED -- {e}"))
             rc = 1
         try:
+            n_links = build.assert_truth_is_satisfiable(batch)
+            checks.append(("truth satisfiable", f"{n_links} assign-links, all reachable"))
+        except AssertionError as e:
+            checks.append(("truth satisfiable", f"FAILED -- {e}"))
+            rc = 1
+        try:
             worst = build.assert_pool_bound(batch)
             note = "" if worst <= cfg.MAX_POOL else f"  [above MAX_POOL={cfg.MAX_POOL}; engine must refuse these]"
             checks.append(("worst window pool", f"{worst}{note}"))
@@ -94,7 +113,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             paths = build.write(batch)
             _print_block(
                 "WRITTEN",
-                [(k, str(v.relative_to(ROOT))) for k, v in paths.items()],
+                [(k, str(v.relative_to(cfg.ROOT))) for k, v in paths.items()],
             )
             print(
                 "\n  Ground truth is written to _truth/ and is unreadable from inside\n"
@@ -114,7 +133,13 @@ def cmd_match(args: argparse.Namespace) -> int:
     different package, into a different object. There is no point in this function at
     which the engine could see the answer key.
     """
-    inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    try:
+        inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    except ValueError as e:
+        # A seed/batch mismatch is a reporting error waiting to happen, not a crash to
+        # trace. Say what is wrong and what to run.
+        print(f"\n  {e}\n")
+        return 1
 
     from recon.llm import select as _select_llm
 
@@ -162,6 +187,10 @@ def cmd_match(args: argparse.Namespace) -> int:
         throughput=records / elapsed if elapsed else None,
         credits_by_id={x.id: x.credit for x in inputs.bank_txns},
         seed=args.seed,
+        unexamined=(
+            sum(1 for x in inputs.bank_txns if x.debit),
+            sum(x.debit for x in inputs.bank_txns if x.debit),
+        ),
     )
     # The UI payload is built from the ENGINE's output only -- no ground truth, no
     # scoring. What a merchant sees is exactly what the engine could justify without
@@ -174,8 +203,43 @@ def cmd_match(args: argparse.Namespace) -> int:
     )
     written = run_output.write(payload)
 
+    # ---- the comparison arm ----
+    #
+    # A single density in the headline invites the reading that these numbers are a
+    # property of the ENGINE, when they are a property of the engine at one crowding
+    # level. Density is the parameter the whole argument turns on -- coverage is meant
+    # to degrade under ambiguity while precision holds -- and that is only visible with
+    # more than one arm in front of you.
+    #
+    # The second arm is generated IN-PROCESS and never written to disk. It must not
+    # touch `data/generated/`, which holds the reported batch that the exception list,
+    # the API and the UI all read; overwriting that from a display option would make the
+    # headline and the artefacts disagree.
+    compare = None
+    if args.compare_density:
+        from recon.generator import build as _build
+
+        cmp_batch = _build.generate(
+            seed=args.seed, payments_per_window=args.compare_density
+        )
+        _build.assert_truth_is_satisfiable(cmp_batch)
+        cmp_out = match_once(cmp_batch.inputs, llm=llm)
+        compare = (
+            score(
+                cmp_out,
+                cmp_batch.truth,
+                total_payments=len(cmp_batch.inputs.payments),
+                captured_payments=sum(1 for p in cmp_batch.inputs.payments if p.captured),
+                ambiguity_bank_txn_id=cmp_batch.ambiguity_bank_txn_id or "",
+                credits_by_id={x.id: x.credit for x in cmp_batch.inputs.bank_txns},
+                seed=args.seed,
+            ),
+            args.compare_density,
+        )
+
     print(render(sc, args.seed, args.payments_per_window,
-                 llm_enabled=llm.name, relations=relations, ensemble=ensemble))
+                 llm_enabled=llm.name, relations=relations, ensemble=ensemble,
+                 compare=compare))
     return 0
 
 
@@ -208,6 +272,12 @@ def cmd_sweep(args: argparse.Namespace) -> int:
         assigned = 0
         for seed in seeds:
             batch = _build.generate(seed=seed, payments_per_window=ppw)
+            # The sweep builds batches in-process and used to skip this, which is
+            # exactly where the ambiguity-window orphaning defect hid: `generate`
+            # checked the primary seed, the sweep never checked its own five. A sweep
+            # that quietly averages over unsatisfiable ground truth is reporting the
+            # generator's bugs as the engine's coverage.
+            _build.assert_truth_is_satisfiable(batch)
             try:
                 worst = _build.assert_pool_bound(batch)
             except AssertionError as e:
@@ -250,6 +320,140 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+_RULE = "=" * 78
+
+
+def cmd_llm_compare(args: argparse.Namespace) -> int:
+    """
+    Run the batch with the LLM narration tier ON and OFF, and report both arms.
+
+    `docs/ARCHITECTURE.md` requires precision to be reported both ways. This is that
+    measurement -- and, when the only available tier is the offline stand-in, this is
+    also the machinery that REFUSES to report it, which is the more important half. Two
+    identical numbers printed side by side would read as "the LLM changes nothing"; what
+    is actually true is "nothing here can tell you whether it would".
+    """
+    from recon.llm import select as select_llm
+    from recon.llm.compare import (
+        Comparison, diff_verdicts, measure_parse_yield, split_changes,
+        tier_is_measurable,
+    )
+    from scorer.score import load_truth, score
+
+    inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    tier_on = select_llm(disabled=False)
+    tier_off = select_llm(disabled=True)
+    valid, why = tier_is_measurable(tier_on)
+
+    print(_RULE)
+    print(f"  LLM TIER: ON vs OFF   seed={args.seed}   tier={tier_on.name}")
+    print(_RULE)
+
+    yields = measure_parse_yield(inputs, tier_on)
+
+    t0 = time.perf_counter()
+    if args.verify:
+        from recon.verify.stability import match_gated
+
+        k = cfg.PERMUTATION_K_FAST if args.fast else cfg.PERMUTATION_K
+        out_on, _ = match_gated(inputs, k=k, llm=tier_on)
+        out_off, _ = match_gated(inputs, k=k, llm=tier_off)
+    else:
+        out_on = match_once(inputs, llm=tier_on)
+        out_off = match_once(inputs, llm=tier_off)
+    elapsed = time.perf_counter() - t0
+
+    changes = diff_verdicts(out_on, out_off)
+
+    print("\n  PARSE YIELD  (field level, before any matching)")
+    print("  " + "-" * 74)
+    print(f"    credit narrations                {yields.narrations}")
+    print(f"    unreadable by the regex tier     {yields.unreadable_by_regex}"
+          "   (engine's own needs_llm definition)")
+    print(f"    gaps filled by the LLM tier      {yields.filled_by_llm}"
+          f"   ({yields.fill_rate:.0%} of the gaps)")
+    print(f"      payer names recovered          {yields.names_recovered}")
+    print(f"      merchant refs recovered        {yields.refs_recovered}")
+    print(f"    contradicted the regex tier      {yields.disagreed_with_regex}"
+          "   (must be 0: the tier fills gaps, it never overrides)")
+
+    outcome_changes, reason_changes = split_changes(changes)
+    print("\n  VERDICT DELTAS  (the only thing that licenses a claim about output)")
+    print("  " + "-" * 74)
+    if not outcome_changes:
+        print("    0 credits changed DECISION (assign / refuse / no candidate).")
+    else:
+        print(f"    {len(outcome_changes)} credit(s) changed DECISION:")
+        for txn_id, off, on in outcome_changes[:20]:
+            print(f"      {txn_id}   off={off}   ->   on={on}")
+    if reason_changes:
+        print(f"\n    {len(reason_changes)} credit(s) kept the same decision and changed")
+        print("    only the REASON given to the operator:")
+        for txn_id, off, on in reason_changes[:20]:
+            print(f"      {txn_id}   off={off}   ->   on={on}")
+        print("")
+        print("    Same money, same place, same precision and match rate. A better")
+        print("    sentence for a human is a real contribution and a much weaker one")
+        print("    than moving a verdict, so it is not reported under that heading.")
+
+    truth_path = cfg.TRUTH_DIR / "ground_truth.json"
+    if truth_path.exists():
+        meta, links = load_truth(truth_path)
+        captured = sum(1 for p in inputs.payments if p.captured)
+        credits_by_id = {t.id: t.credit for t in inputs.bank_txns if t.is_credit}
+        arms = {}
+        for label, out in (("LLM OFF", out_off), ("LLM ON", out_on)):
+            arms[label] = score(
+                out, links, total_payments=len(inputs.payments),
+                captured_payments=captured,
+                ambiguity_bank_txn_id=meta.get("ambiguity_bank_txn_id", ""),
+                credits_by_id=credits_by_id, seed=args.seed,
+            )
+        print("\n  HEADLINE, BOTH ARMS")
+        print("  " + "-" * 74)
+        print(f"    {'':<22}{'LLM OFF':>14}{'LLM ON':>14}{'delta':>12}")
+        for name, attr, pct in (
+            ("match rate", "match_rate", True),
+            ("match precision", "match_precision", True),
+            ("refusal rate", "refusal_rate", True),
+            ("assignments", "total_assignments", False),
+            ("correct assignments", "correct_assignments", False),
+        ):
+            a, b = getattr(arms["LLM OFF"], attr), getattr(arms["LLM ON"], attr)
+            fmt = (lambda v: f"{v:.2%}") if pct else (lambda v: f"{v:d}")
+            delta = f"{b - a:+.2%}" if pct else f"{b - a:+d}"
+            print(f"    {name:<22}{fmt(a):>14}{fmt(b):>14}{delta:>12}")
+
+    print("\n  VERDICT ON THIS MEASUREMENT")
+    print("  " + "-" * 74)
+    if valid:
+        print("    VALID. The tier above is a live model, so the arms differ in what a")
+        print("    model contributed and the comparison means what it says.")
+        if not outcome_changes:
+            print("    The measured contribution to DECISIONS is zero. That is a result,")
+            print("    not an absence of one: the trust boundary holds and the")
+            print("    deterministic tiers were already sufficient on this batch.")
+    else:
+        print("    WITHHELD -- this comparison is NOT valid evidence about an LLM.")
+        for line in _wrap(why, 70):
+            print(f"    {line}")
+        print("")
+        print("    The parse-yield and verdict-delta numbers above are real")
+        print("    measurements OF THE STAND-IN. They are not a null result for a")
+        print("    model, and quoting them as one would be the overclaim this")
+        print("    project exists to argue against.")
+
+    print(f"\n  both arms in {elapsed:.2f}s")
+    print(_RULE)
+    return 0 if valid else 2
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    import textwrap
+
+    return textwrap.wrap(text, width=width)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="run.py", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -280,7 +484,22 @@ def main(argv: list[str] | None = None) -> int:
                         f"relations. Never used for reported numbers.")
     m.add_argument("--no-llm", action="store_true", default=False,
                    help="disable the LLM narration tier and report precision without it")
+    m.add_argument("--compare-density", type=int, default=cfg.HEADLINE_COMPARE_DENSITY,
+                   help="report a second density beside the reported one in the "
+                        "headline (generated in-process, never written to disk). "
+                        "0 disables.")
     m.set_defaults(func=cmd_match)
+
+    c = sub.add_parser(
+        "llm-compare",
+        help="run the batch with the LLM tier on and off and report both arms",
+    )
+    c.add_argument("--seed", type=int, default=cfg.SEED_PRIMARY)
+    c.add_argument("--payments-per-window", type=int, default=cfg.TARGET_POOL_SIZE)
+    c.add_argument("--verify", action="store_true", default=False,
+                   help="run both arms under the permutation gate")
+    c.add_argument("--fast", action="store_true", default=False)
+    c.set_defaults(func=cmd_llm_compare)
 
     w = sub.add_parser("sweep", help="density sweep: refusal rate vs precision")
     w.add_argument("--seeds", type=int, nargs="+", default=[11111, 22222, 33333, 44444, 55555])

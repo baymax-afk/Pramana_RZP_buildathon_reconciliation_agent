@@ -14,7 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from functools import lru_cache
 from typing import Literal
 
 Provenance = Literal["R1", "R2", "S"]
@@ -22,6 +23,7 @@ Relation = Literal["one_to_one", "many_to_one", "partial", "unmatched"]
 Verdict = Literal["assign", "refuse"]
 
 
+@lru_cache(maxsize=None)
 def date_of(unix_ts: int) -> date:
     """
     The calendar date of a unix timestamp, in UTC.
@@ -31,6 +33,15 @@ def date_of(unix_ts: int) -> date:
     west of Greenwich -- and a payment that moves one day can fall out of a credit's
     lookback entirely. A timezone bug here presents as an unmatched payment, not as an
     error, so it is centralised rather than left to each caller.
+
+    **Memoised, and safe to memoise.** It is a pure function of one integer, so the
+    cache cannot change an answer -- only how often the answer is recomputed. That
+    matters because it is the single hottest call in the engine: candidate pooling
+    re-derives the same few hundred payment dates for every credit in every round, and
+    profiling put `datetime.fromtimestamp` at the top of the profile with ~380k calls
+    over ~200 distinct timestamps. Caching it does not weaken the purity argument
+    `match_once` rests on: the mapping is total, deterministic, and carries nothing
+    from one batch into the next.
     """
     return datetime.fromtimestamp(unix_ts, UTC).date()
 
@@ -43,14 +54,31 @@ def rupees_to_paise(s: str | Decimal) -> int:
     systematic sub-paisa error in ingest would surface later as unexplained
     conservation residual -- a defect in the checker masquerading as a defect in the
     data. Handles thousands separators, which real bank exports contain.
+
+    **Every malformed input raises ValueError naming the offending text.** This used to
+    leak whatever the Decimal machinery happened to throw, which was three different
+    exception types with no context: `InvalidOperation` for "- 100" or "(500)",
+    `ValueError` for "NaN", and `OverflowError` for "Infinity". A loader traceback
+    ending in `decimal.InvalidOperation` tells an operator nothing about which column of
+    which row of which file is bad, and a caller cannot even catch it in one clause.
+
+    The non-finite cases deserve their own mention: `Decimal("NaN")` and
+    `Decimal("Infinity")` are perfectly valid Decimals. Anything validating by "does
+    this parse as a Decimal" waves them straight through, and they fail much later,
+    somewhere that looks like an arithmetic bug rather than a bad input row.
     """
     if isinstance(s, Decimal):
         d = s
     else:
-        cleaned = str(s).strip().replace(",", "").replace("₹", "")
+        cleaned = str(s).strip().replace(",", "").replace("\u20b9", "").strip()
         if not cleaned or cleaned in {"-", "0.00"}:
             return 0
-        d = Decimal(cleaned)
+        try:
+            d = Decimal(cleaned)
+        except InvalidOperation:
+            raise ValueError(f"not a rupee amount: {str(s)!r}") from None
+    if not d.is_finite():
+        raise ValueError(f"rupee amount is not finite: {str(s)!r}")
     return int((d * 100).to_integral_value())
 
 

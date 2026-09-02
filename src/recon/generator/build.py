@@ -101,6 +101,19 @@ def _load_r2_orders(path: Path) -> list[dict]:
 # --------------------------------------------------------------------------
 # Synthetic payment construction
 # --------------------------------------------------------------------------
+def _invoice_nos(p: Payment) -> tuple[str, ...]:
+    """
+    The invoice(s) a payment settles -- empty for a payment on account.
+
+    Every payment used to carry an invoice number, which made tier 1 (exact reference)
+    available far more often than reality allows and left the invoice-less path
+    completely untested. `advance_payment` exists to fix that, and this helper is what
+    stops the ten places that assumed an invoice from raising KeyError on it.
+    """
+    no = p.notes.get("invoice_no")
+    return (no,) if no else ()
+
+
 def _synth_payment(
     rng: random.Random,
     idx: int,
@@ -304,7 +317,7 @@ def generate(
                     TruthLink(
                         bank_txn_id=f"bank_txn_{txn_seq:04d}",
                         payment_ids=(p.id,),
-                        invoice_nos=(p.notes["invoice_no"],),
+                        invoice_nos=_invoice_nos(p),
                         defect_labels=("mdr_fee",),
                         relation="one_to_one",
                         expected_verdict="assign",
@@ -363,7 +376,49 @@ def generate(
 
             cust = rng.choice(REGISTRY)
             gross = rng.randrange(cfg.MIN_PAYMENT_PAISE, cfg.MAX_PAYMENT_PAISE, 100)
+
+            # --- advance_payment: money against no invoice at all ---
+            #
+            # A payment on account. Ordinary -- a customer pays a retainer, or wires
+            # against a proforma, or simply pays early. It matters here because EVERY
+            # payment used to carry an invoice number, which made tier 1 available far
+            # more often than reality allows and left the invoice-less path untested.
+            # With no invoice there is no reference to quote and no TDS to deduct, so
+            # the amount channel has to stand on its own.
+            if rng.random() < 0.05:
+                window_payments.append(
+                    _synth_payment(
+                        rng, pay_seq, cust, "", gross, _ts(pay_date, rng)
+                    )
+                )
+                continue
+
             with_tds = rng.random() < 0.18
+
+            # --- overpayment: the customer pays MORE than the invoice ---
+            #
+            # The mirror of `partial_payment`, and just as ordinary: a payer rounds up
+            # to a whole rupee, or clears a small outstanding balance in the same
+            # transfer. Modelled the same way and for the same reason -- the PAYMENT is
+            # what changes, so payment, fee and credit still agree exactly, and the
+            # invoice ends over-settled rather than open. No TDS, for the same
+            # apportionment reason partial payments carry none.
+            over = rng.random() < 0.05
+            if over:
+                with_tds = False
+                inv = next_invoice(cust, gross, pay_date, with_tds=False)
+                paid = gross + rng.randrange(5_000, 60_000, 100)
+                invoices[:] = [
+                    replace(x, status="over_settled") if x.invoice_no == inv.invoice_no else x
+                    for x in invoices
+                ]
+                window_payments.append(
+                    _synth_payment(
+                        rng, pay_seq, cust, inv.invoice_no, paid, _ts(pay_date, rng)
+                    )
+                )
+                continue
+
             inv = next_invoice(cust, gross, pay_date, with_tds)
             window_payments.append(
                 _synth_payment(rng, pay_seq, cust, inv.invoice_no, gross, _ts(pay_date, rng))
@@ -390,7 +445,9 @@ def generate(
                 tds_total = sum(
                     inv.tds_amount
                     for inv in invoices
-                    if inv.invoice_no in {p.notes["invoice_no"] for p in group}
+                    if inv.invoice_no in {
+                        n for q in group for n in _invoice_nos(q)
+                    }
                 )
                 credit = gross_net - tds_total
                 if tds_total:
@@ -449,7 +506,9 @@ def generate(
                     TruthLink(
                         bank_txn_id=f"bank_txn_{txn_seq:04d}",
                         payment_ids=tuple(p.id for p in group),
-                        invoice_nos=tuple(p.notes["invoice_no"] for p in group),
+                        invoice_nos=tuple(
+                            n for q in group for n in _invoice_nos(q)
+                        ),
                         defect_labels=tuple(labels),
                         relation="many_to_one",
                         expected_verdict="assign",
@@ -462,21 +521,108 @@ def generate(
             i += 1
             cust = BY_KEY.get(p.notes.get("name_family", ""), REGISTRY[0])
             inv = next(
-                (x for x in invoices if x.invoice_no == p.notes["invoice_no"]), None
+                (x for x in invoices if x.invoice_no == p.notes.get("invoice_no")), None
             )
             net = p.amount - (p.fee or 0)
             labels = ["mdr_fee"]
             relation = "one_to_one"
+            verdict = "assign"
 
             if inv and inv.tds_amount:
                 net -= inv.tds_amount
                 labels.append("tds_deduction")
 
-            # partial payment
-            if rng.random() < 0.08:
-                net = int(net * rng.uniform(0.35, 0.75))
-                labels.append("partial_payment")
-                relation = "partial"
+            # --- partial payment: the CUSTOMER pays less than the invoice ---
+            #
+            # This used to shrink the CREDIT and leave the payment at full value, so
+            # Rs 7,854 vanished from a Rs 21,999 payment with nothing anywhere
+            # recording where it went -- while ground truth labelled the credit
+            # "assign". Against a Rs 1 tolerance that is arithmetically unmatchable, so
+            # all 5 such credits were refused and every one scored as a miss. Partial
+            # recall was 0/5 on every run the project has ever reported.
+            #
+            # It is the same defect as `refund_netted` (DEFECT_LOG 2026-09-02-05 item 4)
+            # and it takes the same fix: stop hiding the money. A partial payment is not
+            # a credit that disagrees with its payment -- Razorpay cannot capture
+            # Rs 21,999 and settle Rs 13,573. It is a SMALLER PAYMENT against a larger
+            # invoice. Payment, fee and credit now agree exactly; what is partial is the
+            # INVOICE's coverage, which is why the invoice becomes `part_settled` and
+            # carries a residual balance the ledger can still chase.
+            #
+            # Three eligibility rules, all load-bearing:
+            #
+            #   * SYNTHETIC PAYMENTS ONLY. An R1 record is a genuinely captured Razorpay
+            #     payment whose amount, fee and tax are real API output. Rewriting one to
+            #     manufacture a defect would falsify exactly the provenance claim that
+            #     makes those 18 records worth having.
+            #   * NO-TDS INVOICES ONLY. Apportioning TDS across a part-settlement is a
+            #     separate modelling problem -- which instalment bears which deduction --
+            #     and the engine reads the invoice's FULL `tds_amount`. Faking it in
+            #     either direction would put a wrong number in the ledger. 84% of
+            #     invoices carry no TDS, so the category stays well populated.
+            #   * THE SHRUNKEN PAYMENT MUST STAY ABOVE `MIN_PAYMENT_PAISE`. That floor is
+            #     what keeps TOL_ABS_PAISE 100x below the smallest payment, and config.py
+            #     asserts the two against each other at import. Shrinking a payment
+            #     through it would quietly invalidate the subset-sum uniqueness argument
+            #     for the whole batch -- a far worse outcome than one fewer defect.
+            #   * NOT ALREADY AN OVERPAYMENT. `overpayment` and `partial_payment` are
+            #     contradictory by definition -- a customer cannot both under- and
+            #     over-pay one invoice -- and without this guard the generator produced
+            #     records carrying both labels and an invoice marked `part_settled`
+            #     while ground truth called it an overpayment. Caught by a test asserting
+            #     the property rather than by reading the output.
+            if (
+                p.provenance == "S"
+                and inv is not None
+                and not inv.tds_amount
+                and p.amount <= inv.gross_amount
+                and rng.random() < 0.08
+            ):
+                part_amount = int(p.amount * rng.uniform(0.35, 0.75))
+                if part_amount >= cfg.MIN_PAYMENT_PAISE:
+                    part_fee, part_tax = fees.fee_and_tax(part_amount)
+                    p = replace(p, amount=part_amount, fee=part_fee, tax=part_tax)
+                    payments = [p if q.id == p.id else q for q in payments]
+                    settleable = [p if q.id == p.id else q for q in settleable]
+                    inv = replace(inv, status="part_settled")
+                    invoices[:] = [
+                        inv if x.invoice_no == inv.invoice_no else x for x in invoices
+                    ]
+                    net = part_amount - part_fee
+                    labels.append("partial_payment")
+                    relation = "partial"
+
+            # --- bank_charge: the RECEIVING BANK takes its own cut ---
+            #
+            # NEFT and RTGS handling fees are levied by the bank, so unlike MDR they
+            # appear on no Razorpay object, in no ledger the merchant controls, and in
+            # no narration. Rs 5-50 against a Rs 1 tolerance is arithmetically
+            # unmatchable.
+            #
+            # So this one is labelled **refuse**, deliberately, and that is the whole
+            # point of including it. An engine that widened its tolerance to absorb
+            # bank charges would also start absorbing genuine coincidences, and the
+            # subset-sum uniqueness argument rests on tolerance staying far below the
+            # smallest payment. This defect exists to prove the engine declines the
+            # case rather than swallowing it -- the money really is unaccounted for,
+            # and saying so is the correct output.
+            if rng.random() < 0.04:
+                net -= defects.bank_charge_for(rng)
+                labels.append("bank_charge")
+                verdict = "refuse"
+
+            # --- third_party_payer: a parent company settles a subsidiary's invoice ---
+            #
+            # The amount channel is right and the name channel is wrong, which is
+            # exactly the disagreement Layer 3 must NOT resolve by vetoing a correct
+            # match. Ordinary in group structures, and the reason `contradicts` requires
+            # the field evidence to net negative rather than merely to disagree.
+            third_party = None
+            if rng.random() < 0.05:
+                others = [c for c in REGISTRY if c.key != cust.key]
+                if others:
+                    third_party = rng.choice(others)
+                    labels.append("third_party_payer")
 
             # paisa-level rounding
             if rng.random() < 0.15:
@@ -489,7 +635,7 @@ def generate(
                     TruthLink(
                         bank_txn_id="",
                         payment_ids=(p.id,),
-                        invoice_nos=(p.notes["invoice_no"],),
+                        invoice_nos=_invoice_nos(p),
                         defect_labels=("unsettled",),
                         relation="unmatched",
                         expected_verdict="refuse",
@@ -502,22 +648,54 @@ def generate(
                 labels.append("settlement_drift")
             sd = settle_date + timedelta(days=drift)
 
+            # --- weekend_bunching: Fri/Sat/Sun all settle on Monday ---
+            #
+            # Banks do not post on weekends, so a run of payments bunches onto the next
+            # working day and realised drift reaches three days on top of the settlement
+            # window. It is the ordinary reason a lookback has to be generous, and it
+            # stresses LOOKBACK_DAYS rather than any tier -- which is why it is capped
+            # at the lookback rather than allowed to run past it. A credit the engine
+            # provably cannot see is missing data, not a defect (DEFECT_LOG
+            # 2026-09-02-08).
+            if sd.weekday() >= 5:
+                shifted = sd + timedelta(days=7 - sd.weekday())
+                if (shifted - date_of(p.created_at)).days <= cfg.LOOKBACK_DAYS:
+                    sd = shifted
+                    labels.append("weekend_bunching")
+
             if cust.key in {a for a, _ in CONFUSABLE_PAIRS} | {b for _, b in CONFUSABLE_PAIRS}:
                 labels.append("near_duplicate_name")
+
+            # Labels read off the record as it FINALLY stands, after every mutation
+            # above. Deciding them earlier let a payment be labelled `overpayment` and
+            # then shrunk by the partial-payment defect, so the label described a record
+            # that no longer existed. A label that can disagree with the data it
+            # describes is worse than no label.
+            if not p.notes.get("invoice_no"):
+                labels.append("advance_payment")
+            elif inv is not None and p.amount > inv.gross_amount:
+                labels.append("overpayment")
 
             txn_seq += 1
             utr = defects.make_utr(rng)
             # Roughly 55% of payers quote the invoice number in the remittance. The
             # rest do not, so tier 1 cannot carry the whole batch and tier 2 has real
             # work to do -- which is the realistic split.
-            quoted = p.notes["invoice_no"] if rng.random() < 0.55 else None
+            # A payment on account has no invoice number to quote.
+            quoted = (
+                p.notes.get("invoice_no") if rng.random() < 0.55 else None
+            )
             # ~18% of credits arrive in a shape the regex tier cannot parse. Real
             # statements contain these; a batch without them makes narration parsing
             # look solved and leaves the LLM tier with nothing to do.
             if rng.random() < 0.18:
-                nar = defects.messy_narration(rng, cust, p.notes["invoice_no"])
+                nar = defects.messy_narration(rng, cust, p.notes.get("invoice_no") or "")
             else:
-                nar = defects.narrate(rng, utr, cust, merchant_ref=quoted)
+                # A third-party payer puts the PARENT's name on the wire, not the
+                # invoice customer's.
+                nar = defects.narrate(
+                    rng, utr, third_party or cust, merchant_ref=quoted
+                )
             balance += net
             bank_txns.append(
                 BankTxn(
@@ -535,12 +713,105 @@ def generate(
                 TruthLink(
                     bank_txn_id=f"bank_txn_{txn_seq:04d}",
                     payment_ids=(p.id,),
-                    invoice_nos=(p.notes["invoice_no"],),
+                    invoice_nos=_invoice_nos(p),
                     defect_labels=tuple(labels),
                     relation=relation,  # type: ignore[arg-type]
-                    expected_verdict="assign",
+                    expected_verdict=verdict,  # type: ignore[arg-type]
                 )
             )
+
+    # ---- split_settlement: one payment arriving as TWO credits ----
+    #
+    # Razorpay splits a settlement for on-demand payouts and when a batch crosses a
+    # limit, so one payment's net arrives as two separate credits. The engine cannot
+    # represent this: `claimed` is a set so a payment is taken once, and every tier asks
+    # which SUBSET OF PAYMENTS sums to a credit -- there is no way to express half a
+    # payment. Both credits are therefore labelled `refuse`.
+    #
+    # Refusing is genuinely correct: posting a part-settlement against a whole payment
+    # would be a wrong answer, not a partial one. But the coverage it costs is real, so
+    # ARCHITECTURE.md names it as a limitation and the outcome-by-defect table shows it
+    # rather than letting a correct-looking refusal hide an unmodelled relation.
+    # Two, and not one drawn at random: a single instance of an unmodelled relation
+    # reads as an anomaly, and the point is that it is a category.
+    split_candidates: list[TruthLink] = []
+    for link in list(truth):
+        if len(split_candidates) >= 2:
+            break
+        if (
+            link.relation == "one_to_one"
+            and link.expected_verdict == "assign"
+            and len(link.payment_ids) == 1
+            and not ({"bank_charge", "refund_netted"} & set(link.defect_labels))
+        ):
+            split_candidates.append(link)
+
+    by_txn_id = {t.id: t for t in bank_txns}
+    for link in split_candidates:
+        original = by_txn_id.get(link.bank_txn_id)
+        if original is None or original.credit < 2 * cfg.MIN_PAYMENT_PAISE:
+            continue
+        first = int(original.credit * rng.uniform(0.4, 0.6))
+        second = original.credit - first
+        idx = bank_txns.index(original)
+        setl = defects.make_settlement_id(rng)
+        bank_txns[idx] = BankTxn(
+            id=original.id, txn_date=original.txn_date, value_date=original.value_date,
+            narration=f"RAZORPAY SETTLEMENT {setl} PART 1 OF 2",
+            ref_no=original.ref_no, credit=first, debit=0, balance=original.balance,
+        )
+        txn_seq += 1
+        second_id = f"bank_txn_{txn_seq:04d}"
+        bank_txns.append(
+            BankTxn(
+                id=second_id, txn_date=original.txn_date, value_date=original.value_date,
+                narration=f"RAZORPAY SETTLEMENT {setl} PART 2 OF 2",
+                ref_no=defects.make_utr(rng), credit=second, debit=0,
+                balance=original.balance,
+            )
+        )
+        labels = tuple(link.defect_labels) + ("split_settlement",)
+        truth[truth.index(link)] = TruthLink(
+            link.bank_txn_id, link.payment_ids, link.invoice_nos, labels,
+            "split", "refuse",
+        )
+        truth.append(
+            TruthLink(second_id, link.payment_ids, link.invoice_nos, labels,
+                      "split", "refuse")
+        )
+
+    # ---- chargeback_debit: money leaving, on a line the engine never reads ----
+    #
+    # A settled payment is disputed and clawed back. The debit is a real bank line
+    # carrying a real reference, and the engine reads `is_credit` transactions only --
+    # so the money leaving is not matched, not refused, and not counted anywhere.
+    #
+    # The statement contained ZERO debits before this defect existed, which is why the
+    # blind spot went unnoticed: the engine had never been shown the half of a bank
+    # statement it ignores. No truth link is created for a debit. Inventing one would
+    # score the engine against a verdict it structurally cannot produce; the metrics
+    # block reports the unexamined lines instead, which is the honest form of the same
+    # information.
+    for link in list(truth)[:]:
+        if link.relation != "one_to_one" or link.expected_verdict != "assign":
+            continue
+        if rng.random() >= 0.05:
+            continue
+        original = by_txn_id.get(link.bank_txn_id)
+        if original is None:
+            continue
+        txn_seq += 1
+        cb_date = date.fromisoformat(original.txn_date) + timedelta(days=rng.randint(3, 9))
+        balance -= original.credit
+        bank_txns.append(
+            BankTxn(
+                id=f"bank_txn_{txn_seq:04d}",
+                txn_date=cb_date.isoformat(), value_date=cb_date.isoformat(),
+                narration=f"CHARGEBACK REV {original.ref_no} DISPUTE",
+                ref_no=original.ref_no, credit=0, debit=original.credit,
+                balance=balance,
+            )
+        )
 
     # ---- duplicate UTR: clone one existing credit's reference onto another ----
     credits = [t for t in bank_txns if t.is_credit]
@@ -699,13 +970,33 @@ def _protect_ambiguity_window(
     It did not create a third candidate, but only by luck, and a guarantee that holds
     by luck is not a guarantee.
 
-    The repair shifts any such interloper one day later, out of the credit's lookback.
-    Its own settlement credit is dated from its window's settle date, which is strictly
-    later, so the shift cannot orphan it -- it stays inside its own pool.
+    The repair moves any such interloper out of the credit's lookback.
 
     Raising the amount instead would cascade: the payment's invoice, its net, and the
     bank credit derived from that net would all have to be rebuilt. Moving the date
     touches one field and nothing downstream of it.
+
+    **The move must respect the payment's OWN credit, and it used to not.** This
+    function shifted every interloper `lookback + 1` = 6 days later, on the stated
+    grounds that "its own settlement credit is dated from its window's settle date,
+    which is strictly later, so the shift cannot orphan it". That reasoning is wrong,
+    and the arithmetic says so plainly: a payment sits at most 2 days into its window
+    and its credit lands at settle date plus 0-2 days drift, so its own credit is at
+    most 5 days away -- and the shift is 6. Moving it forward pushed it PAST the credit
+    that settles it, out of that credit's lookback entirely, leaving ground truth
+    asserting a link the engine cannot satisfy at any tolerance.
+
+    Measured across 40 seeds: **5 of them (12.5%) shipped an orphaned payment.** The
+    primary reported seed was not one of them, which is the only reason this survived.
+    An orphaned link is an automatic false negative -- the same failure shape as
+    `refund_netted` (2026-09-02-05) and `partial_payment` (2026-09-02-08), where ground
+    truth asserts a match the data cannot support.
+
+    So the move is now computed against BOTH constraints: outside the ambiguity credit's
+    lookback, and still inside its own credit's. Forward if the payment's own credit is
+    late enough to allow it, backward otherwise. If neither direction has room the build
+    FAILS, because there is no honest date for that payment and emitting the batch
+    anyway would ship the very defect this function exists to prevent.
     """
     credit = next((t for t in bank_txns if t.id == amb_id), None)
     if credit is None:
@@ -714,6 +1005,47 @@ def _protect_ambiguity_window(
     crafted = set(link.payment_ids) if link else set()
     cd = date.fromisoformat(credit.txn_date)
     lookback = cfg.SETTLEMENT_WINDOW_DAYS + 2  # deliberately wider than the engine's rule
+
+    # Each payment's OWN settling credit, so a shift can be checked against it rather
+    # than assumed safe. A payment with no credit (unsettled, or a truth link that
+    # expects a refusal) has no such constraint and may move freely.
+    txn_date_by_id = {t.id: date.fromisoformat(t.txn_date) for t in bank_txns}
+    own_credit: dict[str, date] = {}
+    for tl in truth:
+        d = txn_date_by_id.get(tl.bank_txn_id)
+        if d is None:
+            continue
+        for pid in tl.payment_ids:
+            own_credit[pid] = d
+
+    def _relocate(p: Payment) -> Payment:
+        """Move p out of the ambiguity credit's lookback without orphaning it."""
+        current = date_of(p.created_at)
+        ocd = own_credit.get(p.id)
+
+        # Later than the ambiguity credit, or earlier than its whole lookback.
+        forward = cd + timedelta(days=1)
+        backward = cd - timedelta(days=lookback + 1)
+
+        def ok(d: date) -> bool:
+            if ocd is None:
+                return True
+            # Must remain inside its own credit's candidate window.
+            return ocd - timedelta(days=cfg.LOOKBACK_DAYS) <= d <= ocd
+
+        for candidate in sorted((forward, backward), key=lambda d: abs((d - current).days)):
+            if ok(candidate):
+                return replace(
+                    p, created_at=p.created_at + 86_400 * (candidate - current).days
+                )
+
+        raise AssertionError(
+            f"Ambiguity guarantee cannot be enforced without orphaning {p.id}: it nets "
+            f"{p.amount - (p.fee or 0)}p inside the ambiguity credit's lookback "
+            f"({cd}), but its own credit is dated {ocd}, so neither {forward} nor "
+            f"{backward} leaves it inside that credit's {cfg.LOOKBACK_DAYS}-day window. "
+            f"Generation fails rather than emit a truth link the engine cannot satisfy."
+        )
 
     out: list[Payment] = []
     shifted = 0
@@ -725,7 +1057,7 @@ def _protect_ambiguity_window(
             and 0 <= (cd - date_of(p.created_at)).days <= lookback
             and (p.amount - p.fee) <= cfg.AMBIGUITY_CREDIT_PAISE
         ):
-            out.append(replace(p, created_at=p.created_at + 86_400 * (lookback + 1)))
+            out.append(_relocate(p))
             shifted += 1
         else:
             out.append(p)
@@ -909,6 +1241,84 @@ def assert_pool_bound(batch: GeneratedBatch) -> int:
     return worst
 
 
+def assert_truth_is_satisfiable(batch: GeneratedBatch) -> int:
+    """
+    Every link ground truth says to ASSIGN must be one the engine could actually reach.
+
+    Two ways a generator can assert an impossible match, and this project has now shipped
+    both:
+
+      * **Hide the money.** `refund_netted` deducted a refund from a credit and recorded
+        it nowhere; `partial_payment` shrank a credit and left the payment at full value.
+        Either way the arithmetic cannot close at any tolerance.
+      * **Move the payment out of reach.** `_protect_ambiguity_window` shifted an
+        interloper 6 days later while its own credit was at most 5 days away, pushing it
+        outside that credit's lookback. Measured before the fix: **5 of 40 seeds** shipped
+        one.
+
+    Both produce an automatic false negative that looks like an engine failure. The
+    engine refuses -- correctly, on the evidence it was given -- and the scorer records a
+    miss, so the defect presents as a coverage problem in the matcher and gets
+    investigated there. `partial` recall sat at 0/5 for the entire life of the project
+    for exactly this reason.
+
+    So the check is structural rather than per-defect: if truth says assign, the payments
+    must be inside the credit's candidate window and the credit must be reachable from
+    their settled interval. It fails the build; it does not warn.
+    """
+    from ..engine import fees as engine_fees, tier2_amount_date as t2
+
+    pay = {p.id: p for p in batch.inputs.payments}
+    txn = {t.id: t for t in batch.inputs.bank_txns}
+    invoices_by_no = {i.invoice_no: i for i in batch.inputs.invoices}
+    checked = 0
+    problems: list[str] = []
+
+    for link in batch.truth:
+        if link.expected_verdict != "assign" or not link.bank_txn_id:
+            continue
+        t = txn.get(link.bank_txn_id)
+        if t is None:
+            continue
+        checked += 1
+        lo, hi = t2.window_for(t)
+
+        for pid in link.payment_ids:
+            p = pay.get(pid)
+            if p is None:
+                problems.append(f"{link.bank_txn_id}: payment {pid} does not exist")
+                continue
+            d = t2.payment_date(p)
+            if not (lo <= d <= hi):
+                problems.append(
+                    f"{link.bank_txn_id} (credit {t.txn_date}): payment {pid} is dated "
+                    f"{d}, outside the credit's window {lo}..{hi} -- the engine can "
+                    f"never see it, so this link is an automatic false negative"
+                )
+
+        group = [pay[pid] for pid in link.payment_ids if pid in pay]
+        if not group:
+            continue
+        interval = engine_fees.expected_credit_interval(group, invoices_by_no)
+        tol = engine_fees.tolerance_for(t.credit)
+        if not (interval.lo - tol <= t.credit <= interval.hi + tol):
+            short = interval.lo - t.credit
+            problems.append(
+                f"{link.bank_txn_id}: credit {t.credit}p is outside the settled "
+                f"interval [{interval.lo}, {interval.hi}]p of its {len(group)} "
+                f"payment(s) at tolerance {tol}p (off by {short:+d}p) -- money is "
+                f"unaccounted for, so no tolerance could close this"
+            )
+
+    if problems:
+        raise AssertionError(
+            f"Ground truth asserts {len(problems)} link(s) the engine cannot satisfy:\n  "
+            + "\n  ".join(problems[:10])
+            + (f"\n  ... and {len(problems) - 10} more" if len(problems) > 10 else "")
+        )
+    return checked
+
+
 # --------------------------------------------------------------------------
 # Emit
 # --------------------------------------------------------------------------
@@ -974,6 +1384,34 @@ def write(batch: GeneratedBatch, out_dir: Path | None = None) -> dict[str, Path]
                 paise_to_rupees(inv.net_receivable), inv.currency, inv.status, inv.po_reference,
             ])
 
+    # A manifest OUTSIDE the truth directory, recording which seed and density produced
+    # these three sides.
+    #
+    # The seed was previously written only into `_truth/ground_truth.json`, which the
+    # engine may not read -- so nothing on the engine side could tell which batch was on
+    # disk. `run.py match --seed 77771` does not regenerate; it loads whatever is there
+    # and stamps the seed it was handed onto ReconInputs, so a batch built at seed
+    # 20260905 would be matched, scored and PRINTED as "seed=77771". The headline block
+    # named a seed that did not produce its numbers, which in a project whose argument is
+    # reproducibility is not a cosmetic problem.
+    #
+    # The manifest is input metadata, not an answer key -- it says how the data was made,
+    # never what the right answer is -- so it belongs on the engine's side of the boundary.
+    m_path = out_dir / "manifest.json"
+    m_path.write_text(
+        json.dumps(
+            {
+                "seed": batch.inputs.seed,
+                "payments_per_window": batch.inputs.payments_per_window,
+                "payments": len(batch.inputs.payments),
+                "bank_txns": len(batch.inputs.bank_txns),
+                "invoices": len(batch.inputs.invoices),
+            },
+            indent=1,
+        ),
+        encoding="utf-8",
+    )
+
     t_path = truth_dir / "ground_truth.json"
     t_path.write_text(
         json.dumps(
@@ -987,4 +1425,7 @@ def write(batch: GeneratedBatch, out_dir: Path | None = None) -> dict[str, Path]
         ),
         encoding="utf-8",
     )
-    return {"payments": p_path, "bank": b_path, "invoices": i_path, "truth": t_path}
+    return {
+        "payments": p_path, "bank": b_path, "invoices": i_path,
+        "manifest": m_path, "truth": t_path,
+    }

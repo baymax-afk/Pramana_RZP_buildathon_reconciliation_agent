@@ -85,11 +85,17 @@ class Scorecard:
     paise_at_risk_by_category: dict[str, int]
     precision_by_tier: dict[str, tuple[int, int]]
     recall_by_relation: dict[str, tuple[int, int]]
+    # Per DEFECT category, which is the finer and more useful cut: `relation` says how
+    # many payments a credit covers, `defect` says what makes it hard.
+    outcome_by_defect: dict[str, tuple[int, int, int, int]]
     ambiguity_case_verdict: str
     materiality: object | None = None
     confidence_deciles: tuple[tuple[float, int, float], ...] = ()
     confidence_calibrated: bool = False
     throughput_records_per_s: float | None = None
+    # Bank lines the engine structurally never reads. Not a score -- a disclosure.
+    unexamined_lines: int = 0
+    unexamined_paise: int = 0
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -106,6 +112,7 @@ def score(
     throughput: float | None = None,
     credits_by_id: dict[str, int] | None = None,
     seed: int = 0,
+    unexamined: tuple[int, int] = (0, 0),
 ) -> Scorecard:
     """
     Score one engine run.
@@ -182,6 +189,32 @@ def score(
         slot[1] += 1
         if link.bank_txn_id in assigned_txns:
             slot[0] += 1
+
+    # ---- outcome per DEFECT category ----
+    #
+    # `relation` only distinguishes one-to-one from many-to-one from partial, which
+    # says how many payments a credit covers and nothing about what makes it hard. The
+    # defect labels are the real taxonomy, and a credit usually carries several: an
+    # `mdr_fee` + `settlement_drift` + `third_party_payer` credit is counted under all
+    # three, because each is a separate claim about what the engine can cope with.
+    #
+    # Four counts, not one, and the split is the point. A defect the engine REFUSES is
+    # not a failure when ground truth also expects a refusal -- `bank_charge` is
+    # unmatchable by construction and declining it is the correct output. Collapsing
+    # "missed" and "correctly refused" into a single recall figure would score the
+    # engine down for being right.
+    per_defect: dict[str, list[int]] = {}
+    for link in links:
+        if not link.bank_txn_id:
+            continue
+        correctly_assigned = link.bank_txn_id in assigned_txns
+        was_assigned = link.bank_txn_id in any_assigned_txns
+        for label in link.defect_labels:
+            slot = per_defect.setdefault(label, [0, 0, 0, 0])
+            if link.expected_verdict == "assign":
+                slot[0 if correctly_assigned else 1] += 1
+            else:
+                slot[3 if was_assigned else 2] += 1
 
     no_cand_by_rel: dict[str, int] = {}
     for txn_id in out.no_candidate:
@@ -267,11 +300,16 @@ def score(
         paise_at_risk_by_category=risk_by_cat,
         precision_by_tier={k: (v[0], v[1]) for k, v in precision_by_tier.items()},
         recall_by_relation={k: (v[0], v[1]) for k, v in recall.items()},
+        outcome_by_defect={
+            k: (v[0], v[1], v[2], v[3]) for k, v in sorted(per_defect.items())
+        },
         ambiguity_case_verdict=verdict,
         materiality=plan,
         confidence_deciles=deciles,
         confidence_calibrated=_calibrated(),
         throughput_records_per_s=throughput,
+        unexamined_lines=unexamined[0],
+        unexamined_paise=unexamined[1],
     )
 
 

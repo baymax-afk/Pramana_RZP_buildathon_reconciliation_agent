@@ -84,10 +84,15 @@ h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
   font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase;
   padding: 2px 8px; border-radius: 5px; background: #eef1f5; color: #3d4a5c;
 }
-.cat-multiple_candidates, .cat-solution_cap_reached { background: #fdf1e3; color: #8a5300; }
+.cat-multiple_candidates, .cat-solution_cap_reached,
+.cat-contested_payment { background: #fdf1e3; color: #8a5300; }
 .cat-order_dependent_assignment { background: #f4ecfa; color: #6a3e93; }
-.cat-unexplained_residual, .cat-amount_name_conflict { background: #fdeceb; color: #94322c; }
+.cat-unexplained_residual, .cat-amount_name_conflict,
+.cat-narration_count_conflict { background: #fdeceb; color: #94322c; }
 .cat-no_candidate, .cat-decomposition_out_of_bounds { background: #eef1f5; color: #45505f; }
+/* Layer 3 bands: evidence is weak or absent rather than contradictory, so they read
+   cooler than the conflict categories above. */
+.cat-fs_below_lower_threshold, .cat-fs_review_band { background: #eef4fb; color: #1f5c9e; }
 
 .exception-body { padding: 4px 16px 18px 62px; border-top: 1px solid var(--line); }
 .next-step { background: #f4f8fc; border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 7px 7px 0; margin: 14px 0; }

@@ -57,7 +57,12 @@ def _truth_guard(event: str, args: tuple) -> None:
             path = path.decode("utf-8", "replace")
         except Exception:
             return
-    if not isinstance(path, str) or _TRUTH_MARKER not in path:
+    # Casefolded: NTFS and APFS are case-insensitive, so `open("_TRUTH/x.json")` opens
+    # the same file as `open("_truth/x.json")` while a case-sensitive substring test
+    # sees nothing. The hook is defence in depth -- the primary boundary is that the
+    # engine is handed dataclasses and never a path at all -- but a guard with a known
+    # bypass is worse than an honest absence, because it invites trust it cannot carry.
+    if not isinstance(path, str) or _TRUTH_MARKER not in path.casefold():
         return
 
     frame = sys._getframe(1)

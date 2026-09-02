@@ -154,6 +154,25 @@ MAX_POOL = 20                  # candidates per credit; above this -> refuse, ne
 MAX_SUBSET_K = 6               # max payments per many-to-one decomposition
 MAX_SOLUTIONS = 8              # enumerate up to this many; reaching it means refuse
 
+# Fixpoint bound for the matching loop. The loop stops as soon as a full round adds no
+# assignment, so this is a guard against non-termination, not a tuning parameter: a
+# batch needing more rounds than this has a cycle the engine cannot resolve, and
+# stopping is the right answer. Six is well above the deepest observed (2).
+MAX_ROUNDS = 6
+
+# The K permutation passes are independent -- match_once is pure -- so running them
+# concurrently changes only wall time, never an answer. Results are collected by pass
+# index, so determinism does not depend on which worker finishes first. Set False to
+# force the sequential path when debugging; the output is identical either way.
+# The headline reports this density alongside the primary one. A single density there
+# invites reading the numbers as a property of the engine rather than of the engine at
+# one crowding level, and density is the parameter the whole argument turns on. Set 0 to
+# report one arm only.
+HEADLINE_COMPARE_DENSITY = 12
+
+PERMUTATION_PARALLEL = True
+PERMUTATION_MAX_WORKERS = 4
+
 # --------------------------------------------------------------------------
 # Layer 1 -- permutation ensemble.
 #
@@ -249,7 +268,12 @@ assert len(set(AMBIGUITY_NET_PAISE)) == 4, (
 # Paths. The engine is NEVER handed any of these -- run.py loads the three sides
 # and passes dataclasses in. They live here for the loader and the scorer only.
 # --------------------------------------------------------------------------
-ROOT = Path(__file__).parent
+# `src/config.py`, so the repository root is one level up. config.py lives inside the
+# package directory rather than at the root so that `pip install -e .` can expose it as
+# a real module -- previously `run.py` and `api/main.py` each inserted paths into
+# sys.path at import time, which meant the project only worked when invoked from its own
+# checkout and never as an installed library.
+ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 GENERATED = DATA / "generated"
 TRUTH_DIR = GENERATED / "_truth"        # scorer only; the engine may not read this

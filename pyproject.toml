@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pramana"
+version = "1.0.0"
+description = "A reconciliation engine that verifies its own output"
+readme = "README.md"
+requires-python = ">=3.11"
+
+# Runtime dependencies, split by what actually needs them. The engine itself is the
+# short list on purpose: matching, all four verification layers and the scorer run on
+# the standard library alone, so the part of the system that decides where money goes
+# has no third-party code in its path at all.
+dependencies = []
+
+[project.optional-dependencies]
+# The read-only API and the invoice upload route.
+api = [
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "python-multipart>=0.0.9",   # required by the invoice upload route's Form/File params
+]
+# The live LLM narration tier. Absent, the engine selects RecordedTier and says so.
+llm = ["anthropic>=0.40"]
+test = ["pytest>=8", "httpx>=0.27"]
+
+[project.scripts]
+pramana = "run:main"
+
+[tool.setuptools]
+# `src/` holds the packages; `config.py` and `run.py` sit at the root as single modules.
+package-dir = {"" = "src"}
+py-modules = ["config", "loaders"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["recon*", "scorer*"]

@@ -61,6 +61,68 @@ def _split_jammed(token: str) -> str:
     return token
 
 
+# Keyed by RefusalCategory.value. Kept module-level so the completeness test can read it
+# without constructing a tier.
+_TEMPLATES: dict[str, tuple[str, str]] = {
+    "multiple_candidates": (
+        "More than one set of payments explains this credit equally well, so the "
+        "amounts alone cannot say which is correct.",
+        "Compare the candidate sets against the remittance advice and assign the "
+        "correct one manually.",
+    ),
+    "solution_cap_reached": (
+        "So many different combinations of payments fit this credit that the amount "
+        "is no longer evidence for any particular one.",
+        "Ask the payer for a remittance advice listing the invoices this covers.",
+    ),
+    "order_dependent_assignment": (
+        "The match changed depending on the order the records were processed, "
+        "which means it was not determined by the data.",
+        "Treat as unresolved and assign manually; do not auto-post.",
+    ),
+    "decomposition_out_of_bounds": (
+        "No combination of payments in the settlement window accounts for this "
+        "credit within tolerance.",
+        "Check for a missing payment, an unrecorded refund, or a deduction the "
+        "ledger does not carry.",
+    ),
+    "unexplained_residual": (
+        "The reference identifies a payment, but the amount credited does not "
+        "match what that payment should have settled for.",
+        "Confirm whether this is a partial settlement or an unmodelled deduction.",
+    ),
+    "amount_name_conflict": (
+        "The amounts reconcile, but the payer name or reference points somewhere "
+        "else entirely.",
+        "Verify the counterparty before posting -- the money fitting is not "
+        "evidence it came from this customer.",
+    ),
+    "fs_below_lower_threshold": (
+        "The amounts fit, but there is too little supporting evidence -- no matching "
+        "payer name and no usable reference -- to be confident this is the right "
+        "payment.",
+        "Confirm the payer against the remittance advice before posting.",
+    ),
+    "fs_review_band": (
+        "The evidence points this way but is not strong enough to post automatically. "
+        "This is the band where a person should look.",
+        "Review and confirm; the engine has done as much as the evidence allows.",
+    ),
+    "narration_count_conflict": (
+        "The bank's own description says this settlement covers a different number of "
+        "transactions than the payments that fit its amount.",
+        "Pull the settlement report for this UTR and confirm which payments it covers "
+        "before posting.",
+    ),
+    "contested_payment": (
+        "Two or more bank credits have an equally good claim on the same payment, and "
+        "the evidence does not separate them, so none of them was posted.",
+        "Identify which credit the payment belongs to from the remittance advice, then "
+        "assign it manually.",
+    ),
+}
+
+
 class RecordedTier:
     name = "recorded"
     enabled = True
@@ -106,38 +168,17 @@ class RecordedTier:
         """
         Phrase an exception the engine has ALREADY refused. Runs after the verdict and
         cannot alter it -- the return type has nowhere to put a decision.
+
+        **Keyed on RefusalCategory values, and every category is covered.** The table
+        used to key on "fs_contradicted", which no engine path has ever emitted: the
+        engine raises `amount_name_conflict`. Every such exception fell through to the
+        generic fallback, so the operator-facing text silently degraded to the engine's
+        internal reason string -- a failure that looks like nothing at all, because the
+        fallback is a plausible sentence. `test_llm_tier.py` now asserts that every
+        member of RefusalCategory has an entry, so the table cannot drift from the enum
+        again without a test failing.
         """
-        templates = {
-            "multiple_candidates": (
-                "More than one set of payments explains this credit equally well, so the "
-                "amounts alone cannot say which is correct.",
-                "Compare the candidate sets against the remittance advice and assign the "
-                "correct one manually.",
-            ),
-            "order_dependent_assignment": (
-                "The match changed depending on the order the records were processed, "
-                "which means it was not determined by the data.",
-                "Treat as unresolved and assign manually; do not auto-post.",
-            ),
-            "decomposition_out_of_bounds": (
-                "No combination of payments in the settlement window accounts for this "
-                "credit within tolerance.",
-                "Check for a missing payment, an unrecorded refund, or a deduction the "
-                "ledger does not carry.",
-            ),
-            "unexplained_residual": (
-                "The reference identifies a payment, but the amount credited does not "
-                "match what that payment should have settled for.",
-                "Confirm whether this is a partial settlement or an unmodelled deduction.",
-            ),
-            "fs_contradicted": (
-                "The amounts reconcile, but the payer name or reference points somewhere "
-                "else entirely.",
-                "Verify the counterparty before posting -- the money fitting is not "
-                "evidence it came from this customer.",
-            ),
-        }
-        explanation, resolution = templates.get(
+        explanation, resolution = _TEMPLATES.get(
             category, (reason, "Review and assign manually.")
         )
         return ExceptionProse(

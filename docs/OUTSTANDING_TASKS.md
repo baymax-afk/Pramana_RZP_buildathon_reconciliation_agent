@@ -26,8 +26,11 @@ quoted as evidence of calibration.
 accept/refuse decision preceding it. The four layers demonstrably work — see the density
 sweep — but their scalar summary does not.
 
-**What would settle it:** BenchRec (external, labelled, ~69k rows, CC BY 4.0). Kaggle
-requires authentication so it could not be fetched here.
+**What would settle it:** BenchRec (external, labelled, ~69k rows, CC BY 4.0). Blocked
+two independent ways in this environment, both re-verified: Kaggle requires
+authentication and no credentials are present, and the outbound network policy refuses
+the host outright (`CONNECT tunnel failed, response 403`). Neither is something the
+project can route around from here.
 `src/external/benchrec_ingest.py` reads it when present and reports its absence rather
 than silently substituting the fallback.
 
@@ -36,112 +39,167 @@ than silently substituting the fallback.
     unzip -d data/benchrec <archive>.zip
 
 ### W2. The LLM on/off precision comparison is unmeasured
-**Status:** boundary enforced and tested; comparison withheld · `DEFECT_LOG` 2026-09-02-02
+**Status:** boundary enforced and tested; harness built; comparison still withheld ·
+`DEFECT_LOG` 2026-09-02-02, 2026-09-02-06
 
 The trust boundary is real: `NarrationFields` carries no payment id, candidate or score,
 so a model cannot express a matching preference even in principle, and `parse_with_llm`
 fills gaps only. Both properties are tested.
 
-What is missing is a valid measurement. There is no API key in this environment, and the
-offline stand-in applies the same word-filtering heuristic as the regex tier — it
-recovers the payer name on the same 8 of 18 unparseable narrations and changes 0
-verdicts. That agreement is a property of the stand-in sharing the parser's logic, not
-evidence about what a model would contribute.
+**The measurement is now one command**, and so is the refusal to report it:
 
-**To resolve:** set `ANTHROPIC_API_KEY` and re-run `python run.py match --verify` with
-and without `--no-llm`.
+    python run.py llm-compare --seed 20260905 --verify
 
----
+It reports three things in increasing order of what they license: parse yield at the
+field level, verdict deltas between the arms, and precision/match rate for both. It then
+states whether the comparison is VALID. Against the offline stand-in it exits 2 and says
+why; against a live tier it reports the comparison as evidence.
 
-## Correctness — should be fixed before anyone relies on a number
+Running it corrected two numbers this document previously carried. Under the engine's
+own `needs_llm` definition there are **13** unreadable credit narrations, not 18, and
+every one of them is missing a *merchant reference* — not a payer name. The regex tier
+already reads a name off all 13. So the earlier claim that the stand-in "recovers the
+payer name on 8 of 18" does not reproduce: it recovers **10 merchant refs of 13**, and
+**0 payer names**, and still changes **0 verdicts**.
 
-### C1. `search()` runs twice per many-to-one assignment
-`match_with_margin()` calls `match()` (which searches) and then searches again to
-compute the uniqueness margin. Doubles tier-3 cost on exactly the credits that are most
-expensive. **Fix:** return `best_miss` alongside solutions in one pass. *~30 min.*
+**Still withheld, and for the same reason as before.** There is no API key in this
+environment. The stand-in shares `normalize._extract_name`'s logic, so its agreement
+with the regex tier is a property of shared code, not evidence about a model.
 
-### C2. Greedy claiming resolves conflicts by sort order, not by evidence
-Two credits competing for one payment are separated by iteration order. The permutation
-gate now covers this (it inspects every credit seen in any pass), but covering a design
-weakness with a detector is weaker than not having it. **Fix:** compute all candidates
-first, then resolve conflicts by evidence weight. *~half a day, and it would let the gate
-go back to being purely a safety net.*
-
-### C3. Fellegi-Sunter prior drifts during the matching loop
-λ = 1/pool_size uses the pool *as currently claimed*, so identical credits get different
-priors depending on when they are processed. A leak from the greedy loop into the
-probabilistic layer. **Fix:** compute pool sizes in a pre-pass. *~1 hr.*
-
-### C4. `rupees_to_paise` raises on malformed input
-`"₹ -100"` becomes `"- 100"` and throws `decimal.InvalidOperation` with no context. The
-upload path validates before parsing, so this is currently unreachable from the API, but
-the loader has no such guard. **Fix:** wrap with a message naming the field and row.
-*~15 min.*
-
-### C5. Audit hook is case-sensitive on a case-insensitive filesystem
-`"_truth" not in path` misses `_TRUTH/` on NTFS. The hook is defence-in-depth — the
-primary boundary is that the engine receives no paths at all — but a guard with a known
-bypass should not stay one. **Fix:** casefold before comparing. *~5 min.*
+**To resolve:** set `ANTHROPIC_API_KEY` and run the command above. It will report VALID
+and the numbers will mean what they say.
 
 ---
 
-## Testing gaps
+## Correctness — resolved
 
-### T1. `tier3_subsetsum.py` has no direct unit tests
-The most complex algorithm in the system is exercised only end-to-end. Both bugs found in
-it this session (near-miss pruning, and the margin normalisation behind it) were found by
-hand-built cases, not by the suite. **Highest-value testing work available.**
+All five are fixed. Kept here with what the fix actually cost and what it revealed,
+because "done" without a measurement is a claim rather than a record.
 
-### T2. No empty-batch tests
-`match_once`, `score` and `render` with zero payments or zero credits are untested and
-several ratios have unguarded denominators.
+### ~~C1. `search()` runs twice per many-to-one assignment~~ — **fixed**
+One `_decompose` call now produces the candidates and the uniqueness margin together;
+the margin was always a property of the `SearchResult` the first search produced, not
+new information. **Measured: 44 → 24 `search()` calls per batch, tier-3 cumulative time
+0.311s → 0.162s.**
 
-### T3. No malformed-input tests for `loaders.py`
-Missing headers, bad dates and negative amounts are validated on the *upload* path but
-not on the *load* path.
+### ~~C2. Greedy claiming resolves conflicts by sort order~~ — **fixed**
+The round is now propose-then-resolve. Every credit bids against the same frozen
+`claimed` set; a bid is granted only if uncontested or if its evidence *strictly* beats
+every rival. Evidence is (tier rank, FS weight) and nothing else — residual tightness and
+subset size are deliberately excluded, because a tie means the evidence does not separate
+two claims on the same money and the correct output is a refusal, not a tiebreak.
 
-### T4. `MAX_POOL` and `MAX_SOLUTIONS` refusals have no dedicated test
-Both are documented design invariants that only appear incidentally in batch runs.
+**Contests are density-dependent, and the reported density sits just below the
+threshold.** Measured over three seeds per arm: 0 contests at ppw 3 and 6, **9 at
+ppw 12**, 0 at ppw 24 (pools there exceed `MAX_POOL`, so tier 3 refuses before proposing).
+Verified by 15 constructed tests including invariance across *every* permutation of the
+proposal list. The permutation gate is now a safety net rather than load-bearing.
 
-### T5. Test writes a probe file into `src/recon/engine/`
-`test_isolation.py` creates `_isolation_probe.py` in the package and deletes it in a
-`finally`. A killed run leaves it behind and breaks later runs. **Fix:** write it to
-`tmp_path`.
+Re-running the sweep found a crash in this code on the day it was written — see
+`DEFECT_LOG` 2026-09-02-07.
 
-### T6. One vacuous assertion
-`assert (ROOT / "src" / "scorer").exists() or True` can never fail.
+### ~~C3. Fellegi–Sunter prior drifts during the matching loop~~ — **fixed**
+Blocking pool sizes are computed once, before any claiming. **96 of 129 assignments
+(74%) had an inflated weight, by up to 1.875 bits; every one moved down; zero band
+crossings, so no verdict changed.** The engine was overstating its evidence, not acting
+on it.
 
----
+### ~~C4. `rupees_to_paise` raises on malformed input~~ — **fixed**
+One exception type, non-finite values rejected explicitly (`NaN` and `Infinity` are
+*valid Decimals* and slipped past any parse-based validation), and the loader attaches
+file, row and column. This also closed T3's missing-header case.
 
-## Performance
-
-### P1. Permutation ensemble is sequential
-K=8 passes are embarrassingly parallel. At current scale it costs ~1s; at 10k records it
-is the dominant cost.
-
-### P2. API re-reads and re-parses `run_output.json` on every request
-Fine at 200 records, wasteful at scale. **Fix:** cache with an mtime check.
-
-### P3. Tier 3 is DFS branch-and-bound, not meet-in-the-middle
-`ARCHITECTURE.md` describes meet-in-the-middle. The implementation is pruned DFS, which
-is what `MAX_POOL = 20` exists to bound. **Either implement MITM or correct the doc** —
-the doc currently promises an algorithm the code does not use.
+### ~~C5. Audit hook is case-sensitive~~ — **fixed** — casefolded.
 
 ---
 
-## Packaging and hygiene
+## Testing — resolved
 
-### H1. `sys.path` manipulation instead of a real package
-`run.py` and `api/main.py` both insert paths at import. **Fix:** `pyproject.toml` plus
-`pip install -e .`.
+**128 → 203 tests.**
 
-### H2. `MAX_ROUNDS` and `_KNOWN_FEE_SLACK` are hardcoded
-Every other engine parameter lives in `config.py`, and `_KNOWN_FEE_SLACK = 2` silently
-duplicates `cfg.FEE_MODEL_MAX_RESIDUAL_PAISE`.
+- ~~**T1** tier-3 has no direct unit tests~~ — 16 added. Both regression tests were
+  checked by *reintroducing* the bugs they claim to catch; each reproduces the original
+  "margin 1.0 on a credit with a near-twin" symptom.
+- ~~**T2** no empty-batch tests~~ — added. Finding: the denominators were already
+  guarded, so nothing needed fixing. The tests pin that.
+- ~~**T3** no malformed-input tests for `loaders.py`~~ — added, on the load path.
+- ~~**T4** `MAX_POOL`/`MAX_SOLUTIONS` refusals untested~~ — added.
+- ~~**T5** test writes a probe into `src/recon/engine/`~~ — per-process name plus a
+  conftest sweep. It must live inside the package (the hook identifies callers by module
+  name) and it necessarily contains `ground_truth`, so a stray from a killed run failed
+  the *static scan* test on every later run. Verified by planting one.
+- ~~**T6** vacuous assertion~~ — removed.
 
-### H3. `RecordedTier` explanation templates use stale category keys
-Templates key on `"fs_contradicted"`; the engine emits `fs_below_lower_threshold` and
-`amount_name_conflict`, so explanations silently fall back to generic text.
+Plus 7 API tests (there were none) and 12 for the LLM comparison.
+
+---
+
+## Performance and packaging — resolved
+
+- ~~**P1** permutation ensemble is sequential~~ — parallel. **324ms → 117ms at K=8 on
+  4 cores, byte-identical.** Falls back to sequential for an unpicklable LLM tier or any
+  spawn failure.
+- ~~**P2** API re-reads `run_output.json` per request~~ — cached on `(mtime_ns, size)`.
+  No TTL, so a re-run is visible on the next request. Verified no handler mutates the
+  now-shared payload, and pinned with a test.
+- ~~**P3** doc promises meet-in-the-middle, code is pruned DFS~~ — `ARCHITECTURE.md` now
+  states what the code does, why MITM would be the *wrong* tool (it finds *a* solution;
+  Layer 2 needs all of them plus the near misses), and the real bound: 60,459 subsets.
+- ~~**H1** `sys.path` manipulation~~ — `pyproject.toml`, `pip install -e .`. `config.py`
+  moved to `src/` with `ROOT` re-anchored; every derived path verified unchanged. Found
+  `python-multipart` was an undeclared dependency.
+- ~~**H2** hardcoded constants~~ — `MAX_ROUNDS` to config; `_KNOWN_FEE_SLACK` now reads
+  `FEE_MODEL_MAX_RESIDUAL_PAISE` instead of duplicating it.
+- ~~**H3** stale explanation template keys~~ — keyed on `RefusalCategory` and covering
+  all nine, with a test asserting the table and the enum cannot diverge in either
+  direction.
+
+**Not a listed item, found by profiling C3's fix:** `date_of` was ~380k calls over ~200
+distinct timestamps. Memoised. `match_once` **41.6ms → 26.0ms**; end-to-end throughput
+**345 → 760 rec/s**.
+
+---
+
+## Still open
+
+### ~~O1. `partial` recall is 0/5~~ — **fixed: 7/7** · `DEFECT_LOG` 2026-09-02-08
+
+It was a missing-evidence problem, as predicted — but the evidence was missing because
+the GENERATOR hid it, not because it lived in an external system. `partial_payment`
+shrank the credit and left the payment at full value, so Rs 7,854 vanished from a
+Rs 21,999 payment while ground truth said `assign`. Unmatchable at any tolerance. The
+third instance of the `refund_netted` shape.
+
+A partial payment is a smaller payment against a larger invoice; the invoice is what is
+left partial. Fixed there, and the fix exposed three more defects — an ambiguity-window
+repair that orphaned the payments it moved (12.5% of seeds), a genuine ENGINE false match
+the corrected benchmark revealed, and a test that was green *because* of the original
+defect. All in the log.
+
+Refusal correctness 16.67% → **100.00%**; the only remaining exception is the hand-placed
+ambiguity case.
+
+### O2. W1 — the confidence score is still uncalibrated
+Unchanged and still blocked on BenchRec. See above.
+
+### O3. W2 — the LLM comparison is still withheld
+The harness is built and is one command. Still blocked on an API key: `.env` is
+gitignored and did not reach this container, and a direct API call returns 401.
+
+### ~~O4. Density sweep has not been re-run since C2 and C3~~ — **re-run**
+
+| ppw | mean pool | match rate | precision | refusal rate |
+|---:|---:|---:|---:|---:|
+| 3 | 8.8 | 86.7% | 0.9986 | 8.0% |
+| 6 | 15.2 | 88.9% | **1.0000** | 8.8% |
+| 12 | 27.8 | 89.0% | **1.0000** | 7.8% |
+| 24 | 54.0 | 63.8% | **1.0000** | 17.8% |
+
+The claim holds: as ambiguity rises the engine declines more work rather than getting it
+wrong. Coverage degrades 86.7% → 63.8%; precision does not move off 1.0000.
+
+Running it rather than recommending it found a crash in the conflict resolver committed
+the same day, in a path 203 passing tests did not reach (`DEFECT_LOG` 2026-09-02-07).
 
 ---
 
@@ -167,3 +225,50 @@ Not oversights — decisions, recorded so they are not mistaken for gaps.
 2. **C1** — single-pass search. Cheapest correctness-and-speed win available.
 3. **W1** — download BenchRec and complete the calibration, or state the limitation in the submission and move on.
 4. **C2** — conflict-resolution matching, which would retire an entire class of order-dependence rather than detecting it.
+
+### ~~O6. The batch is still too clean to demonstrate the refusal machinery~~ — **closed**
+Not by changing the reported density, but by making the data honest. Seven new defect
+categories took refusal rate from 0.74% to 9.2% at the primary seed and 7.9–13.8% across
+the sweep, with precision holding at 1.0000 in every arm. The refusal machinery is now
+visible at every density rather than only at ppw=24, so the ppw=24 swap is no longer
+needed. Original item kept below.
+
+### O6 (original). The batch is still too clean to demonstrate the refusal machinery
+**Partially addressed, and the fix did not do what this item predicted.**
+
+The headline now reports `ppw=12` beside `ppw=6` (`--compare-density`, default 12). That
+is worth having on its own terms: one density in the headline reads as a property of the
+engine rather than of the engine at one crowding level.
+
+But it does **not** achieve what this item wanted. At seed 20260905, `ppw=12` produces
+the *same single exception* as `ppw=6` — one, the hand-placed ambiguity case — even
+though the worst pool grows 15 → 27 and crosses `MAX_POOL`. Refusal rate moves 0.7% →
+0.8%. Refusals only rise materially at **ppw=24** (4.9%).
+
+So the density sweep remains the only place the refusal behaviour is actually visible,
+and it stays load-bearing for the argument. Reporting `ppw=24` as the second arm would
+demonstrate it, at the cost of a headline arm whose match rate (86.6%) is not
+representative of the reported configuration. That trade is a presentation decision, not
+a defect, and it is left open deliberately.
+
+### ~~O7. `assert_truth_is_satisfiable` should also run inside the sweep~~ — **done**
+The sweep now asserts every batch it builds. That is exactly where the orphaning defect
+hid: `generate` checked the primary seed and the sweep never checked its own five, so a
+sweep could quietly average over unsatisfiable ground truth and report the generator's
+bugs as the engine's coverage. All 20 batches (4 densities x 5 seeds) pass.
+
+### O8. Two named model limitations, recorded not scheduled
+`split_settlement` (one payment, many credits) and `chargeback_debit` (the engine reads
+credits only) are outside the model rather than merely hard. Both refuse correctly and
+both cost real coverage. `docs/ARCHITECTURE.md` states what lifting each would take —
+in both cases a different engine, not a patch. Recorded so a correct-looking refusal
+cannot hide an unmodelled relation.
+
+### O9. `third_party_payer` refusals are correct but expensive
+Three of seven third-party payments are refused with `amount_name_conflict`. The split
+is not arbitrary: the ones that match carry a quoted invoice reference, and that
+evidence outweighs the name disagreement. Refusing the rest is the right call — the
+amounts reconcile and the counterparty does not — but it is the largest remaining
+source of conservative refusals, and an investigating agent (see `AGENTIC.md`) checking
+whether a payer is an authorised group entity is exactly the evidence that would close
+it.

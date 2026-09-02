@@ -23,18 +23,17 @@ answer key.
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-for _p in (str(ROOT), str(ROOT / "src")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+# The project installs as a package (`pip install -e .`), so `config`, `loaders`,
+# `recon` and `scorer` import normally. This file previously inserted the repo root and
+# `src/` into sys.path before its own imports, which made the entry points work only
+# from inside a checkout and put four `# noqa: E402` comments on the imports to hide the
+# consequence. Running from source without installing still works via `pytest.ini`'s
+# pythonpath for tests, and `python -m` from the repo root for the CLI.
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
-from fastapi import FastAPI, HTTPException  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-
-import config as cfg  # noqa: E402
+import config as cfg
 
 RUN_OUTPUT = cfg.REPORTS / "run_output.json"
 
@@ -55,16 +54,39 @@ app.add_middleware(
 )
 
 
+# Cache of the parsed run payload, keyed by the file's (mtime_ns, size).
+#
+# Every request re-read and re-parsed run_output.json -- a ~500 KB document -- so the
+# exception list, its filters and each detail view each paid a full JSON parse. That is
+# invisible at 200 records and wasteful well before the scale this is meant to handle.
+#
+# Keyed on the stat signature rather than on a TTL, so a re-run of the engine is picked
+# up on the very next request with no staleness window and no cache-invalidation
+# endpoint. Size is included alongside mtime because mtime alone can collide when a file
+# is rewritten inside the same filesystem timestamp tick.
+_CACHE: tuple[tuple[int, int], dict] | None = None
+
+
 def _load() -> dict:
-    if not RUN_OUTPUT.exists():
+    global _CACHE
+    try:
+        st = RUN_OUTPUT.stat()
+    except FileNotFoundError:
         raise HTTPException(
             status_code=503,
             detail=(
                 "No run output. Produce one with: "
                 "python run.py generate && python run.py match --verify"
             ),
-        )
-    return json.loads(RUN_OUTPUT.read_text(encoding="utf-8"))
+        ) from None
+
+    signature = (st.st_mtime_ns, st.st_size)
+    if _CACHE is not None and _CACHE[0] == signature:
+        return _CACHE[1]
+
+    payload = json.loads(RUN_OUTPUT.read_text(encoding="utf-8"))
+    _CACHE = (signature, payload)
+    return payload
 
 
 @app.get("/api/run")

@@ -18,6 +18,7 @@ The parts that can be enforced before an engine exists are enforced now.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -78,7 +79,14 @@ def test_audit_hook_blocks_an_engine_module_from_reading_truth(tmp_path):
     once installed, and because the check must exercise a real module under
     `recon.engine`, not a simulated frame.
     """
-    probe = RECON / "engine" / "_isolation_probe.py"
+    # Unique per process. The probe MUST live inside recon.engine -- the hook
+    # identifies callers by module name, so a file written to tmp_path would import as
+    # a top-level module and prove nothing. That makes cleanup the real problem: a
+    # killed run used to leave `_isolation_probe.py` behind, and because the probe
+    # necessarily contains the string "ground_truth", the static scan above then failed
+    # on every later run. Two guards now: a unique name so concurrent runs cannot
+    # collide, and a sweep in conftest that clears strays before the suite starts.
+    probe = RECON / "engine" / f"_isolation_probe_{os.getpid()}.py"
     probe.write_text(
         "import config as cfg\n"
         "def read_truth():\n"
@@ -89,7 +97,7 @@ def test_audit_hook_blocks_an_engine_module_from_reading_truth(tmp_path):
     script = (
         "import sys; sys.path.insert(0, r'%s'); sys.path.insert(0, r'%s')\n"
         "import recon\n"
-        "from recon.engine import _isolation_probe as p\n"
+        f"from recon.engine import {probe.stem} as p\n"
         "try:\n"
         "    p.read_truth()\n"
         "    print('LEAKED')\n"
@@ -140,7 +148,10 @@ def test_scorer_is_outside_the_recon_package():
     guard would have to exempt it, and every exemption is a hole.
     """
     assert not (RECON / "scorer").exists()
-    assert (ROOT / "src" / "scorer").exists() or True  # created in Block 4
+    # `or True` used to make this unfalsifiable. The scorer exists now, so the
+    # assertion can carry its own weight: it lives outside recon, and it is the thing
+    # that reads the answer key.
+    assert (ROOT / "src" / "scorer" / "score.py").exists()
 
 
 def test_truth_file_is_not_needed_to_construct_engine_inputs(batch):

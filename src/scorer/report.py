@@ -32,31 +32,77 @@ def render(
     llm_enabled: bool,
     relations=None,
     ensemble=None,
+    compare: tuple[Scorecard, int] | None = None,
 ) -> str:
+    """
+    The metrics block.
+
+    `compare` adds a SECOND DENSITY beside the reported one, as (scorecard, ppw). The
+    headline is the one place a reader looks, and a single density there invites the
+    reading that the numbers are a property of the engine rather than of the engine at
+    one crowding level. Density is the parameter the whole argument turns on: coverage
+    is supposed to degrade under ambiguity while precision does not, and that is only
+    visible if more than one arm is in front of you.
+    """
     L: list[str] = []
     add = L.append
 
     add(_RULE)
-    add(f"  RECONCILIATION METRICS   seed={seed}   density={payments_per_window}"
-        f"   llm={llm_enabled}")
+    dens = (
+        f"density={payments_per_window}"
+        if compare is None
+        else f"density={payments_per_window} vs {compare[1]}"
+    )
+    add(f"  RECONCILIATION METRICS   seed={seed}   {dens}   llm={llm_enabled}")
     add(_RULE)
 
     # ---- the headline: four numbers, never one ----
     add("")
     add("  HEADLINE  (all four, always -- see METRICS.md 'Why the headline is a triple')")
     add(_THIN)
-    add(f"    match rate            {_pct(sc.match_rate)}"
-        f"     {sc.payments_assigned}/{sc.captured_payments} captured payments assigned")
-    add(f"    match precision       {_pct(sc.match_precision)}"
-        f"     {sc.correct_assignments}/{sc.total_assignments} assignments correct")
-    add(f"    refusal rate          {_pct(sc.refusal_rate)}"
-        f"     {sc.total_refusals}/{sc.credits_with_candidates} credits with candidates")
-    add(f"    refusal correctness   {_pct(sc.refusal_correctness)}"
-        f"     {sc.correct_refusals}/{sc.total_refusals} refusals ground truth agrees with")
+
+    if compare is not None:
+        other, other_ppw = compare
+        add(f"    {'':<22}{f'ppw={payments_per_window}':>12}{f'ppw={other_ppw}':>12}"
+            f"{'delta':>10}")
+        for label, attr in (
+            ("match rate", "match_rate"),
+            ("match precision", "match_precision"),
+            ("refusal rate", "refusal_rate"),
+            ("refusal correctness", "refusal_correctness"),
+        ):
+            a, b = getattr(sc, attr), getattr(other, attr)
+            add(f"    {label:<22}{_pct(a):>12}{_pct(b):>12}{(b - a) * 100:>+9.2f}pp")
+        add("")
+        add(f"    at ppw={payments_per_window}: "
+            f"{sc.payments_assigned}/{sc.captured_payments} captured payments assigned, "
+            f"{sc.correct_assignments}/{sc.total_assignments} assignments correct, "
+            f"{sc.total_refusals}/{sc.credits_with_candidates} refused")
+        add(f"    at ppw={other_ppw}: "
+            f"{other.payments_assigned}/{other.captured_payments} captured payments "
+            f"assigned, {other.correct_assignments}/{other.total_assignments} "
+            f"assignments correct, "
+            f"{other.total_refusals}/{other.credits_with_candidates} refused")
+    else:
+        add(f"    match rate            {_pct(sc.match_rate)}"
+            f"     {sc.payments_assigned}/{sc.captured_payments} captured payments assigned")
+        add(f"    match precision       {_pct(sc.match_precision)}"
+            f"     {sc.correct_assignments}/{sc.total_assignments} assignments correct")
+        add(f"    refusal rate          {_pct(sc.refusal_rate)}"
+            f"     {sc.total_refusals}/{sc.credits_with_candidates} credits with candidates")
+        add(f"    refusal correctness   {_pct(sc.refusal_correctness)}"
+            f"     {sc.correct_refusals}/{sc.total_refusals} refusals ground truth agrees with")
     if sc.conservative_refusals:
         add(f"      of which {sc.conservative_refusals} conservative: ground truth wanted an "
             f"assignment.")
         add(f"      These are MISSES, not errors -- no money was posted anywhere.")
+
+    if compare is not None:
+        add("")
+        add(f"    Everything below this block is the ppw={payments_per_window} run. The "
+            f"second arm is")
+        add("    reported for the headline only -- it is generated in-process, is not")
+        add("    written to disk, and does not feed the exception list or the API.")
 
     # ---- correctness detail ----
     add("")
@@ -78,6 +124,52 @@ def render(
         add(f"    {rel:<22} {got}/{total}   ({_pct(_ratio(got, total))})")
     if sc.no_candidate:
         add(f"    no candidate found:   {sc.no_candidate}   {sc.no_candidate_by_relation}")
+
+    # ---- what the engine never looked at ----
+    #
+    # A disclosure, not a score. The engine reads `is_credit` transactions only, so
+    # every debit on the statement -- a chargeback, a reversal, a bank fee -- is
+    # invisible to it: not matched, not refused, not counted. The statement carried no
+    # debits at all until `chargeback_debit` existed, which is exactly why the blind
+    # spot went unnoticed. Reporting the gap is the honest alternative to inventing a
+    # ground-truth verdict the engine structurally cannot produce.
+    if sc.unexamined_lines:
+        add("")
+        add("  NOT EXAMINED  (the engine reads credits only)")
+        add(_THIN)
+        add(f"    {sc.unexamined_lines} debit line(s) on the statement, "
+            f"Rs {sc.unexamined_paise / 100:,.2f}")
+        add("    Money LEAVING the account -- chargebacks, reversals, bank fees -- is")
+        add("    outside the engine's model. It is not scored either way, because")
+        add("    scoring it against a verdict the engine cannot produce would be")
+        add("    theatre. It is disclosed so the exception list is not mistaken for a")
+        add("    complete account of the statement.")
+
+    # ---- the finer cut: what the engine does with each KIND of hard case ----
+    if sc.outcome_by_defect:
+        add("")
+        add("  OUTCOME BY DEFECT  (a credit carrying several is counted under each)")
+        add(_THIN)
+        add(f"    {'defect':<22}{'matched':>9}{'missed':>8}{'refused':>9}"
+            f"{'WRONGLY':>9}   note")
+        add(f"    {'':<22}{'':>9}{'':>8}{'(correct)':>9}{'assigned':>9}")
+        for label, (ok, miss, ref_ok, ref_bad) in sorted(
+            sc.outcome_by_defect.items(), key=lambda kv: (-kv[1][3], -kv[1][1], kv[0])
+        ):
+            note = ""
+            if ref_bad:
+                note = "POSTED money truth says to refuse"
+            elif miss:
+                note = "conservative -- refused, no money posted"
+            elif ref_ok and not ok:
+                note = "unmatchable by construction; refusing is correct"
+            add(f"    {label:<22}{ok:>9}{miss:>8}{ref_ok:>9}{ref_bad:>9}   {note}")
+        add("")
+        add("    'missed' and 'refused (correct)' are deliberately separate columns. A")
+        add("    defect the engine declines is not a failure when ground truth also")
+        add("    expects a refusal -- bank_charge is unmatchable by construction, and")
+        add("    declining it IS the right answer. One recall figure would score the")
+        add("    engine down for being right.")
 
     # ---- exceptions ----
     add("")

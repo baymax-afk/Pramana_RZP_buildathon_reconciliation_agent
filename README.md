@@ -127,10 +127,52 @@ No real card, account, or credential was used at any point.
 
 ### Injected defects
 
-Nine categories, each ground-truth labelled: MDR/gateway fee deduction · TDS
-deduction · T+1 and T+2 settlement date drift · one bank credit covering N payments ·
-partial payment · duplicate UTR · near-duplicate payer names · paisa-level rounding ·
-refund netted inside a settlement batch.
+**Sixteen categories**, each ground-truth labelled.
+
+The original nine: MDR/gateway fee deduction · TDS deduction · T+1 and T+2 settlement
+date drift · one bank credit covering N payments · partial payment · duplicate UTR ·
+near-duplicate payer names · paisa-level rounding · refund netted inside a settlement
+batch.
+
+Five more, added because the batch was unrealistically clean without them — most
+visibly in that *every* payment carried an invoice number, which made exact-reference
+matching available far more often than reality allows:
+
+| Defect | What it is | Why it is hard |
+|---|---|---|
+| **overpayment** | The customer pays more than the invoice | Mirror of partial payment; the invoice ends over-settled |
+| **advance payment** | Money against no invoice at all | No reference, no TDS — the amount channel stands alone |
+| **bank charge** | The receiving bank takes its own NEFT/RTGS fee | Appears on no Razorpay object and in no ledger. **Labelled `refuse`**: at ₹5–50 against a ₹1 tolerance it is unmatchable, and declining it is the correct output |
+| **third-party payer** | A parent company settles a subsidiary's invoice | The amount channel is right and the name channel is wrong |
+| **weekend bunching** | Fri/Sat/Sun payments all settle Monday | Realised drift reaches 3 days on top of the window |
+
+And two that stress the engine's **model** rather than its arithmetic:
+
+| Defect | What it is | Why the engine cannot reach it |
+|---|---|---|
+| **split settlement** | One payment arrives as *two* bank credits | `claimed` is a set and every tier asks which *subset of payments* sums to a credit — there is nowhere to put half a payment |
+| **chargeback debit** | A settled payment is clawed back by a debit line | The engine reads `is_credit` only, so money leaving is invisible: not matched, not refused, not counted |
+
+Both are labelled `refuse`, and in both cases refusing is correct — posting a
+part-settlement against a whole payment would be a wrong answer, not a partial one. But
+the coverage they cost is real, so they are named as
+[limitations](docs/ARCHITECTURE.md#two-named-limitations-of-the-model) rather than left
+to hide behind a correct-looking refusal. Ground truth creates **no link for a debit**:
+scoring the engine against a verdict it structurally cannot produce is theatre, so the
+metrics block discloses the unexamined lines and their value instead.
+
+The statement contained **zero debits** until `chargeback_debit` existed, which is
+exactly why that blind spot went unnoticed.
+
+**`bank_charge` is the one deliberately labelled unmatchable.** An engine that widened
+its tolerance to absorb bank charges would also start absorbing genuine coincidences,
+and the whole subset-sum uniqueness argument rests on tolerance staying far below the
+smallest payment. It is there to prove the engine declines the case rather than
+swallowing it — measured, it refuses 7 of 7 and posts none.
+
+The metrics block reports **outcome by defect**, with `missed` and `refused (correct)`
+as separate columns. A defect the engine declines is not a failure when ground truth
+also expects a refusal; one recall figure would score the engine down for being right.
 
 Plus one **hand-placed ambiguity case**: a bank credit where two different payment
 subsets both sum within tolerance, constructed so that no amount, date, method, or
@@ -144,6 +186,14 @@ verdict.
 ---
 
 ## Running it
+
+```bash
+pip install -e '.[api,test]'      # engine + API + test deps; the engine itself has none
+```
+
+The engine, all four verification layers and the scorer run on the **standard library
+alone** — `pip install -e .` with no extras is enough for every number reported below.
+The extras are for the FastAPI server and the test suite.
 
 ```bash
 python run.py generate --seed 20260905
@@ -177,6 +227,13 @@ Runs the engine **under the permutation gate** and prints the metrics block with
 six metamorphic relations. Drop `--verify` for a single unguarded pass. The engine runs to completion from
 `ReconInputs` alone; ground truth is loaded afterwards, by a different package.
 
+The headline reports **two densities** — the reported `ppw=6` and a `ppw=12` second arm —
+because one density there reads as a property of the engine rather than of the engine at
+one crowding level, and density is the parameter the argument turns on. The second arm is
+generated in-process and never written to disk; everything below the headline describes
+the `ppw=6` run. `--compare-density 0` turns it off, `--compare-density 24` points it at
+the crowded arm. See `docs/METRICS.md` for what that comparison does and does not show.
+
 ```bash
 uvicorn api.main:app --port 8000     # read-only API
 cd ui && npm install && npm run dev  # triage UI on :5173
@@ -192,7 +249,7 @@ would be worse than none.
 pytest tests/
 ```
 
-58 tests, including the end-to-end isolation test — which deletes the ground-truth
+261 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*
@@ -223,6 +280,10 @@ behaves — including the places where measurement contradicted the original des
 [`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) lists what is knowingly
 incomplete, including two claims the project deliberately **withholds** because the
 evidence does not support them.
+[`docs/AGENTIC.md`](docs/AGENTIC.md) is a design note on where agency can safely live in
+a system like this — the short answer being everywhere except the verdict, and the
+argument being that the trust boundary is what *permits* autonomy rather than what
+limits it.
 
 ---
 

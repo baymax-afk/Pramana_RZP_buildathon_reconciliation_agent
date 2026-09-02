@@ -52,6 +52,41 @@ def load_payments(path: Path) -> tuple[Payment, ...]:
     )
 
 
+def _money(row: dict, field: str, path: Path, row_no: int, *, blank_ok: bool = True) -> int:
+    """
+    Read one rupee-denominated column, naming the file, row and column if it is bad.
+
+    `rupees_to_paise` knows the text was malformed but not where it came from, and a
+    traceback that says only `not a rupee amount: '(500)'` sends an operator hunting
+    through a 200-row CSV by hand. The loader is the only layer that knows the
+    coordinates, so it is the layer that attaches them.
+    """
+    if field not in row:
+        raise ValueError(
+            f"{path.name}: missing required column {field!r} "
+            f"(row {row_no} has: {', '.join(sorted(k for k in row if k))})"
+        )
+    raw = row[field]
+    if raw is None or (blank_ok and not str(raw).strip()):
+        return 0
+    try:
+        return rupees_to_paise(raw)
+    except ValueError as e:
+        raise ValueError(f"{path.name} row {row_no}, column {field!r}: {e}") from None
+
+
+def _text(row: dict, field: str, path: Path, row_no: int, default: str | None = None) -> str:
+    """Read one string column, naming the file, row and column if it is absent."""
+    if field not in row:
+        if default is not None:
+            return default
+        raise ValueError(
+            f"{path.name}: missing required column {field!r} "
+            f"(row {row_no} has: {', '.join(sorted(k for k in row if k))})"
+        )
+    return row[field] or ""
+
+
 def load_bank_statement(path: Path) -> tuple[BankTxn, ...]:
     """
     Parse an Indian bank statement export.
@@ -64,16 +99,17 @@ def load_bank_statement(path: Path) -> tuple[BankTxn, ...]:
     out: list[BankTxn] = []
     with path.open(newline="", encoding="utf-8") as f:
         for i, row in enumerate(csv.DictReader(f), start=1):
+            txn_date = _text(row, "txn_date", path, i)
             out.append(
                 BankTxn(
                     id=f"bank_txn_{i:04d}",
-                    txn_date=row["txn_date"],
-                    value_date=row["value_date"] or row["txn_date"],
-                    narration=row["description"],
-                    ref_no=row["ref_no"],
-                    credit=rupees_to_paise(row["credit"]) if row["credit"] else 0,
-                    debit=rupees_to_paise(row["debit"]) if row["debit"] else 0,
-                    balance=rupees_to_paise(row["balance"]) if row["balance"] else 0,
+                    txn_date=txn_date,
+                    value_date=_text(row, "value_date", path, i) or txn_date,
+                    narration=_text(row, "description", path, i),
+                    ref_no=_text(row, "ref_no", path, i),
+                    credit=_money(row, "credit", path, i),
+                    debit=_money(row, "debit", path, i),
+                    balance=_money(row, "balance", path, i),
                 )
             )
     return tuple(out)
@@ -82,19 +118,19 @@ def load_bank_statement(path: Path) -> tuple[BankTxn, ...]:
 def load_invoices(path: Path) -> tuple[Invoice, ...]:
     out: list[Invoice] = []
     with path.open(newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
+        for i, row in enumerate(csv.DictReader(f), start=1):
             out.append(
                 Invoice(
-                    invoice_no=row["invoice_no"],
-                    customer_name=row["customer_name"],
-                    customer_gstin=row["customer_gstin"],
-                    invoice_date=row["invoice_date"],
-                    due_date=row["due_date"],
-                    gross_amount=rupees_to_paise(row["gross_amount"]),
-                    tds_amount=rupees_to_paise(row["tds_amount"]),
-                    currency=row["currency"],
-                    status=row["status"],
-                    po_reference=row["po_reference"],
+                    invoice_no=_text(row, "invoice_no", path, i),
+                    customer_name=_text(row, "customer_name", path, i),
+                    customer_gstin=_text(row, "customer_gstin", path, i),
+                    invoice_date=_text(row, "invoice_date", path, i),
+                    due_date=_text(row, "due_date", path, i),
+                    gross_amount=_money(row, "gross_amount", path, i),
+                    tds_amount=_money(row, "tds_amount", path, i),
+                    currency=_text(row, "currency", path, i),
+                    status=_text(row, "status", path, i),
+                    po_reference=_text(row, "po_reference", path, i),
                 )
             )
     return tuple(out)
@@ -112,6 +148,25 @@ def load_inputs(
     downstream ever sees a path again.
     """
     d = generated_dir or cfg.GENERATED
+
+    # The batch on disk knows which seed built it. Trust that over whatever the caller
+    # passed, and refuse loudly on a mismatch rather than mislabelling the run: `match
+    # --seed X` does not regenerate, so a caller naming a seed the data did not come
+    # from would otherwise have every reported number printed under the wrong seed.
+    manifest = d / "manifest.json"
+    if manifest.exists():
+        meta = json.loads(manifest.read_text(encoding="utf-8"))
+        on_disk = int(meta.get("seed", seed))
+        on_disk_ppw = int(meta.get("payments_per_window", payments_per_window))
+        if seed != cfg.SEED_PRIMARY and seed != on_disk:
+            raise ValueError(
+                f"The batch in {d} was generated with seed {on_disk}, but seed {seed} "
+                f"was requested. `match` does not regenerate. Run "
+                f"`python run.py generate --seed {seed}` first, or drop --seed to use "
+                f"the batch on disk."
+            )
+        seed, payments_per_window = on_disk, on_disk_ppw
+
     return ReconInputs(
         payments=load_payments(d / "payments.json"),
         bank_txns=load_bank_statement(d / "bank_statement.csv"),
