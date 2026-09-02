@@ -116,6 +116,9 @@ def cmd_match(args: argparse.Namespace) -> int:
     """
     inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
 
+    from recon.llm import select as _select_llm
+
+    llm = _select_llm(disabled=args.no_llm)
     relations = ensemble = None
     t0 = time.perf_counter()
     if args.verify:
@@ -126,10 +129,10 @@ def cmd_match(args: argparse.Namespace) -> int:
         from recon.verify.stability import match_gated
 
         k = cfg.PERMUTATION_K_FAST if args.fast else cfg.PERMUTATION_K
-        out, ensemble = match_gated(inputs, k=k)
+        out, ensemble = match_gated(inputs, k=k, llm=llm)
         relations = mm.run_all(inputs, out, fast=args.fast)
     else:
-        out = match_once(inputs)
+        out = match_once(inputs, llm=llm)
     elapsed = time.perf_counter() - t0
     records = len(inputs.payments) + len(inputs.bank_txns) + len(inputs.invoices)
 
@@ -161,7 +164,7 @@ def cmd_match(args: argparse.Namespace) -> int:
         seed=args.seed,
     )
     print(render(sc, args.seed, args.payments_per_window,
-                 llm_enabled=not args.no_llm, relations=relations, ensemble=ensemble))
+                 llm_enabled=llm.name, relations=relations, ensemble=ensemble))
     return 0
 
 

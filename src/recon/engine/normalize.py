@@ -47,6 +47,9 @@ _STYLES = (
 _NOISE = {
     "CR", "DR", "NEFT", "RTGS", "IMPS", "UPI", "PAYMENT", "PMT", "TXN", "TXNS",
     "RAZORPAY", "SETTLEMENT", "TRANSFER", "TRF", "REF", "BY", "TO", "FROM",
+    # Rail-specific structural tokens. Every one of these appeared inside a payer
+    # name before being listed here -- "ACME INDUSTRIAL SU FUND" was a real output.
+    "FUND", "FUNDS", "CLG", "CMS", "INW", "REM", "MB", "ACCT", "AC", "FRM",
 }
 
 
@@ -108,19 +111,27 @@ def _extract_name(text: str, style: str) -> str | None:
         token = part.strip()
         if not token:
             continue
-        upper = token.upper()
-        if upper in _NOISE:
+        # Filter WORD BY WORD, not just chunk by chunk. Some rails write no delimiters
+        # at all ("ACME INDUSTRIAL SU FUND TRF 398693 INV20261003"), so the whole
+        # narration arrives as one chunk. Filtering only whole chunks returned that
+        # entire string as the payer name, which then fed Fellegi-Sunter as though it
+        # were a counterparty -- a garbage name is worse than no name, because absence
+        # contributes zero weight while nonsense can manufacture a disagreement.
+        words = [
+            w for w in token.split()
+            if w.upper() not in _NOISE
+            and not w.isdigit()
+            and not _UTR.fullmatch(w.upper())
+            and not _MERCHANT_REF.fullmatch(w.upper())
+            and not re.fullmatch(r"INV[0-9/-]*", w, re.IGNORECASE)
+            and re.search(r"[A-Za-z]{2,}", w)
+        ]
+        if not words:
             continue
-        if _UTR.fullmatch(upper) or token.isdigit():
-            continue
-        if _MERCHANT_REF.fullmatch(upper):
-            continue
-        # A name needs at least one alphabetic run of two or more characters.
-        if not re.search(r"[A-Za-z]{2,}", token):
-            continue
-        if best is None or len(token) > len(best):
-            best = token
-    return best.strip() if best else None
+        candidate = " ".join(words).strip()
+        if best is None or len(candidate) > len(best):
+            best = candidate
+    return best if best else None
 
 
 def parse(narration: str) -> ParsedNarration:
@@ -186,3 +197,33 @@ def normalise_name(name: str | None) -> str:
         r"\b(PRIVATE|PVT|LIMITED|LTD|LLP|INC|CORP|CO|COMPANY|AND)\b", " ", s
     )
     return re.sub(r"\s+", " ", s).strip()
+
+
+def parse_with_llm(narration: str, llm=None) -> ParsedNarration:
+    """
+    Parse a narration, falling back to the LLM tier only where regex genuinely failed.
+
+    The LLM is offered a narration ONLY when `needs_llm` says the deterministic tier
+    could not read it. Everything else never reaches a model, which is what makes the
+    LLM-on and LLM-off runs differ solely on the residue -- and therefore what makes
+    reporting precision both ways a meaningful comparison rather than two labels on the
+    same number.
+
+    Fields the regex tier already extracted are never overwritten. The model fills gaps;
+    it does not get to revise deterministic output.
+    """
+    parsed = parse(narration)
+    if llm is None or not getattr(llm, "enabled", False) or not needs_llm(parsed):
+        return parsed
+
+    from dataclasses import replace as _replace
+
+    fields = llm.parse_narration(narration)
+    if fields.is_empty:
+        return parsed
+    return _replace(
+        parsed,
+        payer_name=parsed.payer_name or fields.payer_name,
+        merchant_ref=parsed.merchant_ref or fields.merchant_ref,
+        parsed_by=f"regex+{fields.model}",
+    )

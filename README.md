@@ -196,7 +196,7 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 7** — Layer 3 Fellegi–Sunter (two-threshold band, unsupervised `u`)
 - [x] **Block 8** — Layer 4 materiality (AS 2315) + composite confidence
 - [ ] **Block 8b** — BenchRec calibration fit (weights currently UNCALIBRATED)
-- [ ] **Block 9** — LLM tier
+- [x] **Block 9** — LLM tier (no verdict changes; see DEFECT_LOG 2026-09-02-03)
 - [ ] **Block 10** — FastAPI + React exception triage UI
 
 [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) records what broke during the build, as it

@@ -824,3 +824,78 @@ calibration claim is **not made**, rather than made weakly.
 **The pattern, for the fourth time:** the number that would have looked best (ECE
 0.0002) was the least meaningful thing measured. Reporting it without the bin count
 would have passed unnoticed.
+
+---
+
+## 2026-09-02-02 — The regex tier returned whole narrations as payer names, manufacturing false disagreements
+
+**Timestamp:** 2026-09-02, Block 9 (LLM tier)
+
+**What broke:** Spotted while checking that the LLM tier was firing at all. For the
+narration `ACME INDUSTRIAL SU FUND TRF 398693 INV20261003`, the deterministic parser
+returned the payer name as **the entire string**, digits and rail tokens included.
+
+**Diagnosis:** `_extract_name` split the narration on `[-/]` and filtered the resulting
+CHUNKS. That works for delimited rails, but several real formats use no delimiters at
+all, so the whole narration arrives as a single chunk, passes the chunk-level filters,
+and is returned as a name.
+
+The consequence was not cosmetic. That string is then normalised and handed to
+Fellegi-Sunter as a counterparty. It matches no customer, so Layer 3 scored an active
+DISAGREEMENT -- and a disagreement is real evidence against a match, unlike absence,
+which contributes zero. **A garbage name is strictly worse than no name**, because the
+architecture treats silence as neutral and nonsense as dissent.
+
+**Fix:** filter word by word rather than chunk by chunk, and extend the noise list with
+the rail tokens that had been surviving into names (`FUND`, `CLG`, `CMS`, `INW`, `REM`,
+`MB`, `ACCT`, `AC`, `FRM`). Every entry on that list appeared inside a real extracted
+name before it was added.
+
+**Result:** assignments 115 -> 117 and refusals 13 -> 11 on the primary seed. Two credits
+had been refused for a contradiction that existed only because the parser invented a
+counterparty.
+
+**Cost:** ~15 minutes.
+
+**Why it took a different task to find it:** the parser had passed every test written
+for it, because those tests used delimited narrations -- the formats it was designed
+for. The bug only existed in the messy formats added in this block to give the LLM tier
+something to do. **The defect was invisible until the data got harder**, which is the
+same lesson the density sweep teaches about the matcher, arriving here about the parser.
+
+---
+
+## 2026-09-02-03 — The LLM tier changes no verdicts, and that is the reported result
+
+**Timestamp:** 2026-09-02, Block 9
+
+**What was measured:** precision with the LLM tier on and off, as `docs/METRICS.md`
+requires.
+
+| tier | assigned | correct | precision | match rate | tier-1 matches |
+|---|---|---|---|---|---|
+| disabled | 117 | 117 | 1.0000 | 82.99% | 36 |
+| recorded | 117 | 117 | 1.0000 | 82.99% | **45** |
+
+**The finding:** the LLM recovers a usable merchant reference from 9 of the 12
+narrations the regex tier cannot parse, and those 9 credits move from tier 2
+(amount + date) to tier 1 (exact reference) -- a genuinely stronger evidence class. But
+**not one verdict changes.** Those credits were already being matched correctly on
+amount and date alone.
+
+So on this data the LLM tier improves the *evidence behind* matches without improving
+the *outcomes*. Precision is identical to four decimal places. It is not load-bearing
+for correctness here, and the metrics block says so rather than presenting the tier as
+a contributor.
+
+Where it would matter is where amount-and-date is genuinely ambiguous and the reference
+is the tie-breaker -- exactly the crowded-pool regime the density sweep explores. That
+is a prediction this build does not have the data to test, and it is stated as a
+prediction rather than a result.
+
+**On what actually ran:** no `ANTHROPIC_API_KEY` was available, so `RecordedTier` --
+hand-authored parse rules standing in for model output -- produced these numbers, and
+the metrics block prints `llm=recorded` so it cannot be read as a live-model result.
+`ClaudeTier` is written and selected automatically when a key is present; it was not
+exercised. The honest summary is that the *architecture* is demonstrated and the
+*model's* contribution is not.

@@ -153,3 +153,52 @@ def apply_paisa_rounding(rng: random.Random, amount_paise: int) -> tuple[int, in
     """
     delta = rng.choice([-3, -2, -1, 1, 2, 3])
     return amount_paise + delta, delta
+
+
+# --------------------------------------------------------------------------
+# Messy narrations -- the ones the regex tier genuinely cannot parse
+# --------------------------------------------------------------------------
+# Real bank statements are not uniformly formatted. Older rails, clearing-house
+# entries, mobile-banking transfers and cash-management systems each write their own
+# shape, and plenty of them jam the reference into the payer name with no delimiter at
+# all. A generator that only emits tidy NEFT/RTGS/UPI strings makes the parsing problem
+# look solved and leaves the LLM tier with nothing to do -- which would make the
+# LLM-on/LLM-off precision comparison vacuous.
+#
+# These templates are deliberately built to defeat the regex tier: no recognisable
+# style prefix, references without the XX-NNNN-NNNN shape it looks for, and names run
+# together with digits. They are the residue the deterministic parser is allowed to
+# fail on.
+_MESSY_TEMPLATES = (
+    "TRF FRM {acct} {name_jammed} {ref_jammed} CR",
+    "BY CLG/{digits}/{name_short}",
+    "MB:{contact}-{name_short}-{ref_slash}",
+    "CMS/{name_jammed}/{ref_slash}/CR",
+    "{name_short} FUND TRF {digits} {ref_jammed}",
+    "INW REM {digits} {name_short} {ref_jammed}",
+)
+
+
+def messy_narration(
+    rng: random.Random, customer: Customer, merchant_ref: str
+) -> Narration:
+    """
+    Emit a narration the regex tier cannot fully parse.
+
+    The payer and the reference ARE present -- a human could read them, and so can an
+    LLM -- but not in any shape the deterministic patterns match. That is the honest
+    division of labour the trust boundary describes: regex handles what is structured,
+    the LLM reads what is merely legible, and neither of them decides a match.
+    """
+    tmpl = rng.choice(_MESSY_TEMPLATES)
+    name = (customer.bank_hint or customer.canonical_name).upper()
+    text = tmpl.format(
+        acct=f"{rng.randint(10**10, 10**11 - 1)}",
+        digits=f"{rng.randint(10**5, 10**6 - 1)}",
+        contact=customer.contact[-10:],
+        name_jammed=name.replace(" ", "")[:20],
+        name_short=name[:18],
+        ref_jammed=merchant_ref.replace("-", "")[:14],
+        ref_slash=merchant_ref.replace("-", "/"),
+    )
+    return Narration(text, "messy", carries_name=True, carries_ref=True)

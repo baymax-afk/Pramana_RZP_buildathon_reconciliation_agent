@@ -472,7 +472,13 @@ def generate(
             # rest do not, so tier 1 cannot carry the whole batch and tier 2 has real
             # work to do -- which is the realistic split.
             quoted = p.notes["invoice_no"] if rng.random() < 0.55 else None
-            nar = defects.narrate(rng, utr, cust, merchant_ref=quoted)
+            # ~18% of credits arrive in a shape the regex tier cannot parse. Real
+            # statements contain these; a batch without them makes narration parsing
+            # look solved and leaves the LLM tier with nothing to do.
+            if rng.random() < 0.18:
+                nar = defects.messy_narration(rng, cust, p.notes["invoice_no"])
+            else:
+                nar = defects.narrate(rng, utr, cust, merchant_ref=quoted)
             balance += net
             bank_txns.append(
                 BankTxn(

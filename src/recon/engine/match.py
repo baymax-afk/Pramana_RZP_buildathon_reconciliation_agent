@@ -32,7 +32,7 @@ from . import (
     tier2_amount_date,
     tier3_subsetsum,
 )
-from .normalize import parse
+from .normalize import parse, parse_with_llm
 from .results import Assignment, Candidate, MatchOutput, Refusal, RefusalCategory
 
 
@@ -80,7 +80,7 @@ def _assignment_from(
 MAX_ROUNDS = 6
 
 
-def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est):
+def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm=None):
     """
     Run the three tiers against one credit, in descending order of evidence strength.
 
@@ -88,7 +88,10 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est):
     stops and refuses -- a later, weaker tier cannot resolve what a stronger one has
     already shown to be underdetermined.
     """
-    parsed = parse(txn.narration)
+    # The LLM, when enabled, fills only narration FIELDS the regex tier could not
+    # read. It cannot reach a matching decision from here -- see llm/interface.py
+    # for why that is a type-level guarantee rather than a convention.
+    parsed = parse_with_llm(txn.narration, llm)
 
     cands, cat, reason = tier1_reference.match(
         txn, parsed, index, by_id, claimed, invoices_by_no
@@ -117,7 +120,7 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est):
     return ("none", [], None, "", 0.0, None)
 
 
-def match_once(inputs: ReconInputs) -> MatchOutput:
+def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
     """
     Match a batch, iterating to a FIXPOINT.
 
@@ -164,7 +167,7 @@ def match_once(inputs: ReconInputs) -> MatchOutput:
             if txn.id in settled:
                 continue
             verdict, cands, cat, reason, uniq, _ = _verdict_for(
-                txn, payments, by_id, index, claimed, invoices_by_no, u_est
+                txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm
             )
 
             if verdict == "assign":
@@ -172,7 +175,7 @@ def match_once(inputs: ReconInputs) -> MatchOutput:
                 # ---- Layer 3: Fellegi-Sunter two-threshold band ----
                 ev = fs.evidence_for(
                     txn,
-                    parse(txn.narration),
+                    parse_with_llm(txn.narration, llm),
                     [by_id[pid] for pid in cand.payment_ids if pid in by_id],
                     u_est,
                     pool_size=max(2, len(tier2_amount_date.candidate_pool(txn, payments, claimed))),

@@ -38,7 +38,7 @@ def render(
 
     add(_RULE)
     add(f"  RECONCILIATION METRICS   seed={seed}   density={payments_per_window}"
-        f"   llm={'on' if llm_enabled else 'OFF'}")
+        f"   llm={llm_enabled}")
     add(_RULE)
 
     # ---- the headline: four numbers, never one ----

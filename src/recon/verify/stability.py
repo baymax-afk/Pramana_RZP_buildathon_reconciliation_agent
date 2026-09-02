@@ -99,7 +99,7 @@ class Ensemble:
 
 
 def run_with_permutations(
-    inputs: ReconInputs, k: int | None = None, seed: int | None = None
+    inputs: ReconInputs, k: int | None = None, seed: int | None = None, llm=None
 ) -> Ensemble:
     """
     Run the matching core over K independently shuffled orderings of all three sides.
@@ -119,7 +119,7 @@ def run_with_permutations(
             shuffled = inputs
         else:
             shuffled = inputs.shuffled(random.Random(base_seed + i))
-        out = match_once(shuffled)
+        out = match_once(shuffled, llm=llm)
         if base is None:
             base = out
         for txn_id, payment_ids in out.assignment_map.items():
@@ -207,7 +207,7 @@ def _with_stability(assignment, stability: float):
 
 
 def match_gated(
-    inputs: ReconInputs, k: int | None = None
+    inputs: ReconInputs, k: int | None = None, llm=None
 ) -> tuple[MatchOutput, Ensemble]:
     """
     The engine's PRIMARY entry point: match under the permutation gate.
@@ -216,6 +216,6 @@ def match_gated(
     nothing outside this module should call it directly for a reported run -- a single
     pass has not been tested for order-dependence, and its assignments are provisional.
     """
-    ensemble = run_with_permutations(inputs, k=k)
+    ensemble = run_with_permutations(inputs, k=k, llm=llm)
     credits_by_id = {t.id: t.credit for t in inputs.bank_txns}
     return apply_gate(ensemble, credits_by_id), ensemble
