@@ -231,6 +231,10 @@ behaves — including the places where measurement contradicted the original des
 [`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) lists what is knowingly
 incomplete, including two claims the project deliberately **withholds** because the
 evidence does not support them.
+[`docs/AGENTIC.md`](docs/AGENTIC.md) is a design note on where agency can safely live in
+a system like this — the short answer being everywhere except the verdict, and the
+argument being that the trust boundary is what *permits* autonomy rather than what
+limits it.
 
 ---
 
