@@ -255,3 +255,43 @@ def test_explanations_are_operator_facing_not_engine_internals():
         )
         assert "1,234.50" in prose.explanation
         assert prose.proposed_resolution
+
+
+def test_each_narration_is_parsed_once_per_credit_per_round():
+    """
+    REGRESSION, REVIEW_2026-09-02 R11. `_verdict_for` parsed the narration and discarded
+    the result; the assign branch then parsed it AGAIN to feed `fs.evidence_for`.
+    Nothing in that path memoises, so with a live ClaudeTier every assigned credit cost
+    two API calls -- multiplied by up to MAX_ROUNDS fixpoint rounds and again by the K=8
+    permutation passes, since the gated path is the engine's primary one.
+
+    Measured: 30 -> 15 tier calls per `match_once` on the reported batch, so 240 -> 120
+    per verified run. The parse now travels back with the verdict.
+
+    Asserted as "no narration is parsed more than once per credit per round" rather than
+    as a fixed number, because the number moves with the data and the property does not.
+    """
+    from collections import Counter
+
+    from recon.engine.match import match_once
+    from recon.llm.recorded import RecordedTier
+
+    seen: Counter[str] = Counter()
+
+    class CountingTier(RecordedTier):
+        def parse_narration(self, narration):
+            seen[narration] += 1
+            return super().parse_narration(narration)
+
+    inputs = load_inputs()
+    match_once(inputs, llm=CountingTier())
+
+    # MAX_ROUNDS bounds how often a single credit can be revisited; anything above that
+    # is a duplicate parse within one round, which is what this catches.
+    import config as cfg
+
+    worst = max(seen.values(), default=0)
+    assert worst <= cfg.MAX_ROUNDS, (
+        f"a narration was parsed {worst} times, above the {cfg.MAX_ROUNDS}-round bound "
+        f"-- something is parsing twice inside one round"
+    )

@@ -128,27 +128,27 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
         txn, parsed, index, by_id, claimed, invoices_by_no
     )
     if cat is not None:
-        return ("refuse", cands, cat, reason, 1.0, None)
+        return ("refuse", cands, cat, reason, 1.0, parsed)
     if cands and not count_conflict(cands):
-        return ("assign", cands, None, "", 1.0, None)
+        return ("assign", cands, None, "", 1.0, parsed)
     tier1_conflict = cands if count_conflict(cands) else []
 
     cands, cat, reason = tier2_amount_date.match(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
-        return ("refuse", cands, cat, reason, 1.0, None)
+        return ("refuse", cands, cat, reason, 1.0, parsed)
     if cands and not count_conflict(cands):
-        return ("assign", cands, None, "", 1.0, None)
+        return ("assign", cands, None, "", 1.0, parsed)
     tier2_conflict = cands if count_conflict(cands) else []
 
     cands, cat, reason, uniq = tier3_subsetsum.match_with_margin(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
-        return ("refuse", cands, cat, reason, 0.0, None)
+        return ("refuse", cands, cat, reason, 0.0, parsed)
     if cands and not count_conflict(cands):
-        return ("assign", cands, None, "", uniq, None)
+        return ("assign", cands, None, "", uniq, parsed)
 
     # Tier 3 could not produce a decomposition of the stated size either. Whatever a
     # single-payment tier found earlier is reported as the refusal's candidate, because
@@ -158,10 +158,10 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
     if blocked:
         return (
             "refuse", blocked, RefusalCategory.NARRATION_COUNT_CONFLICT,
-            conflict_reason(blocked), 0.0, None,
+            conflict_reason(blocked), 0.0, parsed,
         )
 
-    return ("none", [], None, "", 0.0, None)
+    return ("none", [], None, "", 0.0, parsed)
 
 
 # Tier precedence IS the engine's declared evidence hierarchy -- tier 1 is an exact
@@ -351,7 +351,13 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
         for txn in credits:
             if txn.id in settled:
                 continue
-            verdict, cands, cat, reason, uniq, _ = _verdict_for(
+            # The parse comes back with the verdict. It used to be discarded here and
+            # recomputed below for `fs.evidence_for` -- and with a live ClaudeTier that
+            # is a second API call per assigned credit, multiplied by up to MAX_ROUNDS
+            # fixpoint rounds and again by the K=8 permutation passes. Nothing in the
+            # path memoises, so the cost was real rather than theoretical.
+            # REVIEW_2026-09-02 R11.
+            verdict, cands, cat, reason, uniq, parsed = _verdict_for(
                 txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm
             )
 
@@ -360,7 +366,7 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
                 # ---- Layer 3: Fellegi-Sunter two-threshold band ----
                 ev = fs.evidence_for(
                     txn,
-                    parse_with_llm(txn.narration, llm),
+                    parsed,
                     [by_id[pid] for pid in cand.payment_ids if pid in by_id],
                     u_est,
                     pool_size=blocking_pool_size[txn.id],
