@@ -128,6 +128,9 @@ def get_summary() -> dict:
         "tier_counts": data["tier_counts"],
         "verification": data["verification"],
         "throughput_records_per_s": data.get("throughput_records_per_s"),
+        # Served alongside the totals, deliberately, rather than behind its own route.
+        # A disclosure that has to be asked for separately is one nobody asks for.
+        "not_examined": data.get("not_examined", {}),
     }
 
 

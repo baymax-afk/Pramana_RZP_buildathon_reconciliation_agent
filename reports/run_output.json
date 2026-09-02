@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-02T15:22:08.904673+00:00",
+  "generated_at": "2026-09-02T16:44:24.232628+00:00",
   "seed": 20260905,
   "density": 6,
   "totals": {
@@ -12,6 +12,55 @@
     "refused": 13,
     "no_candidate": 0,
     "rupees_at_risk": 245025.29
+  },
+  "not_examined": {
+    "debit_lines": 6,
+    "rupees": 166732.77,
+    "reason": "The engine reads credit transactions only. Money leaving the account -- chargebacks, reversals, bank fees -- is outside its model and is neither matched nor refused.",
+    "lines": [
+      {
+        "bank_txn_id": "bank_txn_0044",
+        "txn_date": "2026-07-05",
+        "narration": "CHARGEBACK REV ICICR20389267501 DISPUTE",
+        "ref_no": "ICICR20389267501",
+        "rupees": 41102.54
+      },
+      {
+        "bank_txn_id": "bank_txn_0057",
+        "txn_date": "2026-07-10",
+        "narration": "CHARGEBACK REV PUNBR94445115394 DISPUTE",
+        "ref_no": "PUNBR94445115394",
+        "rupees": 39881.09
+      },
+      {
+        "bank_txn_id": "bank_txn_0145",
+        "txn_date": "2026-09-11",
+        "narration": "CHARGEBACK REV HDFCN41860995025 DISPUTE",
+        "ref_no": "HDFCN41860995025",
+        "rupees": 28876.88
+      },
+      {
+        "bank_txn_id": "bank_txn_0146",
+        "txn_date": "2026-09-13",
+        "narration": "CHARGEBACK REV UTIBP08760386266 DISPUTE",
+        "ref_no": "UTIBP08760386266",
+        "rupees": 20261.98
+      },
+      {
+        "bank_txn_id": "bank_txn_0070",
+        "txn_date": "2026-07-16",
+        "narration": "CHARGEBACK REV UTIBP73259920214 DISPUTE",
+        "ref_no": "UTIBP73259920214",
+        "rupees": 18360.66
+      },
+      {
+        "bank_txn_id": "bank_txn_0056",
+        "txn_date": "2026-07-10",
+        "narration": "CHARGEBACK REV KKBKH78913095583 DISPUTE",
+        "ref_no": "KKBKH78913095583",
+        "rupees": 18249.62
+      }
+    ]
   },
   "tolerances": {
     "tol_abs_paise": 100,
@@ -2600,5 +2649,5 @@
       "mean_stability": 1.0
     }
   },
-  "throughput_records_per_s": 1007
+  "throughput_records_per_s": 1061
 }

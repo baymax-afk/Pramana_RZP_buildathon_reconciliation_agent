@@ -121,6 +121,7 @@ def build(
     """
     txn = {t.id: t for t in inputs.bank_txns}
     pay = {p.id: p for p in inputs.payments}
+    debits = [t for t in inputs.bank_txns if t.debit]
 
     exceptions: list[ExceptionRow] = []
     for r in out.refusals:
@@ -223,6 +224,34 @@ def build(
             "refused": len(out.refusals),
             "no_candidate": len(out.no_candidate),
             "rupees_at_risk": round(sum(e.rupees_at_risk for e in exceptions), 2),
+        },
+        # Bank lines the engine structurally never reads, carried into the payload so
+        # the operator-facing view can disclose them.
+        #
+        # `rupees_at_risk` above is the total the UI leads with, and it counts refused
+        # CREDITS only. A merchant reading "Rs 800 at risk" while Rs 166,732 left the
+        # account on debit lines nobody examined is being misled by omission -- and the
+        # omission is worse in the UI than in the metrics block, because the UI is what
+        # someone acts on. The engine's model has not changed; what changed is that it
+        # now says out loud what it did not look at.
+        "not_examined": {
+            "debit_lines": len(debits),
+            "rupees": round(sum(t.debit for t in debits) / 100, 2),
+            "reason": (
+                "The engine reads credit transactions only. Money leaving the account "
+                "-- chargebacks, reversals, bank fees -- is outside its model and is "
+                "neither matched nor refused."
+            ),
+            "lines": [
+                {
+                    "bank_txn_id": t.id,
+                    "txn_date": t.txn_date,
+                    "narration": t.narration,
+                    "ref_no": t.ref_no,
+                    "rupees": round(t.debit / 100, 2),
+                }
+                for t in sorted(debits, key=lambda x: -x.debit)[:50]
+            ],
         },
         "tolerances": {
             "tol_abs_paise": cfg.TOL_ABS_PAISE,

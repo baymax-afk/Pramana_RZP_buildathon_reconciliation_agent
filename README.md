@@ -241,7 +241,15 @@ cd ui && npm install && npm run dev  # triage UI on :5173
 
 The UI is a single page: exceptions ranked by rupees at risk, each expanding to show
 why the engine declined, what to do next, and — for ambiguous credits — every candidate
-it refused to choose between. The API is **read-only by design**: there is no accept /
+it refused to choose between.
+
+Directly under the totals it qualifies sits a **"not examined" disclosure**. The at-risk
+figure counts refused *credits*, and the engine reads credits only — so chargebacks,
+reversals and bank fees are invisible to it. Showing the exception list without saying so
+would be misleading by omission, and the omission matters more here than in the metrics
+block, because this page is what someone acts on. The lines are listed but never mixed
+into the worklist: they are not items to work, they are items the engine cannot speak
+about. The API is **read-only by design**: there is no accept /
 reject endpoint, because a feedback loop is out of scope and a button that did nothing
 would be worse than none.
 
@@ -249,7 +257,7 @@ would be worse than none.
 pytest tests/
 ```
 
-261 tests, including the end-to-end isolation test — which deletes the ground-truth
+265 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*
