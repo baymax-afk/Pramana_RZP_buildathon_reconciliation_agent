@@ -321,3 +321,76 @@ kept as written so the order and the reasoning stay legible.
 **The pattern worth noting:** three of the top four are *incomplete fixes rather than new
 mistakes*. The session's own lesson — the metric that looked right — held for the
 session's own work.
+
+---
+
+## Blocked on something only the account owner can supply (re-verified 2026-09-03)
+
+Three external unblocks were attempted this session. All three are blocked on a value or
+a permission that cannot be obtained from inside the repository, and each was checked
+against the live service rather than assumed from a previous note.
+
+### B1. W2 — the LLM comparison needs `ANTHROPIC_WORKSPACE_ID`
+
+The code is ready: `ClaudeTier` already reads the variable and sets the
+`anthropic-workspace-id` header. A live call confirms the exact and only remaining
+blocker:
+
+```
+400 invalid_request_error — anthropic-workspace-id is required when authenticating
+with an identity-linked API key; send the id of the workspace this request acts in.
+```
+
+A workspace lookup through the Admin API was attempted and correctly refused — the key
+in `.env` is a standard API key, not an admin key (`403 permission_error`), so the id
+cannot be discovered from here.
+
+**To resolve:** Console → Settings → Workspaces, copy the workspace id, add
+`ANTHROPIC_WORKSPACE_ID=...` to `.env` beside the key, then run
+`python run.py llm-compare --verify`. Everything else is in place, including the
+false-zero guard that now refuses a run whose calls never reached the model.
+
+### B2. Razorpay connector — the merchant account is not activated
+
+This session had live Razorpay tools available, which is what `AGENTIC.md` Ring 2
+proposes for an investigating agent. They do not reach this project's data:
+
+```
+fetch_payment(pay_TWewgg8dNUUSrb)  → The Merchant is not activated
+fetch_all_payments()               → Authentication failed
+```
+
+The connector authenticates as a different merchant from the test-mode account that
+produced the R1 records, so the R1 provenance claim could not be re-verified against
+the live API and no settlement data could be fetched.
+
+**Worth noting for the record:** this is the precondition `AGENTIC.md` assumes and does
+not state. Ring 2's investigating agent needs an activated merchant on the *same*
+account as the data, not merely a connector that answers.
+
+### B3. W1 — BenchRec is blocked two independent ways
+
+Unchanged: no Kaggle credentials, and the outbound network policy refuses the host
+(`CONNECT tunnel failed, 403`).
+
+---
+
+## Documentation drift, found and closed 2026-09-03
+
+An audit of every checkable claim in `README.md` against the live system found three
+stale numbers, all in the figures a reader checks first:
+
+| Claim | README said | Actual |
+|---|---:|---:|
+| bank transactions | 136 | **147** (141 credits + 6 debits) |
+| invoices | 200 | **187** |
+| tests | 287 | **300** |
+
+The two batch figures had been wrong since debits and payments-on-account were added —
+the statement gained chargeback debits, and 13 payments now carry no invoice at all.
+Both are the *interesting* numbers, which is why the corrected sentence now says why
+they are not round.
+
+`tests/test_readme_claims.py` now derives each of these from the generator and the suite,
+so the README cannot drift from the system again without a test failing. It caught its
+own arrival on the first run — adding the file changed the test count it asserts.

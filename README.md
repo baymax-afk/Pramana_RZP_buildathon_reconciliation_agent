@@ -99,8 +99,15 @@ would be worth less than an accurate account of what is real.
 | **R2 — Razorpay-issued orders** | Real orders created through the API. Genuine Razorpay-issued IDs, receipts, notes and server timestamps. **Never completed — no `fee`, no `tax`, not `captured`.** | **12** |
 | **S — synthetic** | Schema-conformant records generated locally, carrying the injected defects. | **164** |
 
-Total batch: **200 payments**, 136 bank transactions, 200 invoices, across 23
-settlement windows.
+Total batch: **200 payments**, 147 bank transactions (141 credits and 6 debits), 187
+invoices, across 34 settlement windows.
+
+Two of those figures are worth reading twice, because both used to be rounder and the
+change is the point. The statement carries **debits** now — chargebacks, which the engine
+structurally cannot read and therefore discloses rather than scores. And there are fewer
+invoices than payments because **13 payments carry none at all**: money on account, which
+is ordinary and which the batch had none of while every payment had an invoice number and
+exact-reference matching was available far more often than reality allows.
 
 The R1 slice spans **7 distinct payer contacts**, **7 banks** (BARB_R, CNRB, DEUT,
 IBKL, KVBL, PUNB_R, UTBI), two payment methods (netbanking, wallet), and ₹215 to
@@ -270,7 +277,7 @@ would be worse than none.
 pytest tests/
 ```
 
-287 tests, including the end-to-end isolation test — which deletes the ground-truth
+300 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*
