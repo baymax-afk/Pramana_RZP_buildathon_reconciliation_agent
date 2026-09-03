@@ -108,31 +108,55 @@ class ClaudeTier:
             api_key=os.environ["ANTHROPIC_API_KEY"],
             default_headers=headers or None,
         )
-        # Transport failures, in order. Empty means every call that was made succeeded.
+        # Two failure lists, because they mean opposite things about a measurement.
+        #
+        # A TRANSPORT failure means the request never reached the model, so the empty
+        # fields it produced are not the model's answer and must not be counted as one.
+        # A PARSE failure means the model answered and the answer was unusable -- which
+        # IS a fact about the model, and belongs in the measurement rather than
+        # invalidating it.
+        #
+        # Collapsing the two would make one malformed JSON body in an otherwise clean
+        # run of 127 calls invalidate the whole comparison, and report the reason as
+        # "the requests never reached the model" -- a false claim, in the guard written
+        # to stop false claims.
         self.transport_errors: list[str] = []
+        self.parse_failures: list[str] = []
         self.calls_made = 0
 
     def _ask(self, prompt: str, max_tokens: int) -> dict:
         self.calls_made += 1
+
+        # Scoped tightly to the network call: only what happens BEFORE a response
+        # exists can be a transport failure.
         try:
             resp = self._client.messages.create(
                 model=MODEL,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-            text = "".join(
-                block.text for block in resp.content if getattr(block, "type", "") == "text"
-            )
-            start, end = text.find("{"), text.rfind("}")
-            if start < 0 or end <= start:
-                return {}
-            return json.loads(text[start : end + 1])
         except Exception as e:
             # Degrade to nothing, but RECORD it. A tier that raises would make the
             # engine's ability to run without the LLM a lie; a tier that fails silently
             # makes every measurement of its contribution a lie instead.
-            detail = str(e)
-            self.transport_errors.append(f"{type(e).__name__}: {detail[:200]}")
+            self.transport_errors.append(f"{type(e).__name__}: {str(e)[:200]}")
+            return {}
+
+        # The model answered. Anything wrong from here on is about the answer, not the
+        # pipe, so it degrades to empty fields without impugning the run.
+        try:
+            text = "".join(
+                block.text
+                for block in resp.content
+                if getattr(block, "type", "") == "text"
+            )
+            start, end = text.find("{"), text.rfind("}")
+            if start < 0 or end <= start:
+                self.parse_failures.append("no JSON object in response")
+                return {}
+            return json.loads(text[start : end + 1])
+        except Exception as e:
+            self.parse_failures.append(f"{type(e).__name__}: {str(e)[:200]}")
             return {}
 
     def parse_narration(self, narration: str) -> NarrationFields:

@@ -143,14 +143,36 @@ def _is_picklable(obj) -> bool:
     would rot the moment a fourth one is added -- the question is asked directly, and a
     tier that cannot travel simply runs the ensemble sequentially. Correctness never
     depends on the answer; only speed does.
+
+    **One exception, and it is about honesty rather than speed.** A tier that counts its
+    own failures (`ClaudeTier.transport_errors`) keeps that state in ordinary instance
+    attributes. Fork it into K workers and every failure is recorded in a child and
+    discarded on join, so the parent sees an empty list and `tier_is_measurable` reports
+    a clean run over calls that all failed -- the precise false null the counters were
+    added to prevent.
+
+    Today that cannot happen: `ClaudeTier` holds an HTTP client and fails to pickle. But
+    it would be true only by accident, and it would break silently the day an SDK client
+    became picklable. So a self-reporting tier is refused the process boundary outright,
+    on the same principle the rest of this file follows: a measurement that can silently
+    stop being true is worse than a slower one that cannot.
     """
     if obj is None:
         return True
+    if hasattr(obj, "transport_errors"):
+        return False
     try:
         pickle.dumps(obj)
         return True
     except Exception:
         return False
+
+
+# Which path the last `_run_passes` call actually took, and why. Diagnostic only --
+# nothing in the engine reads it, and no verdict depends on it. It exists so that a
+# silent fallback to the sequential path is visible to a test instead of being assumed
+# not to have happened.
+LAST_RUN: dict = {"path": None}
 
 
 def _run_passes(
@@ -161,6 +183,13 @@ def _run_passes(
 
     The two paths must be interchangeable, and `tests/test_verification.py` asserts they
     produce identical ensembles rather than assuming it.
+
+    Which path ran is recorded in `LAST_RUN`, because the fallback below swallows every
+    exception: without it, a pool that never starts (a sandbox forbidding subprocesses,
+    an unpicklable return value, a crashed worker) silently downgrades to the sequential
+    path, and the equivalence test compares sequential against sequential and passes
+    while proving nothing. That is the same shape as the bug this fallback's own comment
+    warns about, so the path is now observable rather than assumed.
     """
 
     def run_sequentially() -> list[MatchOutput]:
@@ -184,6 +213,7 @@ def _run_passes(
     # API client holding a socket is the realistic unpicklable case, and that one is
     # cheap to check.
     if not cfg.PERMUTATION_PARALLEL or passes < 2 or not _is_picklable(llm):
+        LAST_RUN.update(path="sequential", fell_back_from_parallel=None)
         return run_sequentially()
 
     try:
@@ -193,12 +223,15 @@ def _run_passes(
             initargs=(inputs, llm),
         ) as pool:
             # `map` yields in argument order, so pass i is always result i.
-            return list(pool.map(_worker_pass, [(i, base_seed) for i in range(passes)]))
-    except Exception:
+            out = list(pool.map(_worker_pass, [(i, base_seed) for i in range(passes)]))
+        LAST_RUN.update(path="parallel", workers=min(passes, cfg.PERMUTATION_MAX_WORKERS))
+        return out
+    except Exception as e:
         # A sandbox that forbids subprocesses, an exhausted process table, a worker
         # killed by the OOM reaper, an object that only fails to pickle once the pool
         # tries. None of that is a reason to fail a reconciliation run: the sequential
         # path produces the identical answer.
+        LAST_RUN.update(path="sequential", fell_back_from_parallel=f"{type(e).__name__}: {e}")
         return run_sequentially()
 
     try:

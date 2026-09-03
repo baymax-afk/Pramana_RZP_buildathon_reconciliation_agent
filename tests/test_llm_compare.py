@@ -240,7 +240,10 @@ class _BrokenTier:
 
         return NarrationFields(payer_name=None, merchant_ref=None, model=self.name)
 
-    def explain_refusal(self, *a, **k):
+    def explain(self, category, reason, rupees_at_risk):
+        # `explain`, not `explain_refusal` -- the name the LLMTier protocol actually
+        # declares. The stub only ever reached `tier_is_measurable`, which uses getattr,
+        # so a wrong name here would have gone unnoticed until the fixture was reused.
         from recon.llm.interface import ExceptionProse
 
         return ExceptionProse("", "")
@@ -303,3 +306,49 @@ def test_tier_health_is_judged_after_the_calls_not_before():
     assert "if valid:" in body[ran_arms:second], (
         "the re-check must only downgrade, never resurrect an already-withheld verdict"
     )
+
+
+class _PartlyBrokenTier(_BrokenTier):
+    """127 calls, one of which never reached the model."""
+
+    def __init__(self):
+        super().__init__()
+        self.transport_errors = ["APIConnectionError: connection reset"]
+        self.calls_made = 127
+
+
+class _MalformedAnswerTier(_BrokenTier):
+    """Every call reached the model; one answer was unusable."""
+
+    def __init__(self):
+        super().__init__()
+        self.transport_errors = []
+        self.parse_failures = ["JSONDecodeError: Expecting value: line 1 column 1"]
+        self.calls_made = 127
+
+
+def test_a_malformed_answer_does_not_invalidate_the_measurement():
+    """
+    A parse failure is a fact ABOUT the model, not a reason to discard the run.
+
+    `ClaudeTier._ask` used to wrap the network call, the response-shape walk, and
+    `json.loads` in one `except Exception`, so a 200 OK carrying malformed JSON was
+    filed as a transport failure. One bad body in 127 clean calls would then void a
+    real measurement and explain itself with "the requests never reached the model" --
+    a false claim, produced by the guard written to prevent false claims.
+    """
+    ok, why = tier_is_measurable(_MalformedAnswerTier())
+    assert ok, why
+
+
+def test_a_partial_transport_failure_is_described_as_partial():
+    """
+    The guard must not overstate either. Some calls failing is not all calls failing,
+    and the withheld message has to say which happened -- the run is still refused,
+    because the failures hide inside the batch as ordinary empty fields.
+    """
+    ok, why = tier_is_measurable(_PartlyBrokenTier())
+    assert not ok
+    assert "1 of 127" in why
+    assert "126 answered normally" in why
+    assert "NO field" not in why, "a partial failure was described as a total one"

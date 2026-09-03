@@ -512,12 +512,21 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
         print("")
         # The two withholding reasons need different sentences. Calling a transport
         # failure "a measurement of the stand-in" would be its own small false claim.
-        if getattr(tier_on, "transport_errors", None):
+        errs = list(getattr(tier_on, "transport_errors", None) or ())
+        if errs:
+            made = getattr(tier_on, "calls_made", 0)
+            # Quote the counts instead of asserting "every". Under a partial failure
+            # most fields DID come from the model, and this is the branch whose whole
+            # job is to not overstate what the run established.
+            scope = (
+                f"all {made} calls" if len(errs) >= made else f"{len(errs)} of {made} calls"
+            )
             print("    The numbers above are real, and they measure a BROKEN")
-            print("    TRANSPORT: every field came back empty because the requests")
-            print("    never reached the model. An empty field is also what a")
-            print("    successful call returns for an unreadable narration, which is")
-            print("    exactly why this cannot be read as a null result for a model.")
+            print(f"    TRANSPORT: {scope} never reached the model, so the")
+            print("    fields behind them are empty for a reason that has nothing to")
+            print("    do with the model. An empty field is also what a successful")
+            print("    call returns for an unreadable narration, which is exactly why")
+            print("    this cannot be read as a null result for a model.")
         else:
             print("    The parse-yield and verdict-delta numbers above are real")
             print("    measurements OF THE STAND-IN. They are not a null result for a")

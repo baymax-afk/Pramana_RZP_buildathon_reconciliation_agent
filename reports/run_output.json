@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-03T02:47:29.287270+00:00",
+  "generated_at": "2026-09-03T04:47:58.812950+00:00",
   "seed": 20260905,
   "density": 6,
   "totals": {
@@ -8,10 +8,10 @@
     "captured_payments": 194,
     "bank_credits": 141,
     "invoices": 187,
-    "assigned": 127,
-    "refused": 14,
+    "assigned": 126,
+    "refused": 15,
     "no_candidate": 0,
-    "rupees_at_risk": 253889.05
+    "rupees_at_risk": 301909.22
   },
   "not_examined": {
     "debit_lines": 6,
@@ -75,11 +75,35 @@
     "materiality_rupees": 5000.0
   },
   "tier_counts": {
-    "tier1_reference": 46,
-    "tier2_amount_date": 61,
+    "tier1_reference": 37,
+    "tier2_amount_date": 69,
     "tier3_subsetsum": 20
   },
   "exceptions": [
+    {
+      "bank_txn_id": "bank_txn_0103",
+      "category": "amount_name_conflict",
+      "rupees_at_risk": 48020.17,
+      "txn_date": "2026-08-17",
+      "narration": "INW REM 275492 ACME INDUSTRIAL SU INV20261143",
+      "reference": "ICICR92259685884",
+      "why": "The amounts reconcile but the counterparty does not. Either the payer was renamed, or this is a coincidental amount match to the wrong customer.",
+      "next_step": "Confirm the customer identity; do not post on the amount alone.",
+      "engine_reason": "amounts reconcile (residual +0p) but non-amount evidence contradicts it: Fellegi-Sunter field weight -3.26 (total -6.72). name disagreement: bank 'ACME INDUSTRIAL SU' vs ['DECCAN PHARMA DIST']",
+      "candidates": [
+        {
+          "payment_ids": [
+            "pay_SYN001441035"
+          ],
+          "rupees": 48020.17,
+          "residual_paise": 0,
+          "customers": [
+            "DECCAN PHARMA DIST"
+          ]
+        }
+      ],
+      "confidence": null
+    },
     {
       "bank_txn_id": "bank_txn_0050",
       "category": "decomposition_out_of_bounds",
@@ -617,23 +641,6 @@
       "confidence": 0.9386
     },
     {
-      "bank_txn_id": "bank_txn_0103",
-      "payment_ids": [
-        "pay_SYN001441035"
-      ],
-      "invoice_nos": [
-        "INV-2026-1143"
-      ],
-      "tier": "tier1_reference",
-      "rupees": 48020.17,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": 0.815,
-      "permutation_stability": 1.0,
-      "confidence": 0.9342
-    },
-    {
       "bank_txn_id": "bank_txn_0124",
       "payment_ids": [
         "pay_SYN001693557"
@@ -768,14 +775,14 @@
       "invoice_nos": [
         "INV-2026-1124"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 44690.91,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 4.75,
+      "fs_weight": -2.782,
       "permutation_stability": 1.0,
-      "confidence": 0.964
+      "confidence": 0.9241
     },
     {
       "bank_txn_id": "bank_txn_0117",
@@ -1260,14 +1267,14 @@
       "invoice_nos": [
         "INV-2026-1078"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 34986.54,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.455,
+      "fs_weight": 0.923,
       "permutation_stability": 1.0,
-      "confidence": 0.982
+      "confidence": 0.9354
     },
     {
       "bank_txn_id": "bank_txn_0099",
@@ -1379,14 +1386,14 @@
       "invoice_nos": [
         "INV-2026-1076"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 30769.92,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.04,
+      "fs_weight": -2.493,
       "permutation_stability": 1.0,
-      "confidence": 0.9645
+      "confidence": 0.9241
     },
     {
       "bank_txn_id": "bank_txn_0114",
@@ -1762,14 +1769,14 @@
       "invoice_nos": [
         "INV-2026-1122"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 18300.26,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 4.75,
+      "fs_weight": -2.782,
       "permutation_stability": 1.0,
-      "confidence": 0.964
+      "confidence": 0.9241
     },
     {
       "bank_txn_id": "bank_txn_0046",
@@ -1779,14 +1786,14 @@
       "invoice_nos": [
         "INV-2026-1063"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 18249.62,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 4.75,
+      "fs_weight": -2.782,
       "permutation_stability": 1.0,
-      "confidence": 0.964
+      "confidence": 0.9241
     },
     {
       "bank_txn_id": "bank_txn_0133",
@@ -1919,14 +1926,14 @@
       "invoice_nos": [
         "INV-2026-1158"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 13686.21,
       "residual_paise": -1,
       "residual_tightness": 0.99,
       "uniqueness_margin": 1.0,
-      "fs_weight": 5.04,
+      "fs_weight": -2.493,
       "permutation_stability": 1.0,
-      "confidence": 0.9635
+      "confidence": 0.922
     },
     {
       "bank_txn_id": "bank_txn_0017",
@@ -2298,14 +2305,14 @@
       "invoice_nos": [
         "INV-2026-1095"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 6417.95,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.455,
+      "fs_weight": 0.923,
       "permutation_stability": 1.0,
-      "confidence": 0.982
+      "confidence": 0.9354
     },
     {
       "bank_txn_id": "bank_txn_0033",
@@ -2485,14 +2492,14 @@
       "invoice_nos": [
         "INV-2026-1014"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 1519.5,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.915,
+      "fs_weight": 1.382,
       "permutation_stability": 1.0,
-      "confidence": 0.982
+      "confidence": 0.9404
     },
     {
       "bank_txn_id": "bank_txn_0024",
@@ -2601,5 +2608,5 @@
     "relations": [],
     "permutation_gate": null
   },
-  "throughput_records_per_s": 12707
+  "throughput_records_per_s": 53
 }

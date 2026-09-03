@@ -83,9 +83,14 @@ def tier_is_measurable(tier: LLMTier) -> tuple[bool, str]:
     # 400'd with `anthropic-workspace-id is required`, and the tier degraded silently --
     # so the harness was one run away from publishing "the measured contribution of the
     # LLM is zero" as a finding about Claude rather than about a missing header.
+    #
+    # Only TRANSPORT failures count here. A malformed answer is still an answer, and
+    # folding parse failures in would let one bad JSON body in 127 clean calls void a
+    # real measurement -- while reporting the reason as "the requests never reached the
+    # model", which would be false.
     errors = list(getattr(tier, "transport_errors", ()) or ())
+    calls = getattr(tier, "calls_made", 0)
     if errors:
-        calls = getattr(tier, "calls_made", 0)
         first = errors[0]
         hint = ""
         if "anthropic-workspace-id" in first:
@@ -93,12 +98,26 @@ def tier_is_measurable(tier: LLMTier) -> tuple[bool, str]:
                 " This key is identity-linked: set ANTHROPIC_WORKSPACE_ID to the "
                 "workspace it acts in (Console -> Settings -> Workspaces) and re-run."
             )
+
+        # Describe what actually happened rather than assuming the total case. A run
+        # that lost some calls is not the same as one that lost all of them, and this
+        # guard exists to stop overstatement, so it must not overstate either.
+        if len(errors) >= calls:
+            damage = (
+                "so NO field it returned is an answer -- and an empty answer is what a "
+                "SUCCESSFUL call returns for an unreadable narration, which is why the "
+                "two are indistinguishable in the output"
+            )
+        else:
+            damage = (
+                f"so the remaining {calls - len(errors)} answered normally. The result "
+                f"is a partial measurement over an unknown subset of the batch: the "
+                f"credits behind the failed calls are silently indistinguishable from "
+                f"credits the model genuinely could not read"
+            )
         return False, (
-            f"{len(errors)} of {calls} call(s) to {name!r} never reached the model, so "
-            f"every field it returned is a transport failure rather than an answer -- "
-            f"and an empty answer is what a SUCCESSFUL call returns for an unreadable "
-            f"narration, so the two are indistinguishable in the output. First error: "
-            f"{first}.{hint}"
+            f"{len(errors)} of {calls} call(s) to {name!r} never reached the model, "
+            f"{damage}. First error: {first}.{hint}"
         )
     return True, ""
 
