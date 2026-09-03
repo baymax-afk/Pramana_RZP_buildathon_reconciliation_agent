@@ -6,6 +6,27 @@ number from a doc, I say so and I say whether the code agrees.
 
 ---
 
+> ## Status, updated 2026-09-03 — **all four P0s fixed**
+>
+> The findings below are kept **as written**, in the same spirit as `DEFECT_LOG.md`: an
+> audit rewritten after the fact to look prescient is worth nothing. What has changed
+> since is marked inline and summarised here.
+>
+> | | Was | Now |
+> |---|---|---|
+> | **P0-1** verification missing from the served artefact | `relations: []`, gate `null` | MR1–MR6 all pass, gate K=8 with 0 of 127 unstable. **Root cause was the test suite itself**, which rewrote the file without `--verify` on every run; the payload now carries an explicit `status` and the UI renders its absence as a warning |
+> | **P0-2** no way to see why a match was made | 126 of 141 outcomes invisible | Every match and exception carries a plain sentence, evidence links, and the recorded paise-level transcript |
+> | **P0-3** a live key makes the demo hang | first live run killed after minutes | cache + 10 s timeout + call cap; **same command now finishes in 0.40 s** |
+> | **P0-4** `decomposition_out_of_bounds` miscategorised | all 6 instances said the opposite of what happened | split into `pool_exceeded` / `no_subset_fits`; re-measured, all 6 are the latter |
+>
+> **W2 is also closed.** The LLM comparison ran live: **+1 assignment, precision
+> unmoved at 1.0000**, and identical verdicts across five runs with a fresh live tier.
+>
+> **The verdict below is unchanged in one respect that matters: there is still no
+> agent.** That is the open item, not the artefact bugs.
+
+---
+
 ## 1. Verdict
 
 This is not a toy — the verification apparatus is real, it runs at runtime, and the
@@ -136,7 +157,7 @@ sentence available to this project, and it is true today.
 | # | Issue | Evidence | Hrs |
 |---|---|---|---|
 | **P0-1** | **The shipped artifact has no verification data, and the test suite is what strips it.** `reports/run_output.json` carries `verification: {relations: [], permutation_gate: null}`. `App.jsx:198` returns `null` when both are empty, so the Verification section **silently vanishes** — not a crash; worse, you won't notice until you're on stage. **Root cause, reproduced during this audit:** `tests/test_cli_robustness.py:120` shells out to `run.py match` with `cwd=ROOT` — the real repo, no `--verify` — so **every `pytest` run overwrites the committed demo artifact and removes its verification block.** This is not an operator mistake to remember not to repeat; it is automated, and it will undo the fix. | `reports/run_output.json`; `ui/src/App.jsx:194-198`; `tests/test_cli_robustness.py:113-116` | **1** |
-| **P0-2** | **No assignments view in the UI.** Tabs are `exceptions` and `invoices` only. 126 of 141 outcomes are invisible. A judge cannot click a *match* and see why it was made — the data (`tier`, `residual_tightness`, `uniqueness_margin`, `fs_weight`, `confidence`) is already in `/api/run` and nothing renders it. | `ui/src/App.jsx:294-305` vs `run_output.json` `assignments[]` | **3** |
+| ~~**P0-2**~~ **FIXED 2026-09-03** | **No assignments view in the UI.** *A Matches tab now lists all 127 posted matches, and opening any match or exception gives a plain-English sentence, evidence links to the actual payment/invoice/bank rows, and the full paise-level working behind a toggle. Served by `/api/explain/{id}`. Two bugs found by driving the real page: an effect-dependency deadlock that left every panel loading forever, and a `certain_fee` field missing from the payload that made the UI assert the opposite of the truth on all 127 matches.* Tabs are `exceptions` and `invoices` only. 126 of 141 outcomes are invisible. A judge cannot click a *match* and see why it was made — the data (`tier`, `residual_tightness`, `uniqueness_margin`, `fs_weight`, `confidence`) is already in `/api/run` and nothing renders it. | `ui/src/App.jsx:294-305` vs `run_output.json` `assignments[]` | **3** |
 | ~~**P0-3**~~ **FIXED 2026-09-03** | **A live `ANTHROPIC_API_KEY` turns the demo into a 10-minute hang.** *Confirmed, not projected: the first live run was killed after minutes with no output. Cache + timeout=10s + max_retries=1 + a call cap landed; the same command now finishes in 0.40 s.* `ClaudeTier._ask` has **no timeout, no retry budget, no cache**, and 13 `needs_llm` narrations × up to 6 rounds × 8 permutation passes are made **serially** (the LLM tier is unpicklable, so `ProcessPoolExecutor` falls back to sequential). *Inference from code, not a live run: ~312–624 calls.* On venue wifi the SDK's default timeout applies per call. | `llm/claude.py:85-102`; `config.py:161,211` | **1** |
 | ~~**P0-4**~~ **FIXED 2026-09-03** | **`decomposition_out_of_bounds` is miscategorised on every instance.** *Split into `pool_exceeded` (declined to search) and `no_subset_fits` (searched exhaustively; nothing accounts for it). Re-measured: all 6 are `no_subset_fits` and **zero** are `pool_exceeded`, so every one of them had been telling an operator the opposite of what happened.* All 6 fire on pools of **1, 1, 1, 2, 4, 4** — none exceeded `MAX_POOL=20` or `k=6`. The operator prose says *"there were too many candidates to search exhaustively"* on a credit with **one** candidate. The largest single exception (₹45,673) reads this way. A reconciliation judge will catch it. | run output; `run_output.json` `exceptions[].why` | **1.5** |
 
@@ -250,10 +271,15 @@ Deterministic path: no retries needed, no timeouts to blow, no infinite loop
 cache, and a bare `except Exception: return {}`** (`claude.py:101`) that degrades
 silently — you would not know the tier had failed. See P0-3.
 
-### Observability — **the honest answer is "half"**
+### Observability — ~~**the honest answer is "half"**~~ **closed 2026-09-03**
 For an **exception**: yes, and well — category, engine reason, operator prose, next
 step, both candidate subsets, rupees at risk, all in the UI.
-For a **match**: **no.** The data exists in `/api/run` and no view renders it. See P0-2.
+For a **match**: ~~**no**~~ **yes, now.** Every posted match and every exception carries
+a three-level explanation — a plain sentence, typed evidence links, and the recorded
+transcript with the arithmetic in paise. The transcript is the *actual computation*,
+captured as it ran, and a test hashes the assignment map and refusal set with recording
+on and off to prove that capturing it cannot change it. Nothing in it is written by a
+model; both modules' ASTs are parsed to assert neither imports one.
 
 ### Rewrite verdict: **NO-GO** *(recorded as given; the project owner has since elected
 to proceed with the full tool-calling rewrite. The reasoning below is kept unchanged.)*

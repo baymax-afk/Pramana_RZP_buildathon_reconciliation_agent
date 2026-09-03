@@ -303,6 +303,52 @@ it.
 
 ---
 
+## Hostile audit, 2026-09-03 — `REVIEW.md`
+
+Audited as a staff engineer and a buildathon judge: ran the pipeline rather than reading
+the docs, which is how three of the findings surfaced. Full write-up in
+[`REVIEW.md`](../REVIEW.md).
+
+**All four P0s fixed the same day.** Suite 295 → 323.
+
+| | Finding | Resolution |
+|---|---|---|
+| **P0-1** | `reports/run_output.json` shipped with an empty verification block, and the UI returned `null` for it — so the four-layer claim rendered as *nothing*, silently | The root cause was `test_cli_robustness.py`, which shelled out to `run.py match` with `cwd=ROOT` and no `--verify` on **every pytest run**. Redirected to a tmp dir; the payload now carries an explicit `status`; the UI renders its absence as a warning strip |
+| **P0-2** | No assignments view — 126 of 141 outcomes invisible, and no way to ask why a match was made | The explainability engine, below |
+| **P0-3** | A live API key turned the demo into a multi-minute hang | Cache, 10 s timeout, 1 retry, call cap. 0.40 s |
+| **P0-4** | `decomposition_out_of_bounds` fired on pools of 1, 1, 1, 2, 4, 4 while telling operators there were "too many candidates to search" | Split into `pool_exceeded` and `no_subset_fits` |
+
+**The finding worth keeping in view.** `interface.py` claims a model *"structurally
+cannot"* express a matching preference. It does not need to: `merchant_ref` →
+`ReferenceIndex` → `invoice_no` → payment id is **one hop**, and tier 1 outranks
+everything in `evidence_key`, so a plausible invoice number selects a payment and wins
+contested money. Measured against the offline stand-in: **+1 assignment and 9 credits
+moved from tier 2 to tier 1.** Amount conservation still gates it, so the mitigations are
+real — but the absolute claim is not, and `REVIEW.md` §5 proposes the honest wording.
+
+### Explainability engine — shipped 2026-09-03
+Three reading levels for every credit, because the three audiences want different things:
+a **plain sentence** (no jargon), **typed evidence links** to the actual payment, invoice
+and bank rows, and the **full transcript** with the arithmetic in paise.
+
+The transcript is the *actual computation*, recorded as it runs — not a description
+written afterwards. Nothing in `recon/explain/` calls a model, and a test parses both
+modules' ASTs to assert neither imports one, so an explanation cannot drift from the
+decision it describes: there is no second inference that could disagree.
+
+**Recording is inert, and that is the load-bearing property.** `match_once` is pure and
+MR1 depends on it, so `tests/test_explain.py` hashes the assignment map, the refusals
+with their categories and rupees at risk, and the no-candidate set with recording on and
+off, and requires them byte-identical.
+
+Two UI bugs were found by driving the real page in Chromium, neither visible in the build
+or in the diff: an effect-dependency deadlock that left every explanation panel loading
+forever while its request returned 200 every time, and a `certain_fee` field missing from
+the payload that made the Matches card assert *"fee known exactly: no"* on **all 127**
+assignments — while the transcript two lines below it said the opposite.
+
+---
+
 ## Code review, 2026-09-02 — 14 findings, none covered by the suite
 
 Full write-up: [`REVIEW_2026-09-02.md`](REVIEW_2026-09-02.md). Reviewed the whole session
