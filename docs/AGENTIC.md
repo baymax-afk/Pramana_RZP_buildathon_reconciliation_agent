@@ -1,8 +1,20 @@
 # Making it agentic
 
-*A design note, not a shipped feature. Written against the run at seed 20260905:
-129 assignments, precision 1.0000, **6 exceptions worth ₹57,775**, and 5 conservative
-refusals the engine got wrong by declining.*
+*A design note, not a shipped feature. Re-grounded 2026-09-03 against the run at seed
+20260905: 127 assignments, precision 1.0000, **14 exceptions worth ₹2,53,889**, plus
+**₹1,66,733 on 6 debit lines the engine structurally cannot read.***
+
+> **What changed since this was first written, and why it strengthens the argument.**
+> The original worked example was the five `partial` cases at 0/5 recall. They are gone —
+> not because an agent found evidence, but because the *generator* was hiding money
+> (`DEFECT_LOG` 2026-09-02-08), and partial recall is now 7/7. The example was solved by
+> fixing the data, which is precisely the thesis below: an exception is usually the engine
+> correctly reporting that the evidence in front of it is insufficient.
+>
+> The exception list has since grown from 6 to 14, because the batch became honest — it
+> gained bank charges, third-party payers, split settlements and chargebacks. **More
+> exceptions on better data is the right direction**, and it gives Ring 2 more to work on
+> rather than less.
 
 ---
 
@@ -51,20 +63,28 @@ missing evidence usually exists somewhere the engine was never given access to.
 
 ---
 
-## Where the remaining ₹57,775 actually is
+## Where the remaining ₹2,53,889 actually is
 
 | Exception | Count | ₹ at risk | What is actually missing |
 |---|---:|---:|---|
-| `unexplained_residual` | 4 | 49,573 | A deduction nobody told the ledger about |
-| `decomposition_out_of_bounds` | 1 | 7,401 | A pool of >20 — or a payment outside the window |
+| `amount_name_conflict` | 4 | 1,02,981 | Authority. Mostly third-party payers — a parent settling a subsidiary's invoice, where the amount is right and the name is not |
+| `decomposition_out_of_bounds` | 6 | 1,00,350 | A deduction nobody told the ledger about — bank charges, or a split settlement the model cannot express |
+| `unexplained_residual` | 3 | 49,757 | The reference identifies a payment; the money does not agree |
 | `multiple_candidates` | 1 | 800 | Nothing. **This is the hand-placed ambiguity case, and refusing is correct.** |
 
-Plus the 5 `partial` cases (recall **0/5**), where the engine refuses because a customer
-short-paid and nothing on the three sides says so.
+Plus **6 debit lines worth ₹1,66,733** that are not on this list at all, because the
+engine reads credits only and discloses them instead of scoring them.
 
-Read that table again: **five of the six exceptions are missing-evidence problems, and
-the sixth is a case where refusing is the right answer and no agent should touch it.**
-That distribution is the entire argument for the design below.
+Read that table again: **thirteen of the fourteen exceptions are missing-evidence
+problems, and the fourteenth is a case where refusing is right and no agent should touch
+it.** That distribution is the entire argument for the design below — and it held when
+the batch had 6 exceptions and it holds now that it has 14.
+
+The largest single bucket is now `amount_name_conflict`, and it is the most
+agent-shaped of all of them: the engine has correctly established that the money
+reconciles and the counterparty does not. Deciding whether a parent company is
+authorised to settle a subsidiary's invoice is not an arithmetic question and never will
+be. It is a lookup — exactly the evidence a Ring 2 investigator would fetch.
 
 ---
 
@@ -128,18 +148,48 @@ tools, and one carefully bounded write:
 | **`upload_invoice_ledger`** | **write to INPUT** | Replace side C, then **re-run the engine** |
 | draft payer email | write, human-gated | "We received ₹X against invoice Y, ₹Z appears short" |
 
+### The precondition this design assumed without saying so
+
+A Razorpay MCP connector was live in a session on 2026-09-03, and it could not do any of
+the above. Both calls failed:
+
+```
+fetch_payment(pay_TWewgg8dNUUSrb)  → The Merchant is not activated
+fetch_all_payments()               → Authentication failed
+```
+
+The connector authenticated as a **different merchant** from the test-mode account that
+produced this project's R1 records. So Ring 2 needs something narrower than "a Razorpay
+connector is available": it needs **an activated merchant on the same account as the
+data**. A connector that answers is not the same as a connector that can see your
+payments, and the difference is invisible until you make a call — the tool list looks
+identical either way.
+
+Worth stating because it is the cheapest possible thing to get wrong when planning this:
+the investigation ring is not blocked on model capability or on design, it is blocked on
+an account setting. That is also good news, because account settings are fixable and
+architectures are not.
+
+### The write is bounded
+
 The write is the point, and its bounding is the point. `api/invoices.py` already exists
 and is already scoped this way: it replaces *input data*, never a verdict, and **the
 engine must be re-run for an upload to change anything**. That endpoint was built for a
 human. It is exactly the right shape for an agent.
 
-**Worked example — the 5 `partial` cases.** The engine refuses because ₹9,400 arrived
-against a ₹10,000 invoice and nothing explains ₹600. An agent fetches the payment from
-Razorpay, finds no refund, checks the invoice for a credit note, finds one issued after
-the invoice was cut, uploads the corrected ledger, and re-runs. Either the engine now
-assigns — because the evidence changed — or it still refuses, and the agent has produced
-an *evidenced* exception for a human instead of a bare one. **Both outcomes are wins, and
-neither required the agent to have an opinion about the match.**
+**Worked example — the 4 `amount_name_conflict` cases, ₹1,02,981.** The engine has
+established that the amounts reconcile exactly and the payer name does not. An agent
+looks the payer up: is `Northwind Holdings` the parent of `Northwind Logistics`? It checks
+the customer registry, the GSTIN prefix, prior settled invoices from the same contact. If
+the relationship is on file it uploads the corrected counterparty mapping and re-runs;
+the engine then has reference evidence that outweighs the name disagreement, and assigns
+on its own. If the relationship is *not* on file, it produces an evidenced exception —
+"this payer has never settled for this customer before" — instead of a bare one.
+
+**Both outcomes are wins, and neither required the agent to have an opinion about the
+match.** Note what makes this tractable: the engine already tells us the split. A
+third-party payment that quotes an invoice reference reconciles today; one that does not
+is escalated. The agent's job is to supply what the quote would have supplied.
 
 ### Ring 3 — orchestration. The boring ring that makes it a product.
 
@@ -201,13 +251,13 @@ all *plausible-looking*:
 
 ## What I would build first, and what it would prove
 
-**Build:** the Ring 2 investigator, over the 5 `partial` cases and the 4
-`unexplained_residual` ones — 9 exceptions, ₹49,573, all of them missing-evidence
-problems.
+**Build:** the Ring 2 investigator, over the 4 `amount_name_conflict` cases and the 3
+`unexplained_residual` ones — 7 exceptions, ₹1,52,739, all of them missing-evidence
+problems, and none of them solvable by any change to the matcher.
 
 **The claim it would let the project make**, which no current metric supports:
 
-> Coverage rose from 92.78% to X% **without precision moving off 1.0000**, and every
+> Coverage rose from 89.18% to X% **without precision moving off 1.0000**, and every
 > point of that rise is attributable to a named piece of evidence an agent went and
 > found — not to a threshold that was loosened.
 

@@ -14,20 +14,30 @@ import os
 from .interface import ExceptionProse, LLMTier, NarrationFields
 
 
-def select(disabled: bool = False) -> LLMTier:
+def select(disabled: bool = False, allow_live: bool = True) -> LLMTier:
     """
     Choose the LLM implementation.
 
-    Order: explicitly disabled -> live Claude if an API key is present -> recorded
-    fixtures. The fallback is deterministic and offline, so the tier stays demoable and
-    testable without a key; `tier.name` records which one ran, and the metrics block
-    prints it, so a recorded run is never mistaken for a live one.
+    Order: explicitly disabled -> live Claude if allowed and an API key is present ->
+    recorded fixtures. The fallback is deterministic and offline, so the tier stays
+    demoable and testable without a key; `tier.name` records which one ran, and the
+    metrics block prints it, so a recorded run is never mistaken for a live one.
+
+    **`allow_live=False` means "offline, but not disabled".** Those are different things
+    and conflating them was a real bug: when the CLI learned to read `.env`, a key became
+    visible and `run.py match` silently started producing `reports/run_output.json` from
+    a paid, non-deterministic service -- the artifact the API, the UI and the submission
+    all read. Passing `disabled=True` to avoid that would have been wrong in the other
+    direction, since it turns the narration tier off entirely and changes the numbers.
+
+    Callers that need a REPRODUCIBLE run and callers that want to MEASURE the live model
+    are answering different questions, so they say so separately.
     """
     if disabled:
         from .null import NullTier
 
         return NullTier()
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    if allow_live and os.environ.get("ANTHROPIC_API_KEY"):
         try:
             from .claude import ClaudeTier
 

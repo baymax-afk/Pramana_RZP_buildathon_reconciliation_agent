@@ -1555,3 +1555,69 @@ seed/density mislabel — has the same shape: **a number that looked right**. Th
 the added property of being *unfalsifiable from the output alone*. A null result and a
 broken pipe are the same bytes. The only defence is to measure whether the measurement
 happened, and that is now what the harness does.
+
+---
+
+## 2026-09-03-02 — The claim was settled, and settling it broke reproducibility
+
+**Timestamp:** 2026-09-03, after `ANTHROPIC_WORKSPACE_ID` was supplied
+
+**What happened:** W2 — the LLM on/off comparison this project has withheld for its
+entire life — was finally measured. Getting there surfaced two defects, and the second
+was caused by fixing the first.
+
+**1. Nothing read `.env`.** The workspace id arrived and `llm-compare` still reported
+`tier=recorded`. `.gitignore` describes `.env` as *"Secrets. The LLM tier and the
+Razorpay MCP both read from here"*, `OUTSTANDING_TASKS.md` instructed the reader to put
+both variables in it, and `recon.llm.select()` read `os.environ` — which nothing
+populated from the file.
+
+Following the documented instructions had **no effect**. It did not produce a false
+claim, because `llm-compare` names the active tier and refuses to call a stand-in
+comparison valid — the guard held. But it is the same doc-vs-code gap this log keeps
+recording, on the one file whose entire purpose is to be read. `pramana_cli` now loads
+it: stdlib-only, about twenty lines, and an already-exported variable always wins. The
+engine has no third-party dependencies and a secrets loader is not worth being the first.
+
+**2. Loading it made the reported artifact non-reproducible.** With a key suddenly
+visible, `run.py match` silently began producing `reports/run_output.json` from a paid,
+non-deterministic service — the artifact the API, the UI and the submission all read.
+Anyone without a key would get different numbers, and the project's central claim is
+reproducibility.
+
+The tempting fix was `disabled=True`, and it is wrong in the other direction: that turns
+the narration tier off entirely and changes the numbers again. **"Offline" and "disabled"
+are different things**, and conflating them is what caused both halves. `select()` now
+takes `allow_live` separately from `disabled`; `match` is offline-but-not-disabled by
+default and `--live-llm` opts in. Three tests pin it, including one asserting that the
+mere presence of a key cannot change what a reported run writes.
+
+**The measurement.** `claude-sonnet-5`, live, five independent runs:
+
+| | LLM OFF | LLM ON |
+|---|---:|---:|
+| match rate | 88.66% | **89.18%** |
+| match precision | 100.00% | **100.00%** |
+| correct assignments | 126 | **127** |
+
+One credit of 141 moves from `refuse: amount_name_conflict` to a correct assignment —
+the model reads a merchant reference the regex tier cannot, and that reference outweighs
+a third-party payer's name disagreement. Precision does not move.
+
+**The finding worth more than the delta.** Across the five runs the model filled **6, 7,
+7, 8 and 8** of 13 unreadable narrations — a 46–62% spread on identical input — and
+produced **identical verdicts every time**. The LLM's output is non-deterministic; the
+engine's decisions are not. That is precisely what the trust boundary was built to
+guarantee, and after being asserted in three documents for the life of the project it is
+now measured.
+
+**And an honest one:** the live model is *worse* at this task than the hand-written
+offline stand-in, which fills 9 of 13. This is narration parsing, not reasoning, and the
+stand-in was written against these exact formats.
+
+**Cost:** ~30 minutes and about a dollar of API calls.
+
+**The pattern, again.** The first defect was a document describing behaviour the code did
+not have. The second was introduced by fixing the first, and would have quietly made
+every future reported number depend on a service the reader does not have. Both were
+found by asking what the change actually did rather than whether it worked.

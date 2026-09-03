@@ -15,6 +15,7 @@ Subcommands for matching, verification and scoring land with those blocks.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -49,6 +50,47 @@ def _print_block(title: str, rows: list[tuple[str, object]]) -> None:
     print("-" * max(len(title), width + 24))
     for k, v in rows:
         print(f"  {k:<{width}}  {v}")
+
+
+def _load_dotenv() -> list[str]:
+    """
+    Load `.env` into the environment, without overriding anything already set.
+
+    **Nothing read this file until now.** `.gitignore` describes it as "Secrets. The LLM
+    tier and the Razorpay MCP both read from here", `OUTSTANDING_TASKS.md` instructed the
+    reader to put `ANTHROPIC_API_KEY` and `ANTHROPIC_WORKSPACE_ID` in it, and
+    `recon.llm.select()` then read `os.environ` and found nothing -- so it silently chose
+    the offline stand-in and every reported run said `llm=recorded`.
+
+    That did not produce a false claim, because `llm-compare` names the active tier and
+    refuses to call a stand-in comparison valid. But it did mean following the documented
+    instructions had no effect, which is the same doc-vs-code gap this project keeps
+    finding, on the one file whose entire purpose is to be read.
+
+    Deliberately stdlib-only and about twenty lines. The engine, its four verification
+    layers and the scorer have NO third-party dependencies, and a secrets loader in the
+    CLI is not worth being the first -- `python-dotenv` would put a package in the
+    dependency graph of a system whose main claim is that money decisions are made by
+    code you can read end to end.
+
+    An already-exported variable always wins, so CI and a one-off `ANTHROPIC_API_KEY=...
+    python run.py ...` behave the way anyone would expect.
+    """
+    path = cfg.ROOT / ".env"
+    if not path.exists():
+        return []
+    loaded = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+            loaded.append(key)
+    return loaded
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
@@ -151,7 +193,20 @@ def cmd_match(args: argparse.Namespace) -> int:
 
     from recon.llm import select as _select_llm
 
-    llm = _select_llm(disabled=args.no_llm)
+    # The REPORTED run is deterministic by default, even when a live key is present.
+    #
+    # `_load_dotenv` made a key visible to `select()`, and `match` immediately started
+    # using the live tier -- which changed reports/run_output.json, the artifact the API,
+    # the UI and the submission all read. That artifact would then depend on a paid,
+    # non-deterministic service, and nobody without a key could reproduce it. Measured
+    # over five runs the live tier's field extraction varies (6-8 of 13 gaps filled)
+    # while its verdicts do not, but "happens to be stable" is not the same guarantee as
+    # "cannot vary", and the whole project rests on the second one.
+    #
+    # So the live tier is opt-in here via --live-llm. It is NOT hidden: the metrics block
+    # prints the active tier on every run, and `llm-compare` exists precisely to exercise
+    # the live model and report the difference as evidence.
+    llm = _select_llm(disabled=args.no_llm, allow_live=args.live_llm)
     relations = ensemble = None
     t0 = time.perf_counter()
     if args.verify:
@@ -545,6 +600,10 @@ def _wrap(text: str, width: int) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Before anything reads os.environ -- notably recon.llm.select(), which picks the
+    # live tier or the offline stand-in purely on whether ANTHROPIC_API_KEY is present.
+    _load_dotenv()
+
     ap = argparse.ArgumentParser(prog="pramana", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -579,6 +638,10 @@ def main(argv: list[str] | None = None) -> int:
                         f"relations. Never used for reported numbers.")
     m.add_argument("--no-llm", action="store_true", default=False,
                    help="disable the LLM narration tier and report precision without it")
+    m.add_argument("--live-llm", action="store_true", default=False,
+                   help="use the live model for THIS run. Off by default so the reported "
+                        "artifact stays reproducible without an API key; "
+                        "`llm-compare` is the command that measures the live tier.")
     m.add_argument("--compare-density", type=int, default=cfg.HEADLINE_COMPARE_DENSITY,
                    help="report a second density beside the reported one in the "
                         "headline (generated in-process, never written to disk). "

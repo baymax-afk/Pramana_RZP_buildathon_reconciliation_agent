@@ -277,7 +277,7 @@ would be worse than none.
 pytest tests/
 ```
 
-300 tests, including the end-to-end isolation test — which deletes the ground-truth
+304 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*
@@ -306,8 +306,16 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 broke. [`docs/FLOWCHARTS.md`](docs/FLOWCHARTS.md) diagrams how the system actually
 behaves — including the places where measurement contradicted the original design.
 [`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) lists what is knowingly
-incomplete, including two claims the project deliberately **withholds** because the
-evidence does not support them.
+incomplete, including one claim the project deliberately **withholds** because the
+evidence does not support it.
+
+**The second withheld claim is now measured.** `python run.py llm-compare` ran against
+live `claude-sonnet-5`: the tier contributes **+0.52pp coverage and one additional
+correct assignment, with precision unmoved at 100.00%**. The more interesting result is
+that across five runs the model filled 6–8 of 13 unreadable narrations — a 46–62% spread
+— and produced **identical verdicts every time**. Model variance does not reach the
+money, which is what the trust boundary was built to guarantee and is now measured rather
+than asserted. See [`METRICS.md`](docs/METRICS.md).
 [`docs/AGENTIC.md`](docs/AGENTIC.md) is a design note on where agency can safely live in
 a system like this — the short answer being everywhere except the verdict, and the
 argument being that the trust boundary is what *permits* autonomy rather than what

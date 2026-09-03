@@ -59,6 +59,36 @@ def test_exceptions_are_ranked_by_rupees_at_risk():
 
 
 @requires_run
+def test_a_same_size_rewrite_is_never_served_from_cache(tmp_path, monkeypatch):
+    """
+    REGRESSION. The cache key was `(mtime_ns, size)`, which two writes of the same length
+    inside one filesystem timestamp tick produce identically -- so a changed file was
+    served stale.
+
+    It surfaced as an INTERMITTENT failure of the test below: green on rerun, which is
+    precisely how a real defect gets dismissed as flakiness. Written here without any
+    timing dependence at all: same length, written back to back, and the payload must
+    still change.
+    """
+    import json
+
+    stand_in = tmp_path / "run_output.json"
+    monkeypatch.setattr(api_main, "RUN_OUTPUT", stand_in)
+    api_main._CACHE = None
+
+    a = json.dumps({"seed": 1, "exceptions": []})
+    b = json.dumps({"seed": 2, "exceptions": []})
+    assert len(a) == len(b), "fixture must be the same length to exercise the collision"
+
+    stand_in.write_text(a, encoding="utf-8")
+    assert api_main._load()["seed"] == 1
+    stand_in.write_text(b, encoding="utf-8")
+    assert api_main._load()["seed"] == 2, (
+        "a same-size rewrite was served from a stale cache"
+    )
+
+
+@requires_run
 def test_repeated_requests_reuse_the_cached_payload():
     api_main._load()
     first = api_main._CACHE

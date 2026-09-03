@@ -113,11 +113,11 @@ flowchart TD
     style FINAL fill:#eaf5ee,stroke:#2c6b41,stroke-width:2px
 ```
 
-**Nine distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
+**Ten distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
 Every refusal names its cause, so an exception says which mechanism objected rather than
 merely that something did.
 
-Two of the nine were added after the diagram was first drawn, and both are worth calling
+Two of the ten were added after the diagram was first drawn, and both are worth calling
 out because they are the only places the engine uses evidence that is not an amount:
 
 - **`narration_count_conflict`.** A settlement narration states how many transactions it

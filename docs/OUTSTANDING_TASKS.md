@@ -38,8 +38,13 @@ than silently substituting the fallback.
     kaggle datasets download -d benchmarkteam/benchrec-real-world-cash-reconciliation-dataset
     unzip -d data/benchrec <archive>.zip
 
-### W2. The LLM on/off precision comparison is unmeasured
-**Status:** boundary enforced and tested; harness built; comparison still withheld ·
+### ~~W2. The LLM on/off precision comparison is unmeasured~~ — **MEASURED 2026-09-03**
+**Status:** settled. `claude-sonnet-5`, live, five runs. +0.52pp coverage, +1 correct
+assignment, **precision unmoved at 100.00%**. Full result and the variance finding in
+`METRICS.md`; the blocker was `ANTHROPIC_WORKSPACE_ID` plus the fact that nothing loaded
+`.env`. Original entry kept below.
+
+**Was:** boundary enforced and tested; harness built; comparison still withheld ·
 `DEFECT_LOG` 2026-09-02-02, 2026-09-02-06
 
 The trust boundary is real: `NarrationFields` carries no payment id, candidate or score,
@@ -330,7 +335,13 @@ Three external unblocks were attempted this session. All three are blocked on a 
 a permission that cannot be obtained from inside the repository, and each was checked
 against the live service rather than assumed from a previous note.
 
-### B1. W2 — the LLM comparison needs `ANTHROPIC_WORKSPACE_ID`
+### ~~B1. W2 — the LLM comparison needs `ANTHROPIC_WORKSPACE_ID`~~ — **RESOLVED**
+The id was supplied and the comparison ran. A second blocker sat behind it that no note
+had caught: **nothing in the codebase read `.env` at all**, so a correctly-populated file
+still left `select()` choosing the offline stand-in. `pramana_cli` now loads it,
+stdlib-only, without overriding anything already exported. Original entry below.
+
+**Was:**
 
 The code is ready: `ClaudeTier` already reads the variable and sets the
 `anthropic-workspace-id` header. A live call confirms the exact and only remaining
