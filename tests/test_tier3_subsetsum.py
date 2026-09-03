@@ -124,7 +124,7 @@ def test_pool_above_MAX_POOL_refuses_rather_than_truncating(monkeypatch):
         narration="TEST", ref_no="UTR1", credit=5_000, debit=0, balance=0,
     )
     cands, cat, reason, margin = t3._decompose(txn, tuple(oversized), set(), {})
-    assert cat is not None and cat.value == "decomposition_out_of_bounds"
+    assert cat is not None and cat.value == "pool_exceeded"
     assert str(cfg.MAX_POOL) in reason
     assert cands == [] and margin == 0.0
 

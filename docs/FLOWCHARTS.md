@@ -83,8 +83,8 @@ flowchart TD
     T2 -->|none fit| T3
 
     T3{"Tier 3<br/>bounded subset-sum"}
-    T3 -->|pool > MAX_POOL| BOUNDS["REFUSE<br/>decomposition_out_of_bounds"]
-    T3 -->|no subset fits| NONE["REFUSE<br/>decomposition_out_of_bounds<br/>(nothing accounts for it)"]
+    T3 -->|pool > MAX_POOL| BOUNDS["REFUSE<br/>pool_exceeded<br/>(declined to search)"]
+    T3 -->|no subset fits| NONE["REFUSE<br/>no_subset_fits<br/>(searched; nothing accounts for it)"]
     T3 -->|2+ subsets fit| MULTI3["REFUSE<br/>multiple_candidates<br/>or solution_cap_reached"]
     T3 -->|exactly one subset| ASSIGN
 
@@ -113,7 +113,7 @@ flowchart TD
     style FINAL fill:#eaf5ee,stroke:#2c6b41,stroke-width:2px
 ```
 
-**Ten distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
+**Eleven distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
 Every refusal names its cause, so an exception says which mechanism objected rather than
 merely that something did.
 

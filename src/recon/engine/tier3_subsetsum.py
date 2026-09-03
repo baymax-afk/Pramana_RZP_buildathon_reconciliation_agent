@@ -256,7 +256,7 @@ def _decompose(
     if len(pool) > cfg.MAX_POOL:
         return (
             [],
-            RefusalCategory.OUT_OF_BOUNDS,
+            RefusalCategory.POOL_EXCEEDED,
             f"candidate pool is {len(pool)} payments, above MAX_POOL={cfg.MAX_POOL}; "
             f"the decomposition cannot be searched exhaustively, so no answer is "
             f"claimed (truncating the pool could hide the true subset)",
@@ -284,7 +284,7 @@ def _decompose(
     if not result.solutions:
         return (
             [],
-            RefusalCategory.OUT_OF_BOUNDS,
+            RefusalCategory.NO_SUBSET_FITS,
             f"no subset of the {result.pool_size} candidates sums to {txn.credit}p "
             f"within {tol}p at k<={cfg.MAX_SUBSET_K}"
             + (f" (closest miss {result.best_miss:+d}p)" if result.best_miss is not None else ""),

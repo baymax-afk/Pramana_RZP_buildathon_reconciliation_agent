@@ -44,9 +44,14 @@ _WHY: dict[str, str] = {
         "So many different payment combinations fit this credit that the amount is not "
         "evidence for any particular one."
     ),
-    "decomposition_out_of_bounds": (
-        "No combination of payments in the settlement window accounts for this credit, "
-        "or there were too many candidates to search exhaustively."
+    "pool_exceeded": (
+        "Too many payments settled in this window for the engine to test every "
+        "combination, so it declined to guess rather than search part of the range."
+    ),
+    "no_subset_fits": (
+        "Every combination of payments in this settlement window was tested and none "
+        "of them adds up to this credit. The money is not accounted for by anything "
+        "the engine can see."
     ),
     "fs_below_lower_threshold": (
         "The payer name and reference actively contradict this match, even though the "
@@ -70,7 +75,8 @@ _NEXT_STEP: dict[str, str] = {
     "order_dependent_assignment": "Confirm which payments belong to this credit before posting.",
     "multiple_candidates": "Pick the correct set from the candidates listed, or ask the payer for a remittance advice.",
     "solution_cap_reached": "Request a remittance advice; the amount alone cannot resolve this.",
-    "decomposition_out_of_bounds": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+    "pool_exceeded": "Narrow the settlement window, or supply a remittance advice naming the payments this covers.",
+    "no_subset_fits": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
     "fs_below_lower_threshold": "Verify the counterparty before posting -- the name evidence disagrees.",
     "fs_review_band": "A quick human check should settle this one.",
     "amount_name_conflict": "Confirm the customer identity; do not post on the amount alone.",

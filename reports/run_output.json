@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-03T11:04:51.247642+00:00",
+  "generated_at": "2026-09-03T11:10:53.459066+00:00",
   "seed": 20260905,
   "density": 6,
   "llm_tier": "claude:claude-sonnet-5",
@@ -83,13 +83,13 @@
   "exceptions": [
     {
       "bank_txn_id": "bank_txn_0050",
-      "category": "decomposition_out_of_bounds",
+      "category": "no_subset_fits",
       "rupees_at_risk": 45673.58,
       "txn_date": "2026-07-06",
       "narration": "NEFT-KKBKH50259179672-ORCHID FOODS PVT-CR",
       "reference": "KKBKH50259179672",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
+      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 1 candidates sums to 4567358p within 100p at k<=6",
       "candidates": [],
       "confidence": null
@@ -168,39 +168,39 @@
     },
     {
       "bank_txn_id": "bank_txn_0089",
-      "category": "decomposition_out_of_bounds",
+      "category": "no_subset_fits",
       "rupees_at_risk": 21044.99,
       "txn_date": "2026-08-05",
       "narration": "RAZORPAY SETTLEMENT setl_i5dazeBPnUGQ2F 1 TXNS",
       "reference": "AXISP62419861700",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
+      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 2 candidates sums to 2104499p within 100p at k<=6",
       "candidates": [],
       "confidence": null
     },
     {
       "bank_txn_id": "bank_txn_0004",
-      "category": "decomposition_out_of_bounds",
+      "category": "no_subset_fits",
       "rupees_at_risk": 13168.37,
       "txn_date": "2026-06-06",
       "narration": "RAZORPAY SETTLEMENT setl_KqPpowfwOFbJhV PART 2 OF 2",
       "reference": "UTIBP91060626569",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
+      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 4 candidates sums to 1316837p within 100p at k<=6 (closest miss +89543p)",
       "candidates": [],
       "confidence": null
     },
     {
       "bank_txn_id": "bank_txn_0003",
-      "category": "decomposition_out_of_bounds",
+      "category": "no_subset_fits",
       "rupees_at_risk": 11287.82,
       "txn_date": "2026-06-06",
       "narration": "RAZORPAY SETTLEMENT setl_KqPpowfwOFbJhV PART 1 OF 2",
       "reference": "UTIBP88628414531",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
+      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 4 candidates sums to 1128782p within 100p at k<=6 (closest miss +211234p)",
       "candidates": [],
       "confidence": null
@@ -279,26 +279,26 @@
     },
     {
       "bank_txn_id": "bank_txn_0008",
-      "category": "decomposition_out_of_bounds",
+      "category": "no_subset_fits",
       "rupees_at_risk": 4953.06,
       "txn_date": "2026-06-08",
       "narration": "RAZORPAY SETTLEMENT setl_g3m4bPmmj6FV86 PART 2 OF 2",
       "reference": "HDFCN11335953218",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
+      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 1 candidates sums to 495306p within 100p at k<=6",
       "candidates": [],
       "confidence": null
     },
     {
       "bank_txn_id": "bank_txn_0005",
-      "category": "decomposition_out_of_bounds",
+      "category": "no_subset_fits",
       "rupees_at_risk": 4222.4,
       "txn_date": "2026-06-08",
       "narration": "RAZORPAY SETTLEMENT setl_g3m4bPmmj6FV86 PART 1 OF 2",
       "reference": "KKBKH30180936761",
-      "why": "No combination of payments in the settlement window accounts for this credit, or there were too many candidates to search exhaustively.",
-      "next_step": "Check for a missing payment, an unrecorded refund, or a deduction not on the invoice.",
+      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
+      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 1 candidates sums to 422240p within 100p at k<=6",
       "candidates": [],
       "confidence": null
@@ -769,14 +769,14 @@
       "invoice_nos": [
         "INV-2026-1124"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 44690.91,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 4.75,
+      "fs_weight": -2.782,
       "permutation_stability": 1.0,
-      "confidence": 0.964
+      "confidence": 0.9241
     },
     {
       "bank_txn_id": "bank_txn_0117",
@@ -2486,14 +2486,14 @@
       "invoice_nos": [
         "INV-2026-1014"
       ],
-      "tier": "tier2_amount_date",
+      "tier": "tier1_reference",
       "rupees": 1519.5,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.382,
+      "fs_weight": 8.915,
       "permutation_stability": 1.0,
-      "confidence": 0.9404
+      "confidence": 0.982
     },
     {
       "bank_txn_id": "bank_txn_0024",
@@ -2659,5 +2659,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 16
+  "throughput_records_per_s": 17
 }

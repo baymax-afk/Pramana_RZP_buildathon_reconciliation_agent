@@ -272,7 +272,8 @@ def test_reference_match_with_a_wrong_amount_is_refused_not_assigned(written):
     assert refusal is not None, "the credit vanished rather than being refused"
     assert refusal.category in {
         RefusalCategory.UNEXPLAINED_RESIDUAL,
-        RefusalCategory.OUT_OF_BOUNDS,
+        RefusalCategory.NO_SUBSET_FITS,
+        RefusalCategory.POOL_EXCEEDED,
     }, f"unexpected refusal category {refusal.category}"
 
 
@@ -281,10 +282,16 @@ def test_refusals_carry_rupees_at_risk_and_an_actionable_reason(written):
     An exception a human cannot act on is not an exception, it is a shrug.
 
     Every refusal must name what is at stake and why. Candidates are required only
-    where candidates EXIST: a `decomposition_out_of_bounds` refusal means nothing fit,
-    and it stays actionable by reporting the closest miss instead -- "no subset comes
-    within Rs 23,653" tells an investigator where to look, while an empty candidate
-    list is simply the truth.
+    where candidates EXIST: a `no_subset_fits` refusal means the search ran to
+    completion and nothing fit, and it stays actionable by reporting the closest miss
+    instead -- "no subset comes within Rs 23,653" tells an investigator where to look,
+    while an empty candidate list is simply the truth.
+
+    The two search-bound refusals must also stay DISTINGUISHABLE in their prose, because
+    they are different facts and a different next step. `pool_exceeded` means the engine
+    declined to look; `no_subset_fits` means it looked exhaustively and the money is not
+    accounted for. Collapsing them is how the largest exception in the batch came to
+    tell a human there were "too many candidates to search" about a credit with one.
     """
     from recon.engine.results import RefusalCategory as RC
 
@@ -296,8 +303,18 @@ def test_refusals_carry_rupees_at_risk_and_an_actionable_reason(written):
             assert len(r.candidates) >= 2, (
                 f"{r.category.value} must show every candidate it could not choose between"
             )
-        elif r.category is RC.OUT_OF_BOUNDS:
-            assert "no subset" in r.reason or "MAX_POOL" in r.reason
+        elif r.category is RC.NO_SUBSET_FITS:
+            assert "no subset" in r.reason, (
+                "a completed search that found nothing must say so, and say how close "
+                f"it came: {r.reason!r}"
+            )
+            assert "MAX_POOL" not in r.reason, (
+                "this refusal is not a bound being hit; saying so misleads an operator"
+            )
+        elif r.category is RC.POOL_EXCEEDED:
+            assert "MAX_POOL" in r.reason, (
+                f"a declined search must name the bound it declined at: {r.reason!r}"
+            )
 
 
 def test_ambiguity_case_is_never_assigned_by_tiers_1_and_2(written):

@@ -34,7 +34,18 @@ class RefusalCategory(str, Enum):
     ORDER_DEPENDENT = "order_dependent_assignment"      # Layer 1, MR1 runtime gate
     MULTIPLE_CANDIDATES = "multiple_candidates"          # Layer 2, uniqueness
     SOLUTION_CAP_REACHED = "solution_cap_reached"        # Layer 2, >= MAX_SOLUTIONS
-    OUT_OF_BOUNDS = "decomposition_out_of_bounds"        # pool or k exceeded
+    # These two were ONE category, and the collapse was visible to operators. Every
+    # instance at the reported seed fired on a pool of 1, 1, 1, 2, 4 or 4 -- nothing had
+    # exceeded MAX_POOL=20 or k=6 -- while the exception told a human there were "too
+    # many candidates to search exhaustively". The largest single exception in the batch
+    # read that way about a credit with ONE candidate.
+    #
+    # They are also different facts about the world, and a different next step. A pool
+    # above the bound means the engine declined to look; no subset fitting means it
+    # looked exhaustively and the money genuinely is not accounted for by anything in
+    # the window. The first is a limit of the search, the second is a finding.
+    POOL_EXCEEDED = "pool_exceeded"                      # declined to search
+    NO_SUBSET_FITS = "no_subset_fits"                    # searched; nothing accounts for it
     FS_BELOW_THRESHOLD = "fs_below_lower_threshold"      # Layer 3
     FS_REVIEW_BAND = "fs_review_band"                    # Layer 3, clerical review
     NARRATION_COUNT_CONFLICT = "narration_count_conflict"  # credit says N, match says M

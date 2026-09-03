@@ -89,7 +89,7 @@ h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
 .cat-order_dependent_assignment { background: #f4ecfa; color: #6a3e93; }
 .cat-unexplained_residual, .cat-amount_name_conflict,
 .cat-narration_count_conflict { background: #fdeceb; color: #94322c; }
-.cat-no_candidate, .cat-decomposition_out_of_bounds { background: #eef1f5; color: #45505f; }
+.cat-no_candidate, .cat-pool_exceeded, .cat-no_subset_fits { background: #eef1f5; color: #45505f; }
 /* Layer 3 bands: evidence is weak or absent rather than contradictory, so they read
    cooler than the conflict categories above. */
 .cat-fs_below_lower_threshold, .cat-fs_review_band { background: #eef4fb; color: #1f5c9e; }

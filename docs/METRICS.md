@@ -72,7 +72,7 @@ The denominator excludes transactions with no candidate at all, because declinin
 assign where nothing fits is not a refusal — it is an empty result. Refusals are
 counted by cause: `order_dependent_assignment` (Layer 1), `multiple_candidates` and
 `solution_cap_reached` (Layer 2), `fs_below_lower_threshold` (Layer 3),
-`decomposition_out_of_bounds` (search bounds exceeded).
+`pool_exceeded` and `no_subset_fits` (search bounds).
 
 ### Refusal correctness
 
@@ -228,7 +228,8 @@ deterministic engine; the LLM tier only writes the prose describing them.
 | `order_dependent_assignment` | Layer 1 — assignment unstable across shuffled passes |
 | `multiple_candidates` | Layer 2 — two or more subsets fit within tolerance |
 | `solution_cap_reached` | Layer 2 — `MAX_SOLUTIONS` candidates found; ambiguity is worse, not better |
-| `decomposition_out_of_bounds` | Pool exceeds `MAX_POOL`, or no subset fits at `k ≤ MAX_SUBSET_K` |
+| `pool_exceeded` | Pool exceeds `MAX_POOL` — the engine declined to search rather than search part of the range |
+| `no_subset_fits` | The search ran to completion at `k ≤ MAX_SUBSET_K` and nothing summed within tolerance. **A finding, not a limit** |
 | `amount_name_conflict` | Conservation tight but FS weight low — layers disagree |
 | `unexplained_residual` | FS weight high but conservation loose — layers disagree |
 | `fs_review_band` | Layer 3 — match weight between the two thresholds |

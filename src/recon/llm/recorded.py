@@ -80,11 +80,17 @@ _TEMPLATES: dict[str, tuple[str, str]] = {
         "which means it was not determined by the data.",
         "Treat as unresolved and assign manually; do not auto-post.",
     ),
-    "decomposition_out_of_bounds": (
-        "No combination of payments in the settlement window accounts for this "
-        "credit within tolerance.",
+    "no_subset_fits": (
+        "Every combination of payments in the settlement window was tested and none "
+        "accounts for this credit within tolerance.",
         "Check for a missing payment, an unrecorded refund, or a deduction the "
         "ledger does not carry.",
+    ),
+    "pool_exceeded": (
+        "Too many payments settled in this window to test every combination, so the "
+        "engine declined to search rather than search only part of the range.",
+        "Narrow the window, or supply a remittance advice naming the payments this "
+        "credit covers.",
     ),
     "unexplained_residual": (
         "The reference identifies a payment, but the amount credited does not "
