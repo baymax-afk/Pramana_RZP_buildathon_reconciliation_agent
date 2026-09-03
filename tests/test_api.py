@@ -238,3 +238,78 @@ def test_the_ui_renders_the_disclosure_when_there_is_something_to_disclose():
     assert "notExamined.debit_lines > 0" in jsx, (
         "the disclosure must render only when there is something to disclose"
     )
+
+
+# --------------------------------------------------------------------------
+# Explanations (/api/explain)
+# --------------------------------------------------------------------------
+@requires_run
+def test_the_run_payload_does_not_ship_every_transcript():
+    """
+    141 transcripts take the payload from ~120 KB to ~795 KB. A client that wants one
+    explanation wants one, not all of them, and the exception list is the first thing
+    the UI loads.
+    """
+    body = client.get("/api/run").json()
+    assert "explanations" not in body
+    assert "exceptions" in body and "assignments" in body
+
+
+@requires_run
+def test_one_explanation_comes_back_at_all_three_levels():
+    run = client.get("/api/run").json()
+    txn_id = run["assignments"][0]["bank_txn_id"]
+
+    r = client.get(f"/api/explain/{txn_id}")
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["bank_txn_id"] == txn_id
+    assert body["verdict"] == "assign"
+    assert body["plain"].endswith(".") and "Rs " in body["plain"]
+    assert body["evidence"] and all(
+        {"kind", "id", "label", "href"} <= set(v) for v in body["evidence"]
+    )
+    stages = [s["stage"] for s in body["transcript"]]
+    assert stages[0] == "input" and stages[-1] == "verdict"
+
+
+@requires_run
+def test_an_exception_explains_which_layer_objected():
+    run = client.get("/api/run").json()
+    txn_id = run["exceptions"][0]["bank_txn_id"]
+
+    body = client.get(f"/api/explain/{txn_id}").json()
+    assert body["verdict"] == "refuse"
+    assert body["plain"].startswith("Not posted")
+    assert "REFUSED" in body["transcript"][-1]["headline"]
+
+
+@requires_run
+def test_a_debit_line_is_a_404_that_says_why():
+    """
+    Debit lines are structurally outside the engine's model, so they have no verdict to
+    explain. The 404 must say that rather than implying the id was malformed -- the
+    disclosure already exists at /api/summary and the error should point at it.
+    """
+    summary = client.get("/api/summary").json()
+    lines = summary.get("not_examined", {}).get("lines", [])
+    if not lines:
+        pytest.skip("no debit lines in this run")
+
+    r = client.get(f"/api/explain/{lines[0]['bank_txn_id']}")
+    assert r.status_code == 404
+    assert "not_examined" in r.json()["detail"]
+
+
+@requires_run
+def test_every_exception_in_the_list_can_be_explained():
+    """
+    The exception list is the product. A row a user can see and cannot ask about is a
+    dead end in the one place this system is meant to be useful.
+    """
+    run = client.get("/api/run").json()
+    for row in run["exceptions"]:
+        r = client.get(f"/api/explain/{row['bank_txn_id']}")
+        assert r.status_code == 200, f"{row['bank_txn_id']} has no explanation"
+        assert r.json()["plain"].strip()

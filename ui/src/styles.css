@@ -247,3 +247,101 @@ table.mini .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-s
     color: #fbbf24;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Explanations
+   Three levels, visually ranked the way they are meant to be read: the plain
+   sentence carries weight, the evidence is scannable, the working is quiet
+   until asked for.
+   -------------------------------------------------------------------------- */
+.explanation { margin-top: 0.9rem; border-top: 1px solid #e4e8ee; padding-top: 0.8rem; }
+.explanation .plain {
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: #16202c;
+  margin: 0 0 0.8rem;
+}
+.ev-block h4 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7686;
+  margin: 0 0 0.35rem;
+}
+ul.evidence { list-style: none; margin: 0 0 0.7rem; padding: 0; display: grid; gap: 0.25rem; }
+ul.evidence a {
+  display: flex; gap: 0.55rem; align-items: baseline;
+  text-decoration: none; color: inherit;
+  padding: 0.3rem 0.5rem; border-radius: 4px; background: #f5f7fa;
+}
+ul.evidence a:hover { background: #e8edf4; }
+.ev-kind {
+  font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #6b7686; min-width: 5.5rem;
+}
+.ev-label { font-size: 0.84rem; }
+.ev-payment a { border-left: 2px solid #2f7d4f; }
+.ev-invoice a { border-left: 2px solid #7a5bd0; }
+.ev-bank_txn a { border-left: 2px solid #2b6cb0; }
+
+.working-toggle {
+  background: none; border: 1px solid #d4dae2; border-radius: 4px;
+  padding: 0.3rem 0.6rem; font-size: 0.78rem; color: #45505f; cursor: pointer;
+}
+.working-toggle:hover { background: #f0f3f7; }
+
+ol.transcript { list-style: none; margin: 0.8rem 0 0; padding: 0; display: grid; gap: 0.55rem; }
+.step { border-left: 2px solid #d4dae2; padding: 0.1rem 0 0.1rem 0.7rem; }
+.step-verdict { border-left-color: #16202c; }
+.step-layer3 { border-left-color: #b45309; }
+.step-head { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: baseline; }
+.step-stage {
+  font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #6b7686; min-width: 11rem;
+}
+.step-headline { font-size: 0.86rem; font-weight: 600; }
+.step-detail {
+  margin: 0.25rem 0 0.35rem; font-size: 0.79rem; line-height: 1.5;
+  color: #45505f; white-space: pre-wrap; font-family: inherit;
+  background: none; padding: 0;
+}
+
+/* Matches — the view that did not exist until the audit asked for it. */
+ol.matches { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.match { border: 1px solid #e4e8ee; border-radius: 6px; overflow: hidden; }
+.match-head {
+  width: 100%; display: flex; gap: 0.8rem; align-items: baseline;
+  padding: 0.6rem 0.8rem; background: #fff; border: 0; cursor: pointer;
+  text-align: left; font: inherit;
+}
+.match-head:hover { background: #f7f9fb; }
+.match .rank { color: #98a2b3; font-size: 0.78rem; min-width: 2rem; }
+.match .amount { font-weight: 600; min-width: 8rem; }
+.match .ids { color: #45505f; font-size: 0.84rem; flex: 1; }
+.match .tier {
+  font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px;
+  background: #eef1f5; color: #45505f;
+}
+.match .resid { font-size: 0.76rem; color: #6b7686; min-width: 4rem; }
+.match .chev { color: #98a2b3; }
+.match-body { padding: 0.2rem 0.8rem 0.9rem; border-top: 1px solid #eef1f5; }
+dl.mini-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.5rem 1rem; margin: 0.7rem 0 0; }
+dl.mini-facts dt { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7686; }
+dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
+
+@media (prefers-color-scheme: dark) {
+  .explanation { border-top-color: #2a3340; }
+  .explanation .plain { color: #e7ecf3; }
+  ul.evidence a { background: #1b222c; }
+  ul.evidence a:hover { background: #232c38; }
+  .working-toggle { border-color: #2a3340; color: #b8c2d0; }
+  .working-toggle:hover { background: #1b222c; }
+  .step { border-left-color: #2a3340; }
+  .step-verdict { border-left-color: #e7ecf3; }
+  .step-detail { color: #b8c2d0; }
+  .match { border-color: #2a3340; }
+  .match-head { background: #141a22; }
+  .match-head:hover { background: #1b222c; }
+  .match-body { border-top-color: #2a3340; }
+  .match .tier { background: #232c38; color: #b8c2d0; }
+}

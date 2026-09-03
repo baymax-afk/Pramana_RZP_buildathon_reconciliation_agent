@@ -152,6 +152,12 @@ def cmd_match(args: argparse.Namespace) -> int:
     from recon.llm import select as _select_llm
 
     llm = _select_llm(disabled=args.no_llm)
+    # Recording is inert -- see recon/explain/trace.py and the fingerprint test in
+    # tests/test_explain.py. The transcript costs a dict per credit and buys the UI its
+    # entire "why" view, so it is always on for a reported run.
+    from recon.explain import Recorder
+
+    recorder = Recorder()
     relations = ensemble = None
     t0 = time.perf_counter()
     if args.verify:
@@ -163,9 +169,13 @@ def cmd_match(args: argparse.Namespace) -> int:
 
         k = cfg.PERMUTATION_K_FAST if args.fast else cfg.PERMUTATION_K
         out, ensemble = match_gated(inputs, k=k, llm=llm)
+        # The gate replays the matcher K times over shuffled orderings; recording
+        # all K would keep whichever pass happened to run last. Re-run once in the
+        # canonical order to transcribe the result the gate actually returned.
+        match_once(inputs, llm=llm, recorder=recorder)
         relations = mm.run_all(inputs, out, fast=args.fast)
     else:
-        out = match_once(inputs, llm=llm)
+        out = match_once(inputs, llm=llm, recorder=recorder)
     elapsed = time.perf_counter() - t0
     records = len(inputs.payments) + len(inputs.bank_txns) + len(inputs.invoices)
 
@@ -207,7 +217,7 @@ def cmd_match(args: argparse.Namespace) -> int:
 
     payload = run_output.build(
         inputs, out, seed=seed, elapsed_s=elapsed,
-        relations=relations, ensemble=ensemble, llm=llm,
+        relations=relations, ensemble=ensemble, llm=llm, recorder=recorder,
     )
     written = run_output.write(payload)
 

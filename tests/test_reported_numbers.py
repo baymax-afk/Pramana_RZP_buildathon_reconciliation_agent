@@ -284,3 +284,31 @@ def test_the_artefact_names_the_tier_that_produced_it():
     artefact that does not name its tier cannot be reproduced on purpose.
     """
     assert _committed_run_output()["llm_tier"], "llm_tier must never be empty"
+
+
+def test_the_assignment_payload_carries_every_field_the_ui_asserts():
+    """
+    A UI row that reports a field the payload does not send reads `undefined`, which
+    JavaScript treats as falsy -- so it does not go blank, it renders the OPPOSITE claim
+    with total confidence.
+
+    `certain_fee` was missing here while the Matches card rendered "fee known exactly:
+    no - bounded by the rate band". Measured after adding it: **all 127 assignments are
+    `true`**, so that row was wrong on every match in the batch, and the transcript two
+    lines below it on the same card said the opposite. This test exists because the
+    failure mode is silent by construction and a screenshot is what caught it.
+    """
+    rows = _committed_run_output()["assignments"]
+    assert rows, "no assignments in the payload"
+
+    required = {
+        "bank_txn_id", "payment_ids", "invoice_nos", "tier", "rupees",
+        "residual_paise", "residual_tightness", "uniqueness_margin", "fs_weight",
+        "certain_fee", "permutation_stability", "confidence",
+    }
+    for row in rows:
+        missing = required - set(row)
+        assert not missing, f"{row['bank_txn_id']} is missing {sorted(missing)}"
+        assert isinstance(row["certain_fee"], bool), (
+            "certain_fee must be a real boolean, not null -- the UI branches on it"
+        )

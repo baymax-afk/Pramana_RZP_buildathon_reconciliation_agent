@@ -25,6 +25,12 @@ const RUPEES = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
+const TIER_LABEL = {
+  tier1_reference: "reference",
+  tier2_amount_date: "amount + date",
+  tier3_subsetsum: "combination",
+};
+
 const CATEGORY_LABEL = {
   order_dependent_assignment: "Order-dependent",
   multiple_candidates: "Ambiguous — several fit",
@@ -187,6 +193,10 @@ function ExceptionCard({ row, rank }) {
             <dt>Engine reason</dt>
             <dd className="mono small">{row.engine_reason}</dd>
           </dl>
+          {/* The same three-level explanation the Matches view gets. An exception is
+              exactly where a human most needs to know what the engine already ruled
+              out, and the machine-facing reason above is not that. */}
+          <Explanation txnId={row.bank_txn_id} open={open} />
         </div>
       )}
     </li>
@@ -236,6 +246,180 @@ function Verification({ block }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Explanations
+//
+// The audit's P0-2: 126 of 141 outcomes were invisible. The exception list was
+// drillable and every posted match was not, so a judge could ask "why did it match
+// THAT payment" and the answer was a JSON field nothing rendered.
+//
+// Fetched per transaction rather than shipped with the run. 141 transcripts take the
+// payload from ~120 KB to ~795 KB, and someone opening one row wants one.
+// --------------------------------------------------------------------------
+const STAGE_LABEL = {
+  input: "Read the bank line",
+  parse: "Read the narration",
+  pool: "Narrowed the candidates",
+  layer3: "Weighed name and reference evidence",
+  resolve: "Resolved competing claims",
+  verdict: "Decided",
+};
+
+function stageLabel(stage) {
+  if (STAGE_LABEL[stage]) return STAGE_LABEL[stage];
+  if (stage.startsWith("tier:")) return "Tried a matching tier";
+  return stage;
+}
+
+function useExplanation(txnId, open) {
+  const [state, setState] = useState({ status: "idle" });
+  // Dependencies are [txnId, open] and MUST NOT include state.status.
+  //
+  // Written with `state.status` in the dependency list -- and guarded on it, which is
+  // what made it look careful -- this deadlocked at "Reading the transcript…" forever:
+  // setState({status:"loading"}) changed a dependency, React ran the cleanup, `alive`
+  // went false, and the in-flight response was discarded by its own `.then`. The effect
+  // then re-ran, saw the status was no longer "idle", and returned early. The request
+  // succeeded with a 200 every time; nothing ever rendered it.
+  //
+  // `vite.config.js` already carries the lesson this repeats: a green build is not
+  // evidence the page works. Caught by driving the real page in Chromium, not by
+  // review and not by the build.
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setState({ status: "loading" });
+    fetch(`/api/explain/${encodeURIComponent(txnId)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error((await r.json()).detail ?? r.statusText);
+        return r.json();
+      })
+      .then((data) => {
+        if (alive) setState({ status: "ready", data });
+      })
+      .catch((e) => {
+        if (alive) setState({ status: "error", error: String(e.message ?? e) });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [txnId, open]);
+  return state;
+}
+
+function EvidenceList({ items }) {
+  if (!items?.length) return null;
+  return (
+    <ul className="evidence">
+      {items.map((v) => (
+        <li key={`${v.kind}:${v.id}`} className={`ev ev-${v.kind}`}>
+          <a href={v.href} title={v.id}>
+            <span className="ev-kind">{v.kind.replace("_", " ")}</span>
+            <span className="ev-label">{v.label}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Explanation({ txnId, open }) {
+  const state = useExplanation(txnId, open);
+  const [showWorking, setShowWorking] = useState(false);
+  if (!open) return null;
+  if (state.status === "loading") return <p className="muted">Reading the transcript…</p>;
+  if (state.status === "error")
+    return <p className="muted">No explanation available: {state.error}</p>;
+  if (state.status !== "ready") return null;
+
+  const { plain, evidence, transcript } = state.data;
+  return (
+    <div className="explanation">
+      {/* Level 1 — the sentence. */}
+      <p className="plain">{plain}</p>
+
+      {/* Level 2 — the rows it rests on. */}
+      <div className="ev-block">
+        <h4>Evidence</h4>
+        <EvidenceList items={evidence} />
+      </div>
+
+      {/* Level 3 — the working, collapsed. An auditor needs it; an operator
+          clearing a queue does not, and putting it in front of them is how the
+          readable layer stops being read. */}
+      <button className="working-toggle" onClick={() => setShowWorking((v) => !v)}>
+        {showWorking ? "Hide" : "Show"} the full working ({transcript.length} steps)
+      </button>
+      {showWorking && (
+        <ol className="transcript">
+          {transcript.map((s) => (
+            <li key={s.seq} className={`step step-${s.stage.split(":")[0]}`}>
+              <div className="step-head">
+                <span className="step-stage">{stageLabel(s.stage)}</span>
+                <span className="step-headline">{s.headline}</span>
+              </div>
+              <pre className="step-detail">{s.detail}</pre>
+              <EvidenceList items={s.evidence} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Matches — the view that did not exist
+// --------------------------------------------------------------------------
+function MatchCard({ row, rank }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li className="match">
+      <button className="match-head" onClick={() => setOpen((v) => !v)}>
+        <span className="rank">{rank}</span>
+        <span className="amount">{RUPEES.format(row.rupees)}</span>
+        <span className="ids">
+          {row.payment_ids.length === 1
+            ? row.payment_ids[0]
+            : `${row.payment_ids.length} payments`}
+        </span>
+        <span className={`tier tier-${row.tier}`}>{TIER_LABEL[row.tier] ?? row.tier}</span>
+        <span className="resid">
+          {row.residual_paise === 0
+            ? "exact"
+            : `${row.residual_paise > 0 ? "+" : ""}${row.residual_paise} p`}
+        </span>
+        <span className="chev">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="match-body">
+          <dl className="mini-facts">
+            <div><dt>Tier</dt><dd>{TIER_LABEL[row.tier] ?? row.tier}</dd></div>
+            <div><dt>Residual</dt><dd>{row.residual_paise} paise</dd></div>
+            <div>
+              <dt>Gateway fee</dt>
+              <dd>
+                {row.certain_fee === undefined
+                  ? "—"
+                  : row.certain_fee
+                    ? "known exactly, from the payment record"
+                    : "not on the record — bounded by the rate band"}
+              </dd>
+            </div>
+            <div><dt>Uniqueness margin</dt><dd>{row.uniqueness_margin ?? "—"}</dd></div>
+            <div>
+              <dt>Name / reference weight</dt>
+              <dd>{row.fs_weight === null ? "no non-amount evidence" : `${row.fs_weight} bits`}</dd>
+            </div>
+            <div><dt>Stable under reordering</dt><dd>{row.permutation_stability === 1 ? "yes, all passes" : row.permutation_stability}</dd></div>
+          </dl>
+          <Explanation txnId={row.bank_txn_id} open={open} />
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -311,12 +495,32 @@ export default function App() {
         <button className={tab === "exceptions" ? "on" : ""} onClick={() => setTab("exceptions")}>
           Exceptions
         </button>
+        <button className={tab === "matches" ? "on" : ""} onClick={() => setTab("matches")}>
+          Matches
+        </button>
         <button className={tab === "invoices" ? "on" : ""} onClick={() => setTab("invoices")}>
           Invoice ledger
         </button>
       </nav>
 
       {tab === "invoices" && <Invoices />}
+
+      {tab === "matches" && (
+        <>
+          <p className="showing">
+            {run.data.assignments.length} posted matches, largest first. Open one to see
+            why it was made.
+          </p>
+          <ol className="matches">
+            {[...run.data.assignments]
+              .sort((a, b) => b.rupees - a.rupees)
+              .map((row, i) => (
+                <MatchCard key={row.bank_txn_id} row={row} rank={i + 1} />
+              ))}
+          </ol>
+          <Verification block={verification} />
+        </>
+      )}
 
       {tab === "exceptions" && (
       <>

@@ -110,6 +110,13 @@ class AssignmentRow:
     residual_tightness: float
     uniqueness_margin: float | None
     fs_weight: float | None
+    # Whether the gateway fee came from Razorpay's own field (tight) or from the rate
+    # band (wide). It was absent from this payload while the UI rendered a row claiming
+    # to report it -- so `row.certain_fee` was `undefined`, read as falsy, and every
+    # match was labelled "bounded by the rate band" including the majority where the fee
+    # is known to the paisa. The transcript, reading the same underlying flag correctly,
+    # said the opposite two lines further down the same card.
+    certain_fee: bool
     permutation_stability: float
     confidence: float | None
 
@@ -122,6 +129,7 @@ def build(
     relations=None,
     ensemble=None,
     llm=None,
+    recorder=None,
 ) -> dict:
     """
     Assemble the run payload. Contains no ground truth and no scoring.
@@ -216,6 +224,7 @@ def build(
             residual_tightness=round(a.residual_tightness, 4),
             uniqueness_margin=a.uniqueness_margin,
             fs_weight=round(a.fs_weight, 3) if a.fs_weight is not None else None,
+            certain_fee=a.certain_fee,
             permutation_stability=a.permutation_stability,
             confidence=round(a.confidence, 4) if a.confidence is not None else None,
         )
@@ -232,6 +241,7 @@ def build(
         "seed": seed,
         "density": inputs.payments_per_window,
         "llm_tier": getattr(llm, "name", "disabled"),
+        "explanations": _explanations(inputs, recorder),
         "totals": {
             "payments": len(inputs.payments),
             "captured_payments": sum(1 for p in inputs.payments if p.captured),
@@ -293,6 +303,29 @@ def build(
         ),
     }
     return payload
+
+
+def _explanations(inputs, recorder) -> dict:
+    """
+    Why each credit got the verdict it got, keyed by bank transaction id.
+
+    Empty when the run was not recorded, which the UI must handle -- an explanation view
+    that assumed this was populated would break on exactly the runs where something had
+    already gone wrong.
+
+    Note what is NOT here: ground truth, scores, or any judgement of whether the verdict
+    was right. This payload is what the engine could justify without an answer key,
+    which is the same standard the rest of the file is held to.
+    """
+    if recorder is None or not recorder.records:
+        return {}
+    from recon.explain import Explainer
+
+    ex = Explainer(inputs)
+    return {
+        txn_id: ex.explain(rec).as_dict()
+        for txn_id, rec in recorder.records.items()
+    }
 
 
 def _verification_block(relations, ensemble) -> dict:

@@ -91,8 +91,51 @@ def _load() -> dict:
 
 @app.get("/api/run")
 def get_run() -> dict:
-    """The complete run payload: totals, tolerances, exceptions, assignments."""
-    return _load()
+    """
+    The run payload: totals, tolerances, exceptions, assignments.
+
+    **Without the per-transaction explanations**, which are the bulk of the file -- 141
+    transcripts take the payload from ~120 KB to ~795 KB, and a client that wants one of
+    them wants one, not all of them. They are served individually by `/api/explain`.
+    """
+    data = _load()
+    return {k: v for k, v in data.items() if k != "explanations"}
+
+
+@app.get("/api/explain/{bank_txn_id}")
+def get_explanation(bank_txn_id: str) -> dict:
+    """
+    Why one bank credit got the verdict it got, at three levels of detail.
+
+        plain       one sentence, no jargon
+        evidence    typed links to the rows the sentence rests on
+        transcript  every tier tried, every candidate tested, arithmetic in paise
+
+    The transcript is the recorded computation, not a description of it -- see
+    `recon/explain/trace.py`. Read-only like every other route here: it reports a
+    decision the batch run already made and cannot revisit one.
+    """
+    data = _load()
+    explanations = data.get("explanations") or {}
+    if not explanations:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "This run was recorded without explanations. Re-run "
+                "`python run.py match --verify`."
+            ),
+        )
+    row = explanations.get(bank_txn_id)
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No credit {bank_txn_id!r} in this run. Debit lines are not examined "
+                f"by the engine and have no verdict to explain -- see "
+                f"/api/summary -> not_examined."
+            ),
+        )
+    return row
 
 
 @app.get("/api/exceptions")
