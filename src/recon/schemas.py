@@ -186,6 +186,27 @@ class BankTxn:
 # Side C -- invoice / ERP ledger
 # --------------------------------------------------------------------------
 @dataclass(frozen=True, slots=True)
+class PayerAuthorisation:
+    """
+    One row of the merchant's authorised-payer register (side D).
+
+    Says a name that appears on the BANK STATEMENT is on record as permitted to settle
+    for a name that appears in the INVOICE LEDGER. It is a join between two published
+    fields -- a customer master record -- and it does not say which credit settles which
+    payment. See `config.PAYER_DIRECTORY_COVERAGE` for the full argument.
+
+    The ENGINE never reads this. It reaches Layer 3 only as an asserted fact supplied
+    through `match_once(evidence=...)`, gathered by `recon.agent`. That separation is
+    the point: the engine weighs evidence, it does not go looking for it.
+    """
+
+    payer_name: str
+    authorised_for_customer: str
+    relationship: str          # "parent" | "group_treasury" | "affiliate"
+    on_record_since: str       # ISO date
+
+
+@dataclass(frozen=True, slots=True)
 class Invoice:
     """
     An open receivable.

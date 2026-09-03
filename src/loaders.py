@@ -18,7 +18,14 @@ import json
 from pathlib import Path
 
 import config as cfg
-from recon.schemas import BankTxn, Invoice, Payment, ReconInputs, rupees_to_paise
+from recon.schemas import (
+    BankTxn,
+    Invoice,
+    Payment,
+    PayerAuthorisation,
+    ReconInputs,
+    rupees_to_paise,
+)
 
 
 def load_payments(path: Path) -> tuple[Payment, ...]:
@@ -108,6 +115,41 @@ def load_bank_statement(path: Path) -> tuple[BankTxn, ...]:
                     credit=_money(row, "credit", path, i),
                     debit=_money(row, "debit", path, i),
                     balance=_money(row, "balance", path, i),
+                )
+            )
+    return tuple(out)
+
+
+def load_payer_directory(path: Path | None = None) -> tuple[PayerAuthorisation, ...]:
+    """
+    Side D: the merchant's authorised-payer register.
+
+    **Deliberately NOT part of `load_inputs`.** `ReconInputs` is what the engine
+    receives, and the engine must never read this file -- an agent gathers the fact and
+    asserts it through `match_once(evidence=...)`, so the engine weighs evidence rather
+    than going looking for it. Putting the register on `ReconInputs` would quietly hand
+    the matcher a fourth side and dissolve that boundary, which is the one the whole
+    agentic design rests on. `tests/test_agent_tools.py` asserts nothing under
+    `recon.engine` opens it.
+
+    Absent file returns empty rather than raising: a batch generated before side D
+    existed is still a valid batch, and an investigator with no register should report
+    that it found nothing, not crash.
+    """
+    path = path or (cfg.GENERATED / "payer_directory.csv")
+    if not path.is_file():
+        return ()
+    out: list[PayerAuthorisation] = []
+    with path.open(newline="", encoding="utf-8") as f:
+        for i, row in enumerate(csv.DictReader(f), start=1):
+            out.append(
+                PayerAuthorisation(
+                    payer_name=_text(row, "payer_name", path, i),
+                    authorised_for_customer=_text(
+                        row, "authorised_for_customer", path, i
+                    ),
+                    relationship=_text(row, "relationship", path, i),
+                    on_record_since=_text(row, "on_record_since", path, i),
                 )
             )
     return tuple(out)

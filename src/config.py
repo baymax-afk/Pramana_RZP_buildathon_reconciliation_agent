@@ -262,7 +262,66 @@ FS_M_PRIORS = {
     "amount": 0.98,
     "date": 0.95,
     "name": 0.90,
+    # An AUTHORISED-PAYER register: the merchant's own record of who is permitted to
+    # settle on whose behalf -- a parent paying a subsidiary's invoice, a group treasury
+    # paying for an operating company. Real AR systems keep one; it is reference data
+    # like the invoice ledger, not an answer key, and it says nothing about which credit
+    # matches which payment.
+    #
+    # 0.95 rather than 0.99 because registers go stale: a genuine match whose payer
+    # differs from the invoice customer SHOULD be named in the register, but a
+    # newly-onboarded group entity may not be yet.
+    "authorised_payer": 0.95,
 }
+
+# u for the authorised-payer field: the chance a random (bank payer, ledger customer)
+# pair is linked in the register. Unlike the name and reference u's -- which are
+# estimated analytically from the batch at runtime -- this one cannot be, because the
+# register is not part of the batch. It is therefore a DISCLOSED CONSTANT, and the
+# derivation is written down rather than tuned:
+#
+#   the register names a handful of relationships across ~20 distinct customers, so a
+#   random pair being linked runs at a few percent. 0.02 is that order of magnitude,
+#   chosen before any measurement and not revisited.
+#
+# What it buys: log2(0.95 / 0.02) = +5.57 bits when the register fires. That is enough
+# to outweigh an exact name DISAGREEMENT (-3.26 bits), and it should be -- explaining an
+# expected name mismatch is precisely what such a register is FOR. It is not enough to
+# rescue anything else: the field enters the same two-threshold band as every other, and
+# amount conservation, uniqueness, the narration count and contested claims all still
+# apply upstream of it.
+FS_U_AUTHORISED_PAYER = 0.02
+
+# --------------------------------------------------------------------------
+# The authorised-payer register (side D), and why it is reference data rather
+# than an answer key.
+#
+# When the generator injects `third_party_payer` it knows that payer P settled an
+# invoice belonging to customer C. It writes SOME of those relationships to
+# `data/generated/payer_directory.csv`, outside `_truth/`, as a merchant's own record of
+# who may pay on whose behalf.
+#
+# **Why this is not ground truth.** Ground truth says which bank line maps to which
+# payments. The register says only that a name appearing on the statement is a permitted
+# payer for a name appearing in the ledger -- a join between two fields both sides
+# already publish, which is exactly what a customer master file is. Customer C usually
+# has several open invoices and several payments in the window; the register does not
+# say which one this credit settles, and the engine still has to fit the amount, pass
+# uniqueness, satisfy the narration count and win any contest. Real AR systems keep such
+# a register; withholding it from the engine while calling the resulting refusals a
+# limitation would be modelling the wrong world.
+#
+# **Coverage is deliberately partial.** A register covering every relationship would
+# make the whole defect class a lookup, and an agent that closes 100% of cases because
+# the answer was in a file is a demonstration of nothing. At 0.6 the investigator closes
+# what the evidence supports and reports "insufficient evidence" on the rest, which is
+# the behaviour actually worth showing.
+#
+# **Decoys are included** -- entries for relationships that appear nowhere in this
+# batch -- so a register hit is not self-evidently a match, and a lookup that fires
+# still has to survive every other layer.
+PAYER_DIRECTORY_COVERAGE = 0.6
+PAYER_DIRECTORY_DECOYS = 6
 FS_M_SOURCE = "fallback priors (unfitted) -- run src/external/fit_fs.py to replace"
 
 # u-probabilities are NOT set here. They are chance-agreement rates, estimated

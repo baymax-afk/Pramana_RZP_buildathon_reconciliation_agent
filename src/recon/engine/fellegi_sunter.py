@@ -288,6 +288,47 @@ def _compare_name(parsed: ParsedNarration, payments: list[Payment]) -> tuple[Lev
     return Level.DISAGREE, f"name disagreement: bank {bank_name!r} vs {sorted(ours)}"
 
 
+def _compare_authorised_payer(
+    asserted_for: str | None, payments: list[Payment]
+) -> tuple[Level | None, str]:
+    """
+    Does the merchant's authorised-payer register explain this name mismatch?
+
+    `asserted_for` is the CUSTOMER the bank's payer is on record as being permitted to
+    settle for -- supplied from outside the engine (see `recon.agent`), never inferred
+    here. The engine's job is to weigh it, not to find it.
+
+    **Three outcomes, and the third is the one that keeps this honest.** A register entry
+    naming one of these payments' customers is EXACT agreement: the mismatch was
+    expected, and that is what the register exists to record. An entry naming somebody
+    else is not evidence against this pair -- it is evidence about a different pair -- so
+    it scores ABSENT rather than DISAGREE. And no entry at all is absent, which leaves
+    the name channel to speak for itself exactly as before.
+
+    Scoring an unrelated entry as disagreement would let an agent hurt a match by
+    supplying true but irrelevant facts, which is a way for evidence-gathering to make
+    the engine worse.
+    """
+    if not asserted_for:
+        return None, ""
+    asserted = normalise_name(asserted_for)
+    if not asserted:
+        return None, ""
+    ours = {normalise_name(p.notes.get("customer_name")) for p in payments}
+    ours.discard("")
+    if asserted in ours:
+        return Level.EXACT, (
+            f"authorised-payer register: the bank's payer is on record as permitted to "
+            f"settle for {asserted_for!r}, which is this invoice's customer -- so the "
+            f"name mismatch is expected rather than surprising"
+        )
+    return None, (
+        f"authorised-payer register names {asserted_for!r}, which is not this "
+        f"invoice's customer; that is evidence about a different pair, so it is not "
+        f"counted here either way"
+    )
+
+
 def _compare_reference(parsed: ParsedNarration, payments: list[Payment]) -> tuple[Level | None, str]:
     ref = (parsed.merchant_ref or "").upper()
     if not ref:
@@ -344,6 +385,7 @@ def evidence_for(
     payments: list[Payment],
     u: UEstimates,
     pool_size: int,
+    authorised_payer_for: str | None = None,
 ) -> Evidence:
     """
     Compute the Fellegi-Sunter match weight for one candidate assignment.
@@ -384,6 +426,27 @@ def evidence_for(
             ref_detail,
         ),
     )
+
+    # The authorised-payer field is appended ONLY when something was asserted. Appending
+    # it unconditionally with a None level would be arithmetically identical -- zero
+    # weight, and `all(level is None)` unchanged -- but it would put a third row in every
+    # explanation transcript saying nothing, and it would make the no-evidence case
+    # harder to read. More importantly, omitting it keeps the default path byte-identical
+    # in structure as well as in value, which is what `tests/test_agent_evidence.py`
+    # asserts and what makes this whole layer revertible.
+    if authorised_payer_for:
+        auth_level, auth_detail = _compare_authorised_payer(
+            authorised_payer_for, payments
+        )
+        fields = fields + (
+            FieldComparison(
+                "authorised_payer", auth_level,
+                _field_weight(
+                    auth_level, m["authorised_payer"], cfg.FS_U_AUTHORISED_PAYER
+                ),
+                auth_detail,
+            ),
+        )
 
     if all(f.level is None for f in fields):
         # Nothing at all to weigh. NOT the same as evidence that cancelled out -- the

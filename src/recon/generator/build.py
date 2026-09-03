@@ -28,6 +28,7 @@ from ..schemas import (
     BankTxn,
     Invoice,
     Payment,
+    PayerAuthorisation,
     ReconInputs,
     TruthLink,
     date_of,
@@ -45,6 +46,10 @@ class GeneratedBatch:
     truth: tuple[TruthLink, ...]
     ambiguity_bank_txn_id: str
     stats: dict
+    # Side D: the merchant's authorised-payer register. Reference data, NOT ground
+    # truth -- see config.PAYER_DIRECTORY_COVERAGE for the argument, and note that it is
+    # written outside `_truth/` and read only by `recon.agent`, never by the engine.
+    payer_directory: tuple[PayerAuthorisation, ...] = ()
 
 
 # --------------------------------------------------------------------------
@@ -227,6 +232,9 @@ def generate(
     invoices: list[Invoice] = []
     bank_txns: list[BankTxn] = []
     truth: list[TruthLink] = []
+    # (payer, customer) pairs the third_party_payer defect created. A subset becomes
+    # side D; the remainder are deliberately absent from it.
+    authorisations: list[tuple[Customer, Customer]] = []
     invoice_seq = 1000
 
     # Which window hosts the hand-placed ambiguity case. Kept away from the edges so
@@ -629,6 +637,10 @@ def generate(
                 if others:
                     third_party = rng.choice(others)
                     labels.append("third_party_payer")
+                    # Remember the relationship the defect just created. Only a subset
+                    # reaches the register (see below); the rest are the cases an
+                    # investigator must decline rather than close.
+                    authorisations.append((third_party, cust))
 
             # paisa-level rounding
             if rng.random() < 0.15:
@@ -867,7 +879,81 @@ def generate(
         payments_per_window=payments_per_window,
     )
     stats = _summarise(inputs, truth, n_windows, payments_per_window)
-    return GeneratedBatch(inputs, tuple(truth), _ambiguity_id(truth), stats)
+    directory = _build_payer_directory(rng, authorisations)
+    stats["payer_directory"] = {
+        "relationships_created": len(authorisations),
+        "on_the_register": sum(
+            1 for a in directory if a.relationship != "affiliate_decoy"
+        ),
+        "decoys": sum(1 for a in directory if a.relationship == "affiliate_decoy"),
+    }
+    return GeneratedBatch(
+        inputs, tuple(truth), _ambiguity_id(truth), stats, directory
+    )
+
+
+def _build_payer_directory(
+    rng: random.Random, authorisations: list[tuple[Customer, Customer]]
+) -> tuple[PayerAuthorisation, ...]:
+    """
+    Side D: the merchant's authorised-payer register, deliberately incomplete.
+
+    **Coverage is partial on purpose.** A register naming every relationship the
+    generator created would turn `third_party_payer` into a lookup, and an agent that
+    closes every case because the answer sat in a file demonstrates nothing about
+    investigation. At `PAYER_DIRECTORY_COVERAGE` the investigator closes what the
+    evidence supports and must report "insufficient evidence" on the rest -- which is
+    the behaviour worth putting in front of a judge.
+
+    **Decoys are included.** Entries naming relationships that appear nowhere in this
+    batch, so a register hit is not self-evidently a match and a lookup that fires still
+    has to survive conservation, uniqueness, the narration count and any contest.
+
+    Sorted by payer name so the file is stable for a given seed. Deduplicated because
+    the same pair can be drawn twice across 200 payments, and a register listing a
+    relationship twice would inflate the coverage figure this docstring cites.
+    """
+    seen: set[tuple[str, str]] = set()
+    unique: list[tuple[Customer, Customer]] = []
+    for payer, cust in authorisations:
+        key = (payer.canonical_name, cust.canonical_name)
+        if key not in seen:
+            seen.add(key)
+            unique.append((payer, cust))
+
+    n_keep = int(len(unique) * cfg.PAYER_DIRECTORY_COVERAGE)
+    kept = rng.sample(unique, n_keep) if n_keep else []
+
+    rows = [
+        PayerAuthorisation(
+            payer_name=payer.canonical_name,
+            authorised_for_customer=cust.canonical_name,
+            relationship=rng.choice(("parent", "group_treasury", "affiliate")),
+            on_record_since="2025-04-01",
+        )
+        for payer, cust in kept
+    ]
+
+    # Decoys: real-looking relationships between registry entities that this batch's
+    # third_party_payer defect never actually used.
+    used = {(p.canonical_name, c.canonical_name) for p, c in unique}
+    pool = [
+        (a, b)
+        for a in REGISTRY
+        for b in REGISTRY
+        if a.key != b.key and (a.canonical_name, b.canonical_name) not in used
+    ]
+    for payer, cust in rng.sample(pool, min(cfg.PAYER_DIRECTORY_DECOYS, len(pool))):
+        rows.append(
+            PayerAuthorisation(
+                payer_name=payer.canonical_name,
+                authorised_for_customer=cust.canonical_name,
+                relationship="affiliate_decoy",
+                on_record_since="2025-04-01",
+            )
+        )
+
+    return tuple(sorted(rows, key=lambda r: (r.payer_name, r.authorised_for_customer)))
 
 
 # --------------------------------------------------------------------------
@@ -1491,6 +1577,24 @@ def write(batch: GeneratedBatch, out_dir: Path | None = None) -> dict[str, Path]
         encoding="utf-8",
     )
 
+    # Side D. Written OUTSIDE `_truth/`, deliberately: it is reference data a merchant
+    # already owns, not an answer key. See config.PAYER_DIRECTORY_COVERAGE.
+    d_path = out_dir / "payer_directory.csv"
+    with d_path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(
+            ["payer_name", "authorised_for_customer", "relationship", "on_record_since"]
+        )
+        for row in batch.payer_directory:
+            w.writerow(
+                [
+                    row.payer_name,
+                    row.authorised_for_customer,
+                    row.relationship,
+                    row.on_record_since,
+                ]
+            )
+
     t_path = truth_dir / "ground_truth.json"
     t_path.write_text(
         json.dumps(
@@ -1506,5 +1610,6 @@ def write(batch: GeneratedBatch, out_dir: Path | None = None) -> dict[str, Path]
     )
     return {
         "payments": p_path, "bank": b_path, "invoices": i_path,
+        "payer_directory": d_path,
         "manifest": m_path, "truth": t_path,
     }

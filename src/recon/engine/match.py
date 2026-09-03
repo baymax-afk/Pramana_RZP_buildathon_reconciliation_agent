@@ -312,7 +312,9 @@ def _resolve_contested(
     return granted, contested
 
 
-def match_once(inputs: ReconInputs, llm=None, recorder=None) -> MatchOutput:
+def match_once(
+    inputs: ReconInputs, llm=None, recorder=None, evidence=None
+) -> MatchOutput:
     """
     Match a batch, iterating to a FIXPOINT.
 
@@ -331,6 +333,14 @@ def match_once(inputs: ReconInputs, llm=None, recorder=None) -> MatchOutput:
     Resolving genuine ambiguity with information that arrives later is correct
     behaviour, not a shortcut. What would NOT be acceptable is resolving it by picking,
     and the tiers still refuse rather than choose within any single round.
+
+    **`evidence` is how an agent is permitted to change an outcome, and the only way.**
+    It maps a bank transaction id to externally-gathered facts -- today just
+    `authorised_payer_for` -- which enter Layer 3 as a named comparison field and are
+    weighed against everything else. Nothing here lets a caller nominate a payment,
+    override a threshold, or bypass a tier: the engine re-reaches its own conclusion from
+    a larger evidence set. `None` (the default, and what every reported number is
+    produced by) reproduces this function exactly as it was.
 
     **`recorder` is inert and must stay that way.** When supplied it collects the
     decision transcript `recon.explain` renders; when absent -- the default, and what
@@ -425,6 +435,9 @@ def match_once(inputs: ReconInputs, llm=None, recorder=None) -> MatchOutput:
                     [by_id[pid] for pid in cand.payment_ids if pid in by_id],
                     u_est,
                     pool_size=blocking_pool_size[txn.id],
+                    authorised_payer_for=(
+                        (evidence or {}).get(txn.id, {}).get("authorised_payer_for")
+                    ),
                 )
                 if recorder is not None and (r := recorder.active) is not None:
                     r.fs_weight = ev.weight

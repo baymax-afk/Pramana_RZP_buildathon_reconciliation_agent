@@ -32,7 +32,12 @@
    "overpayment": 9,
    "duplicate_utr": 1
   },
-  "refusals_expected": 16
+  "refusals_expected": 16,
+  "payer_directory": {
+   "relationships_created": 7,
+   "on_the_register": 4,
+   "decoys": 6
+  }
  },
  "links": [
   {

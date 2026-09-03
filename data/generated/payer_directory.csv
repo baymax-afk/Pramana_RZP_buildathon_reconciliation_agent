@@ -1,0 +1,11 @@
+payer_name,authorised_for_customer,relationship,on_record_since
+Acme Industrial Supplies Private Limited,Deccan Pharma Distributors,group_treasury,2025-04-01
+Acme Industrial Supplies Private Limited,Quantum Instruments Private Limited,affiliate_decoy,2025-04-01
+Bharati Traders LLP,Kaveri Agro Exports,affiliate_decoy,2025-04-01
+Bharati Traders LLP,Meridian Logistics LLP,affiliate,2025-04-01
+Bharati Traders LLP,Silverline Packaging LLP,affiliate_decoy,2025-04-01
+Deccan Pharma Distributors,Quantum Instruments Private Limited,affiliate_decoy,2025-04-01
+Greenfield Organics Private Limited,Nova Chemicals India Private Limited,affiliate_decoy,2025-04-01
+Kaveri Agro Exports,Lotus Paper Mills Limited,affiliate_decoy,2025-04-01
+Lotus Paper Mills Limited,Pinnacle Steel Traders,affiliate,2025-04-01
+Vertex Engineering Works,Silverline Packaging LLP,group_treasury,2025-04-01
