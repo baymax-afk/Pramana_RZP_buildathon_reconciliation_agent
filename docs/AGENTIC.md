@@ -1,8 +1,70 @@
 # Making it agentic
 
-*A design note, not a shipped feature. Written against the run at seed 20260905:
-129 assignments, precision 1.0000, **6 exceptions worth ₹57,775**, and 5 conservative
-refusals the engine got wrong by declining.*
+**Rings 2 and 3 are now built.** `python run.py agent`. This document was written as a
+design note before any of it existed, and the design survived contact with the
+implementation almost intact -- so it is kept as written below, with what shipped
+recorded here and the numbers it was originally written against left alone rather than
+retro-fitted. The stale figures in the sections that follow are the ones that motivated
+the design, not the ones it produced.
+
+---
+
+## What shipped, and what it measured
+
+| | Offline (`--offline`) | Live (`claude-sonnet-5`) |
+|---|---|---|
+| match rate | 88.66% → **90.21%** | 88.66% → **90.21%** |
+| match precision | 1.0000 → **1.0000** | 1.0000 → **1.0000** |
+| evidence assertions | 3 | 4 |
+| verdicts moved | 3 | 3 |
+| gain per assertion | 1.00 | 0.75 |
+| exceptions declined | 12 | 11 |
+| wall clock | **0.06s** | ~4 min |
+
+**The two arms reach the same headline by different routes, and the difference is the
+result worth reporting.** The live model closed one case the coded procedure declines:
+the register reads `'Pinnacle Steel Traders'` where the ledger reads `'Pinnacle Steels
+Traders'`, and `_same_entity` correctly refuses that — the words differ *internally*,
+which is precisely how the generator's planted confusable pairs differ (`'Bharat
+Traders'` against `'Bharati Traders'`). The model recognised a spelling variant, asserted
+anyway, and was right; precision did not move. That is the case for putting a brittle
+rule inside a model rather than in code, measured rather than argued — and it is also
+why the rule stays strict: it is what stops the same latitude from merging two real
+companies.
+
+Its refusals are its own words and they are correct. On arithmetic exceptions it says a
+payer register has nothing to say about a credit no subset of payments accounts for. On a
+payer absent from the register it says absence is not disproof.
+
+### The three things that make the number trustworthy
+
+**The null-agent control.** `--null-agent` investigates nothing and must reproduce the
+baseline byte for byte. Every figure above is a delta against a run anybody can reproduce
+without an agent.
+
+**Evidence, not edits.** Nothing patches a verdict. Proposals go into an append-only
+ledger, `match_once` runs again over the same three sides plus the evidence, and the
+engine reaches its own conclusion — which is still a refusal for most of them. Precision
+therefore remains a property of the engine.
+
+**Attribution.** Every accepted assertion carries the tool calls that produced it, so a
+moved verdict traces to a named fact rather than to an agent's opinion. `gain per
+assertion` is the honest denominator: an agent that asserts more without moving more
+scores *worse*, which is why the live arm's 0.75 is reported next to the offline arm's
+1.00 rather than quietly dropped.
+
+### What it cannot do, structurally
+
+`EvidenceProposal` carries no payment id, no candidate, no score and no verdict — and,
+learning from `REVIEW.md` §5, that is not left as an absence. The value is rejected if it
+matches the shape of a payment id, order id, bank transaction id or UTR, because the
+audit showed a free-text field one hop from a record identifier is a way to name a
+record. The field itself is an enum, so a channel the engine never agreed to weigh is
+refused loudly instead of accepted and ignored.
+
+The evidence enters Layer 3 as one named Fellegi–Sunter comparison and the existing
+two-threshold rule decides. A credit refused on the arithmetic stays refused no matter
+what is asserted about names.
 
 ---
 

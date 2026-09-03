@@ -303,6 +303,72 @@ it.
 
 ---
 
+## Phase B, 2026-09-03 — the agent, shipped
+
+`python run.py agent`. Rings 2 and 3 of `AGENTIC.md`, which until today was a design note
+by its own first line and the audit's headline gap.
+
+| | Offline | Live (`claude-sonnet-5`) |
+|---|---|---|
+| match rate | 88.66% → **90.21%** | 88.66% → **90.21%** |
+| precision | 1.0000 → **1.0000** | 1.0000 → **1.0000** |
+| verdicts moved / assertions | 3 / 3 | 3 / 4 |
+| declined | 12 | 11 |
+| wall clock | 0.06s | ~4 min |
+
+**Built in the order that kept the demo safe.** B4 first — the evidence channel — as a
+provable no-op: four spellings of "no evidence" hash identically to the baseline, so the
+whole layer is revertible by deleting a branch. Then the tools, then the agent. At no
+point was the deterministic engine's output at risk.
+
+**The result worth reporting is not the coverage.** It is that the live model closed one
+case the coded procedure declines — a register reading `Pinnacle Steel Traders` against a
+ledger reading `Pinnacle Steels Traders` — and was right, while `_same_entity` correctly
+refuses it because that is exactly how the generator's planted confusable pairs differ.
+That is the audit's "brittle rules belong in the LLM" direction, measured. And the live
+arm scores *worse* on gain per assertion (0.75 vs 1.00) while reaching the same headline,
+which is reported rather than buried.
+
+**Side D — the authorised-payer register — is reference data, and the argument matters
+because a judge will press on it.** Ground truth says which bank line maps to which
+payments. The register says only that a name on the statement is a permitted payer for a
+name in the ledger: a join between two fields both sides already publish, which is what a
+customer master file is. It is written outside `_truth/`, is not on `ReconInputs`, and
+coverage is deliberately partial (4 of 7 relationships, plus 6 decoys) — full coverage
+would make the defect class a lookup, and an agent that closes every case because the
+answer sat in a file demonstrates nothing.
+
+### Four bugs found by reading its output, all in name matching
+The batch is built to break name matching, and it did.
+
+1. **`PayerRelation` returned parallel tuples.** Selecting a customer by one criterion
+   and reading `relationships[0]` cited a *different* register row, so a rationale
+   attributed a decision to unrelated evidence. Now one record per row.
+2. **The investigator reasoned over the whole pool** rather than the candidate the engine
+   had actually refused, and asserted a true-but-irrelevant fact. The containment held —
+   the engine ignored it — but an assertion that cannot matter is noise and wasted budget.
+3. **It asserted the register's spelling** where the engine matches the ledger's.
+4. **The payer index was keyed on the suffix-stripped name**, discarding the form
+   `_same_entity` needs: `Bharati Traders LLP` strips to 15 characters while the statement
+   carries `BHARATI TRADERS LL` at 18, so the truncation rule rejected its own match.
+
+The comparison itself was rebuilt twice. Raw prefix matching merges the confusables; word
+boundaries fix that. Gating partial matches on the bank's *field width* was then the wrong
+basis — the name sits inside a fixed-width narration, so `VERTEX ENGINEERIN` arrives at 17
+characters and was silently declined. **The real property is not "long enough" but
+"unambiguous"**, so the lookup now refuses when a query matches more than one registered
+payer — Layer 2's own doctrine applied to names.
+
+### Still open after Phase B
+- **W1** — the confidence score is uncalibrated, still blocked on BenchRec.
+- **Two dead refusal categories.** `FS_BELOW_THRESHOLD` and `FS_REVIEW_BAND` are defined
+  in `RefusalCategory` and **never raised anywhere** — only `contradicts` gates Layer 3.
+  Two of eleven categories are unreachable. Found while wiring the evidence field; not a
+  correctness bug, but the explanation table and the flowchart both imply they fire.
+- **Phase C** — the shifted-distribution held-out set. Not started.
+
+---
+
 ## Hostile audit, 2026-09-03 — `REVIEW.md`
 
 Audited as a staff engineer and a buildathon judge: ran the pipeline rather than reading

@@ -97,6 +97,45 @@ layers still run identically.
 
 ---
 
+## The agent
+
+`python run.py agent` — a tool-calling investigator over the exception list, and the
+orchestration that re-runs the engine on what it finds.
+
+**The agent may never decide a match.** Its one lever is to supply evidence the engine
+did not have and re-run it. Five typed read tools (`get_exception`,
+`get_candidate_pool`, `test_subset`, `lookup_payer_relationship`, `search_invoices`) and
+one validated write (`propose_evidence`). `test_subset` calls the matcher's own
+`fees.expected_credit_interval` rather than reimplementing conservation, so the agent can
+ask any question the engine can answer and cannot answer one itself.
+
+| | Offline (`--offline`) | Live (`claude-sonnet-5`) |
+|---|---|---|
+| match rate | 88.66% → **90.21%** | 88.66% → **90.21%** |
+| match precision | 1.0000 → **1.0000** | 1.0000 → **1.0000** |
+| verdicts moved / assertions | 3 / 3 | 3 / 4 |
+| exceptions declined | 12 | 11 |
+| wall clock | **0.06s** | ~4 min |
+
+**`--null-agent` reproduces the baseline byte for byte.** Every figure above is a delta
+against a run anyone can reproduce without an agent, and the suite asserts it.
+
+The live model closed one case the coded procedure declines — a register reading
+`'Pinnacle Steel Traders'` against a ledger reading `'Pinnacle Steels Traders'` — and was
+right. It also made one assertion that moved nothing, so it scores **worse** on gain per
+assertion (0.75 against 1.00) while reaching the same headline. Both are reported.
+
+Evidence is asserted, never applied: proposals enter an append-only ledger, the
+deterministic engine re-runs, and it reaches its own verdict — still a refusal for most
+of them. `EvidenceProposal` carries no payment id, and its value is rejected if it merely
+*looks* like one, because [`REVIEW.md`](REVIEW.md) §5 showed that a free-text field one
+hop from an identifier is a way to name a record.
+
+Details, including the four name-matching bugs found by reading its output, in
+[`docs/AGENTIC.md`](docs/AGENTIC.md).
+
+---
+
 ## Data provenance
 
 Three disclosed tiers. The gradation is the honest part — a bigger "real" number

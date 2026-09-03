@@ -16,14 +16,16 @@ number from a doc, I say so and I say whether the code agrees.
 > |---|---|---|
 > | **P0-1** verification missing from the served artefact | `relations: []`, gate `null` | MR1–MR6 all pass, gate K=8 with 0 of 127 unstable. **Root cause was the test suite itself**, which rewrote the file without `--verify` on every run; the payload now carries an explicit `status` and the UI renders its absence as a warning |
 > | **P0-2** no way to see why a match was made | 126 of 141 outcomes invisible | Every match and exception carries a plain sentence, evidence links, and the recorded paise-level transcript |
+| **"where is the agent?"** | in a markdown file | `run.py agent`: tool-calling Ring 2 + Ring 3, **88.66% → 90.21% at precision 1.0000**, null-agent control byte-identical |
 > | **P0-3** a live key makes the demo hang | first live run killed after minutes | cache + 10 s timeout + call cap; **same command now finishes in 0.40 s** |
 > | **P0-4** `decomposition_out_of_bounds` miscategorised | all 6 instances said the opposite of what happened | split into `pool_exceeded` / `no_subset_fits`; re-measured, all 6 are the latter |
 >
 > **W2 is also closed.** The LLM comparison ran live: **+1 assignment, precision
 > unmoved at 1.0000**, and identical verdicts across five runs with a fresh live tier.
 >
-> **The verdict below is unchanged in one respect that matters: there is still no
-> agent.** That is the open item, not the artefact bugs.
+> **The verdict below said the missing agent was the real problem. That is now closed
+> too** — see question 1 in section 9. What it says about the artefact bugs is kept
+> as written, because it was true when written.
 
 ---
 
@@ -53,7 +55,7 @@ silently renders *nothing* for the four-layer claim that is the entire submissio
 | 1 | Agent, chain, or prompt? | **Neither — a deterministic 3-tier cascade inside a fixpoint loop.** No LLM in the control path at all. | `src/recon/engine/match.py:342` `for _ in range(cfg.MAX_ROUNDS)` |
 | 1a | Framework? | **None. Hand-rolled.** No LangGraph/CrewAI/SDK agent loop. `grep -rn "tool\|agent" src/ --include=*.py` returns nothing but the LLM `Protocol`. | `src/recon/llm/interface.py:61` |
 | 1b | What terminates the loop? | A round that grants no assignment. Bounded by `MAX_ROUNDS = 6`. | `match.py:438` `if not granted: break`; `config.py:161` |
-| 1c | Is any of `AGENTIC.md` shipped? | **No.** Rings 2 and 3 (investigator, orchestrator) are unimplemented. | `docs/AGENTIC.md:3` self-declares |
+| 1c | Is any of `AGENTIC.md` shipped? | **Was no; now yes.** Rings 2 and 3 shipped 2026-09-03 as `recon/agent/` and `run.py agent`. | `docs/AGENTIC.md`, "What shipped" |
 | 2 | Ground truth? | **Real, generator-written, 147 links**, with `expected_verdict`, `relation`, `defect_labels`. Not self-asserted. | `data/generated/_truth/ground_truth.json` |
 | 2a | Does the evaluator see data the matcher didn't? | **Yes, and correctly so** — the scorer reads `defect_labels`/`relation` the engine never receives. Isolation is enforced by `sys.addaudithook` + `ReconInputs` carrying no paths. | `scorer/score.py:38 load_truth`; `tests/test_isolation.py` |
 | 3 | **Measured match rate** | **88.66%** (172/194), precision **1.0000** (126/126) | run below |
@@ -397,8 +399,18 @@ of a promise, and it is the one slide an LLM-prompt submission cannot fake.
 
 ## 9. The three questions a judge will ask that you currently cannot answer
 
-1. **"Where is the agent?"**
-   There isn't one. `AGENTIC.md` is a design note by its own first line.
+1. ~~**"Where is the agent?"**~~ — **answerable as of 2026-09-03.** `python run.py agent`
+   runs a real tool-calling loop: five typed read tools over the engine plus one
+   validated write, a per-exception step budget, no-progress detection, and an
+   append-only evidence ledger. **88.66% → 90.21% match rate, precision unmoved at
+   1.0000**, with 12 of 15 exceptions declined and the reasons given.
+
+   Three things to say before a judge asks. The **null-agent control** reproduces the
+   baseline byte for byte, so the delta is real. The agent **cannot post anything** — it
+   asserts evidence, the deterministic engine re-runs and reaches its own verdict, which
+   is still a refusal for most of them. And the **live arm scores worse on gain per
+   assertion than the offline one** (0.75 against 1.00) while reaching the same
+   headline, which is reported rather than buried.
 
 2. ~~**"Does the LLM help? By how much?"**~~ — **answerable as of 2026-09-03.**
    A key was supplied and the comparison ran live against `claude-sonnet-5`:
