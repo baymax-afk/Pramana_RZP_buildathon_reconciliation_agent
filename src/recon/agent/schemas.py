@@ -222,6 +222,25 @@ class SubsetVerdict:
 
 
 @dataclass(frozen=True, slots=True)
+class RegisterEntry:
+    """
+    One row of the register: this customer, under this relationship.
+
+    **A record rather than two parallel tuples, and that is a bug fix.** The first
+    version returned `authorised_for` and `relationships` as separate sequences, so a
+    caller that selected a customer by one criterion and then read `relationships[0]`
+    cited a DIFFERENT row's label. It happened immediately: one payer had three register
+    entries, the investigator correctly chose the customer that matched its candidate
+    payment, and the rationale it wrote attributed the decision to an unrelated entry.
+    An audit trail that names the wrong evidence is worse than one that names none, so
+    the pairing is now structural instead of positional.
+    """
+
+    customer: str
+    relationship: str
+
+
+@dataclass(frozen=True, slots=True)
 class PayerRelation:
     """
     What the authorised-payer register says about one name.
@@ -235,17 +254,29 @@ class PayerRelation:
     queried: str
     found: bool
     matched_payer_name: str = ""
-    authorised_for: tuple[str, ...] = ()
-    relationships: tuple[str, ...] = ()
+    entries: tuple[RegisterEntry, ...] = ()
     note: str = ""
+
+    @property
+    def customers(self) -> tuple[str, ...]:
+        return tuple(e.customer for e in self.entries)
+
+    def entry_for(self, customer: str) -> RegisterEntry | None:
+        """The row naming this customer -- the only safe way to read a relationship."""
+        for e in self.entries:
+            if e.customer == customer:
+                return e
+        return None
 
     def as_dict(self) -> dict:
         return {
             "queried": self.queried,
             "found": self.found,
             "matched_payer_name": self.matched_payer_name,
-            "authorised_for": list(self.authorised_for),
-            "relationships": list(self.relationships),
+            "entries": [
+                {"customer": e.customer, "relationship": e.relationship}
+                for e in self.entries
+            ],
             "note": self.note,
         }
 

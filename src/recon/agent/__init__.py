@@ -10,7 +10,13 @@ match.** Its one lever is to supply evidence the engine did not have and re-run 
 shape of every identifier in the batch.
 """
 
+from .investigate import (
+    ClaudeInvestigator,
+    RecordedInvestigator,
+    select as select_investigator,
+)
 from .ledger import EvidenceLedger
+from .orchestrate import AgentRun, Delta, orchestrate
 from .schemas import (
     EvidenceField,
     EvidenceProposal,
@@ -21,6 +27,8 @@ from .tools import TOOL_NAMES, TOOL_SPECS, Toolbox
 
 __all__ = [
     "Toolbox", "TOOL_SPECS", "TOOL_NAMES",
+    "orchestrate", "AgentRun", "Delta",
+    "select_investigator", "ClaudeInvestigator", "RecordedInvestigator",
     "EvidenceLedger", "EvidenceProposal", "EvidenceReceipt", "EvidenceField",
     "InvestigationTrace",
 ]

@@ -40,29 +40,108 @@ from .schemas import (
     InvoiceView,
     PayerRelation,
     PoolPayment,
+    RegisterEntry,
     PoolView,
     SubsetVerdict,
 )
 
 
+# Shortest name fragment that may match partially. Not derived from the bank's field
+# width -- see `_same_entity` for why that was the wrong basis -- but a floor against
+# stubs so short they would match half the register.
+_MIN_PARTIAL_NAME = 8
+
+_SUFFIXES = (
+    " PRIVATE LIMITED", " PVT LTD", " PVT LIMITED", " LIMITED", " LTD",
+    " LLP", " AND CO", " CO",
+)
+
+
+def _fold(name: str, strip_suffix: bool = True) -> str:
+    """Upper-case, strip punctuation, and optionally drop the corporate-form suffix."""
+    out = "".join(c for c in (name or "").upper() if c.isalnum() or c == " ")
+    if strip_suffix:
+        for suffix in _SUFFIXES:
+            if out.endswith(suffix):
+                out = out[: -len(suffix)]
+    return " ".join(out.split())
+
+
 def _normalise(name: str) -> str:
     """
-    Fold a name for comparison: case, punctuation, and the corporate-form suffixes that
-    differ between a bank statement and a ledger.
+    Fold a name for indexing: case, punctuation, and the corporate-form suffix.
 
-    Bank exports truncate to a fixed field width, so `'ACME INDUSTRIAL SU'` and
-    `'Acme Industrial Supplies Private Limited'` are the same counterparty. Matching
-    those is the register lookup's whole job, and doing it by prefix rather than by
-    equality is why the lookup works on real statement text.
+    Suffixes go because a bank statement writes 'PVT LTD' where a ledger writes 'Private
+    Limited' for the same entity. Comparison itself is `_same_entity`, which is stricter
+    than this and has to be.
     """
-    out = "".join(c for c in (name or "").upper() if c.isalnum() or c == " ")
-    for suffix in (
-        " PRIVATE LIMITED", " PVT LTD", " PVT LIMITED", " LIMITED", " LTD",
-        " LLP", " AND CO", " CO",
-    ):
-        if out.endswith(suffix):
-            out = out[: -len(suffix)]
-    return " ".join(out.split())
+    return _fold(name, strip_suffix=True)
+
+
+def _same_entity(a: str, b: str) -> bool:
+    """
+    Are these two names the same counterparty, allowing for bank-field truncation?
+
+    **Raw prefix matching is wrong here, and this batch is built to prove it.** The
+    generator plants confusable pairs that are DISTINCT entities with near-identical
+    names -- 'Bharat Traders and Co' against 'Bharati Traders LLP', 'Acme Retail' against
+    'Acme Industrial Supplies' -- specifically so a similarity matcher that merges them
+    gets caught. `'BHARAT TRADERS'` is a raw prefix of `'BHARATI TRADERS'`, and treating
+    that as agreement would post one customer's money against another's invoice. The
+    first version of this lookup did exactly that.
+
+    So agreement is decided at WORD BOUNDARIES: every whole word of the shorter name
+    must agree exactly, and only its final, cut-off word may match as a prefix. That
+    alone rejects both confusable pairs, because they differ inside a word rather than
+    at the end of one.
+
+    **The length floor is deliberately loose, and the real guard is elsewhere.** A first
+    version required the shorter name to be at least `BANK_NARRATION_NAME_WIDTH`
+    characters, on the theory that only a bank-truncated name should match partially.
+    That was wrong: the name is embedded in a fixed-width NARRATION, not a fixed-width
+    name field, so how much survives depends on the format around it -- 'BHARATI TRADERS
+    LL' arrives at 18 characters and 'VERTEX ENGINEERIN' at 17, and the strict floor
+    silently declined the second. Picking 16 instead would just move the arbitrary line.
+
+    The property actually worth enforcing is not "long enough" but "unambiguous", and
+    that is checkable rather than guessed: `lookup_payer_relationship` refuses when a
+    query matches more than one registered payer. Which is the engine's own doctrine --
+    Layer 2 refuses when two subsets fit -- applied to names.
+    """
+    # Both folds are compared, because stripping the suffix and truncating the field
+    # interact. `'Bharati Traders LLP'` strips to `'BHARATI TRADERS'` (15 chars) while
+    # the statement carries `'BHARATI TRADERS LL'` (truncated at 18) -- so the stripped
+    # register name is SHORTER than the truncated bank name and the truncation rule
+    # below rejects it. Kept with the suffix, they agree on 'LL' -> 'LLP'. Testing both
+    # forms cannot loosen the confusable guard: a token-zero mismatch like
+    # 'BHARAT' vs 'BHARATI' fails in every variant.
+    forms_a = {_fold(a, True), _fold(a, False)}
+    forms_b = {_fold(b, True), _fold(b, False)}
+    if not any(forms_a) or not any(forms_b):
+        return False
+
+    for x in forms_a:
+        for y in forms_b:
+            if not x or not y:
+                continue
+            if x == y:
+                return True
+            short, long = (x, y) if len(x) <= len(y) else (y, x)
+            # A floor only against degenerate stubs -- a two-character prefix matching
+            # half the register is noise, not evidence. Ambiguity is handled by the
+            # caller refusing multi-hit queries, which is the guard that matters.
+            if len(short) < _MIN_PARTIAL_NAME:
+                continue
+            s_tokens, l_tokens = short.split(), long.split()
+            if len(s_tokens) > len(l_tokens):
+                continue
+            # Every whole word of the truncated name must agree exactly...
+            if s_tokens[:-1] != l_tokens[: len(s_tokens) - 1]:
+                continue
+            # ...and its final, cut-off word must be a prefix of the corresponding one.
+            if l_tokens[len(s_tokens) - 1].startswith(s_tokens[-1]):
+                return True
+    return False
 
 
 class Toolbox:
@@ -86,12 +165,16 @@ class Toolbox:
         self._inv = {i.invoice_no: i for i in inputs.invoices}
         self._txn = {t.id: t for t in inputs.bank_txns}
         self._refusal = {r.bank_txn_id: r for r in out.refusals}
-        # Register indexed by folded payer name. A list per key because one payer can be
-        # authorised for several customers, and collapsing that would silently drop
-        # relationships.
+        # Grouped by the RAW payer name, not a folded key. Folding at index time threw
+        # away the unstripped form, so `_same_entity` -- which needs both to reconcile
+        # suffix stripping against field truncation -- could only ever see one of them,
+        # and 'BHARATI TRADERS LL' stopped matching 'Bharati Traders LLP'. A list per
+        # name because one payer can be authorised for several customers, and
+        # collapsing that would silently drop relationships. Linear scan: the register
+        # is tens of rows, and correctness here is worth more than an index.
         self._by_payer: dict[str, list[PayerAuthorisation]] = {}
         for row in directory:
-            self._by_payer.setdefault(_normalise(row.payer_name), []).append(row)
+            self._by_payer.setdefault(row.payer_name, []).append(row)
         self.calls: list[str] = []
 
     # ---- reads ---------------------------------------------------------
@@ -196,11 +279,27 @@ class Toolbox:
             )
 
         hits: list[PayerAuthorisation] = []
-        matched = ""
+        matched_names: set[str] = set()
         for key, rows in self._by_payer.items():
-            if key == query or key.startswith(query) or query.startswith(key):
+            if _same_entity(key, payer_name):
                 hits.extend(rows)
-                matched = rows[0].payer_name
+                matched_names.add(key)
+
+        # **Ambiguity is a refusal, not a tiebreak.** A truncated statement name that
+        # matches two registered payers identifies neither, and picking one would be a
+        # decision made by dictionary order on somebody's money. This is Layer 2's rule
+        # -- two subsets fitting means neither is the answer -- applied to names, and it
+        # is what lets the length floor above stay loose.
+        if len(matched_names) > 1:
+            return PayerRelation(
+                payer_name, False,
+                note=(
+                    f"{payer_name!r} matches {len(matched_names)} different registered "
+                    f"payers ({sorted(matched_names)}). A truncated name that fits more "
+                    f"than one identifies none of them, so nothing is asserted."
+                ),
+            )
+        matched = next(iter(matched_names), "")
         if not hits:
             return PayerRelation(
                 payer_name, False,
@@ -214,8 +313,9 @@ class Toolbox:
             queried=payer_name,
             found=True,
             matched_payer_name=matched,
-            authorised_for=tuple(h.authorised_for_customer for h in hits),
-            relationships=tuple(h.relationship for h in hits),
+            entries=tuple(
+                RegisterEntry(h.authorised_for_customer, h.relationship) for h in hits
+            ),
             note=f"{len(hits)} register entr{'y' if len(hits) == 1 else 'ies'}",
         )
 

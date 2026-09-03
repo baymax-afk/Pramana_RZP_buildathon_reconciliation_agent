@@ -322,6 +322,19 @@ FS_U_AUTHORISED_PAYER = 0.02
 # still has to survive every other layer.
 PAYER_DIRECTORY_COVERAGE = 0.6
 PAYER_DIRECTORY_DECOYS = 6
+
+# --------------------------------------------------------------------------
+# Ring 2, the investigator. Bounds, not tuning knobs.
+#
+# The step budget ends a confused investigation rather than letting it wander; the
+# malformed-call allowance stops a model that cannot produce valid arguments from
+# becoming a bill; and both sit inside the LLM tier's own call cap and timeout, which
+# bound wall clock rather than turn count. Three independent bounds because each catches
+# a failure the others do not.
+# --------------------------------------------------------------------------
+AGENT_MODEL = "claude-sonnet-5"
+AGENT_STEP_BUDGET = 8          # model turns per exception
+AGENT_MALFORMED_RETRIES = 1    # one retry on bad tool arguments, then abandon
 FS_M_SOURCE = "fallback priors (unfitted) -- run src/external/fit_fs.py to replace"
 
 # u-probabilities are NOT set here. They are chance-agreement rates, estimated

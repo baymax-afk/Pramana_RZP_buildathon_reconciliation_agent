@@ -277,6 +277,150 @@ def cmd_match(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_agent(args: argparse.Namespace) -> int:
+    """
+    Ring 2 + Ring 3: investigate the exception list, then re-run the engine.
+
+    **Both numbers are always reported.** `match` remains the deterministic baseline and
+    this command shows the enriched run beside it, because the only claim worth making
+    is a delta against a baseline anyone can reproduce without an agent.
+
+    If precision falls, that is the headline. An agent that buys coverage by loosening
+    correctness has done the one thing this project exists to argue against, and the
+    right response is to revert the evidence layer rather than to report the coverage.
+    """
+    from recon.agent import EvidenceLedger, orchestrate, select_investigator
+    from recon.agent.investigate import RecordedInvestigator
+    from recon.llm import select as _select_llm
+    from scorer.score import load_truth, score
+
+    try:
+        inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+    except ValueError as e:
+        print(f"\n  {e}\n")
+        return 1
+
+    from loaders import load_payer_directory
+
+    directory = load_payer_directory()
+    llm = _select_llm(disabled=args.no_llm)
+    investigator = (
+        None
+        if args.null_agent
+        else RecordedInvestigator()
+        if args.offline
+        else select_investigator()
+    )
+
+    t0 = time.perf_counter()
+    run = orchestrate(
+        inputs,
+        investigator,
+        directory,
+        llm=llm,
+        ledger_path=(cfg.REPORTS / "evidence_ledger.json") if args.write else None,
+        max_exceptions=args.max_exceptions,
+    )
+    elapsed = time.perf_counter() - t0
+
+    _print_block(
+        f"AGENT RUN  seed={inputs.seed}  investigator={run.investigator}",
+        [
+            ("authorised-payer register", f"{len(directory)} row(s)"),
+            ("exceptions in the baseline", run.exceptions_seen),
+            ("investigated", run.investigated),
+            ("resumed from a saved ledger", run.resumed),
+            ("evidence asserted", run.proposals_accepted),
+            ("assertions refused by the boundary", run.proposals_rejected),
+            ("declined -- insufficient evidence", run.declined),
+            ("errors", run.errors),
+            ("budget exhausted", run.budget_exhausted),
+            ("wall clock", f"{elapsed:.2f}s"),
+        ],
+    )
+
+    truth_path = cfg.TRUTH_DIR / "ground_truth.json"
+    if not truth_path.exists():
+        print("\n  No ground truth present -- run `python run.py generate` first.")
+        return 1
+    raw, links = load_truth(truth_path)
+
+    def _score(out):
+        return score(
+            out, links,
+            total_payments=len(inputs.payments),
+            captured_payments=sum(1 for p in inputs.payments if p.captured),
+            ambiguity_bank_txn_id=raw.get("ambiguity_bank_txn_id", ""),
+            credits_by_id={x.id: x.credit for x in inputs.bank_txns},
+            seed=inputs.seed,
+        )
+
+    before, after = _score(run.baseline), _score(run.enriched)
+    print("\n  BASELINE vs ENRICHED")
+    print("  " + "-" * 62)
+    print(f"  {'':22s} {'BASELINE':>12s} {'ENRICHED':>12s} {'DELTA':>10s}")
+    rows = [
+        ("match rate", before.match_rate, after.match_rate, "pct"),
+        ("match precision", before.match_precision, after.match_precision, "pct"),
+        ("refusal rate", before.refusal_rate, after.refusal_rate, "pct"),
+        ("assignments", before.total_assignments, after.total_assignments, "int"),
+        ("wrong assignments", len(before.wrong_assignments), len(after.wrong_assignments), "int"),
+    ]
+    for label, b, a, kind in rows:
+        if kind == "pct":
+            print(f"  {label:22s} {b:>11.2%} {a:>12.2%} {a - b:>+10.2%}")
+        else:
+            print(f"  {label:22s} {b:>12d} {a:>12d} {a - b:>+10d}")
+
+    print("\n  EVIDENCE-ATTRIBUTABLE COVERAGE GAIN")
+    print("  " + "-" * 62)
+    print(f"    payments newly assigned      {run.payments_gained}")
+    print(f"    evidence assertions made     {run.proposals_accepted}")
+    print(f"    gain per assertion           {run.evidence_attributable_gain:.2f}")
+    print(
+        "\n    Every assertion is a NAMED fact with the tool calls that found it, so a\n"
+        "    verdict change traces to evidence rather than to an agent's opinion."
+    )
+
+    if run.deltas:
+        print("\n  VERDICTS THAT MOVED")
+        print("  " + "-" * 62)
+        for d in run.deltas:
+            print(f"    {d.bank_txn_id}  {d.before} -> {d.after}   Rs {d.rupees:>12,.2f}")
+            if d.attributed_to:
+                for line in _wrap(d.attributed_to, 66):
+                    print(f"        {line}")
+
+    declined = [t for t in run.traces if t.outcome == "insufficient_evidence"]
+    if declined:
+        print(f"\n  DECLINED -- {len(declined)} exception(s), with the reason given")
+        print("  " + "-" * 62)
+        print(
+            "    An agent that never says 'I don't know' is worse than one with a\n"
+            "    lower match rate. The register is deliberately incomplete so this\n"
+            "    answer has to be reachable.\n"
+        )
+        for t in declined[:8]:
+            print(f"    {t.bank_txn_id}: {t.note[:100]}")
+        if len(declined) > 8:
+            print(f"    ... and {len(declined) - 8} more")
+
+    if after.match_precision < before.match_precision:
+        print(
+            "\n  ** PRECISION FELL. The evidence layer bought coverage by loosening\n"
+            "     correctness, which is the one thing this project argues against.\n"
+            "     Revert B4 rather than reporting the coverage gain. **"
+        )
+        return 1
+    return 0
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    import textwrap
+
+    return textwrap.wrap(text, width) or [""]
+
+
 def cmd_sweep(args: argparse.Namespace) -> int:
     """
     The density sweep -- this project's central empirical claim, measured.
@@ -574,6 +718,24 @@ def main(argv: list[str] | None = None) -> int:
                    help="run both arms under the permutation gate")
     c.add_argument("--fast", action="store_true", default=False)
     c.set_defaults(func=cmd_llm_compare)
+
+    g2 = sub.add_parser(
+        "agent", help="Ring 2+3: investigate the exceptions, then re-run the engine"
+    )
+    g2.add_argument("--seed", type=int, default=None)
+    g2.add_argument("--payments-per-window", type=int, default=None)
+    g2.add_argument("--no-llm", action="store_true", default=False,
+                    help="disable the narration LLM tier (independent of the agent)")
+    g2.add_argument("--offline", action="store_true", default=False,
+                    help="force the recorded investigator even if a key is present")
+    g2.add_argument("--null-agent", action="store_true", default=False,
+                    help="the control arm: investigate nothing, assert nothing. Must "
+                         "reproduce the baseline exactly")
+    g2.add_argument("--max-exceptions", type=int, default=None,
+                    help="investigate only the N largest exceptions")
+    g2.add_argument("--no-write", dest="write", action="store_false", default=True,
+                    help="do not persist the evidence ledger")
+    g2.set_defaults(func=cmd_agent)
 
     w = sub.add_parser("sweep", help="density sweep: refusal rate vs precision")
     w.add_argument("--seeds", type=int, nargs="+", default=[11111, 22222, 33333, 44444, 55555])
