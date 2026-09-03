@@ -190,3 +190,133 @@ def test_non_finite_amounts_are_rejected_though_they_are_valid_decimals(text):
     """
     with pytest.raises(ValueError, match="not finite"):
         rupees_to_paise(text)
+
+
+# --------------------------------------------------------------------------
+# Balance continuity (REVIEW.md P1-4)
+#
+# The `balance` column was read and never verified. A statement missing a row -- or
+# carrying one twice -- loaded cleanly and reconciled cleanly, because every OTHER number
+# in the file stays self-consistent when a row disappears. The engine would then report a
+# perfectly precise reconciliation of a history that never happened.
+#
+# This is the integrity check a controller expects, and it is the bank-side equivalent of
+# the generator-side assertions this project added after being caught four times.
+# --------------------------------------------------------------------------
+def _statement(tmp_path, rows, name="bank_statement.csv"):
+    """Write a statement whose balance column is computed, so tests state deltas only."""
+    import csv
+
+    path = tmp_path / name
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(
+            ["txn_date", "value_date", "description", "ref_no", "credit", "debit", "balance"]
+        )
+        for r in rows:
+            w.writerow(r)
+    return path
+
+
+def _row(day, credit, debit, balance, ref="UTR"):
+    return [
+        f"2026-07-{day:02d}", f"2026-07-{day:02d}", f"NEFT-{ref}{day}-CR",
+        f"{ref}{day}", f"{credit:.2f}", f"{debit:.2f}", f"{balance:.2f}",
+    ]
+
+
+def test_a_reconciling_statement_loads(tmp_path):
+    from loaders import load_bank_statement
+
+    path = _statement(tmp_path, [
+        _row(1, 1000.00, 0, 51000.00),
+        _row(2, 500.00, 0, 51500.00),
+        _row(3, 0, 200.00, 51300.00),
+    ])
+    assert len(load_bank_statement(path)) == 3
+
+
+def test_a_dropped_row_is_caught_by_the_balance_column(tmp_path):
+    """
+    THE case this check exists for. The middle row is removed; every remaining row is
+    internally valid, and only the balance column knows something is missing.
+    """
+    from loaders import load_bank_statement
+
+    path = _statement(tmp_path, [
+        _row(1, 1000.00, 0, 51000.00),
+        # _row(2, 500.00, 0, 51500.00) -- dropped
+        _row(3, 0, 200.00, 51300.00),
+    ])
+    with pytest.raises(ValueError) as e:
+        load_bank_statement(path)
+    msg = str(e.value)
+    assert "running balance does not reconcile" in msg
+    assert "bank_txn_0002" in msg, "the error must name the row that fails to reconcile"
+    assert "+500.00" in msg or "50000" in msg or "-500" in msg or "+50000" in msg
+
+
+def test_a_duplicated_row_is_caught_too(tmp_path):
+    from loaders import load_bank_statement
+
+    path = _statement(tmp_path, [
+        _row(1, 1000.00, 0, 51000.00),
+        _row(2, 500.00, 0, 51500.00),
+        _row(2, 500.00, 0, 51500.00),   # posted twice
+    ])
+    with pytest.raises(ValueError) as e:
+        load_bank_statement(path)
+    assert "does not reconcile" in str(e.value)
+
+
+def test_an_edited_amount_is_caught(tmp_path):
+    """A credit altered after the fact leaves the balance column disagreeing with it."""
+    from loaders import load_bank_statement
+
+    path = _statement(tmp_path, [
+        _row(1, 1000.00, 0, 51000.00),
+        _row(2, 900.00, 0, 51500.00),   # balance says 500 arrived
+    ])
+    with pytest.raises(ValueError) as e:
+        load_bank_statement(path)
+    assert "-400.00p" in str(e.value) or "-40000" in str(e.value)
+
+
+def test_a_statement_with_no_balance_column_values_is_not_rejected(tmp_path):
+    """
+    Real exports omit the running balance. A check that cannot run must say nothing
+    rather than fail -- refusing a valid statement is a worse failure than not checking
+    it.
+    """
+    from loaders import load_bank_statement
+
+    path = _statement(tmp_path, [
+        _row(1, 1000.00, 0, 0),
+        _row(2, 500.00, 0, 0),
+    ])
+    assert len(load_bank_statement(path)) == 2
+
+
+def test_a_single_row_statement_has_nothing_to_check(tmp_path):
+    from loaders import assert_balance_continuity, load_bank_statement
+
+    path = _statement(tmp_path, [_row(1, 1000.00, 0, 51000.00)])
+    txns = list(load_bank_statement(path))
+    assert assert_balance_continuity(txns, path) == 0
+
+
+def test_the_reported_batches_both_reconcile():
+    """
+    Not a fixture -- the actual shipped statements. If the generator ever starts emitting
+    a statement whose balance column does not add up, that is a generator defect and this
+    is where it surfaces, rather than as an unexplained coverage change.
+    """
+    import config as cfg
+    from loaders import assert_balance_continuity, load_bank_statement
+
+    for directory in (cfg.GENERATED, cfg.HOLDOUT):
+        statement = directory / "bank_statement.csv"
+        if not statement.is_file():
+            continue
+        txns = list(load_bank_statement(statement))
+        assert assert_balance_continuity(txns, statement) == len(txns)

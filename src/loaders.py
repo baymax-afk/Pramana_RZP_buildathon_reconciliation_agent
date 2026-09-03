@@ -144,7 +144,51 @@ def load_bank_statement(path: Path) -> tuple[BankTxn, ...]:
                     balance=_money(row, "balance", path, i),
                 )
             )
+    assert_balance_continuity(out, path)
     return tuple(out)
+
+def assert_balance_continuity(txns: list[BankTxn], path: Path) -> int:
+    """
+    Every row's balance must equal the previous row's, plus its credit, less its debit.
+
+    **This is the check a controller expects and the engine did not have.** The `balance`
+    column was read and never verified, so a statement missing a row -- or carrying one
+    twice -- loaded cleanly and reconciled cleanly, because every OTHER number in the file
+    stays self-consistent when a row goes missing. The engine would then report a
+    perfectly precise reconciliation of a statement that is not the account's history.
+    That is the failure this project has hit four times from the generator side
+    (`DEFECT_LOG` 2026-09-02-05, -08, 2026-09-03-03); the bank side had no equivalent
+    guard at all.
+
+    **Checked RELATIVELY, between consecutive rows, rather than against an opening
+    balance.** An opening balance is a property of the account and of wherever the export
+    happens to start, so requiring one would make the loader wrong on any statement
+    beginning mid-history, and it would import a generator constant into the engine's view
+    of the world. The difference between two consecutive balances is a fact the file
+    asserts about itself, and it is exactly the fact a dropped row destroys.
+
+    Skipped when the column is absent or entirely zero: real exports do omit it, and a
+    check that cannot run should say nothing rather than fail. Returns how many rows were
+    verified, so a caller can tell "checked and passed" from "had nothing to check".
+    """
+    if len(txns) < 2 or not any(t.balance for t in txns):
+        return 0
+
+    for i in range(1, len(txns)):
+        prev, cur = txns[i - 1], txns[i]
+        expected = prev.balance + cur.credit - cur.debit
+        if cur.balance != expected:
+            raise ValueError(
+                f"{path.name} row {i + 1} ({cur.id}): the running balance does not "
+                f"reconcile. The previous row closes at {prev.balance}p; this row "
+                f"credits {cur.credit}p and debits {cur.debit}p, which should close at "
+                f"{expected}p, but it states {cur.balance}p -- a discrepancy of "
+                f"{cur.balance - expected:+d}p. A statement whose balance column does "
+                f"not reconcile is missing a row, carrying one twice, or has been "
+                f"edited; reconciling it would produce a precise answer about a history "
+                f"that never happened."
+            )
+    return len(txns)
 
 
 def load_payer_directory(path: Path | None = None) -> tuple[PayerAuthorisation, ...]:
