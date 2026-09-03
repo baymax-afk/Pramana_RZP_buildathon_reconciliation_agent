@@ -67,9 +67,16 @@ class SearchResult:
 
     solutions: tuple[Solution, ...]
     best_miss: int | None
-    pool_size: int
-    capped: bool
-    nodes: int
+    # WHICH payments came closest, alongside how close. The gap alone told an operator a
+    # credit was Rs 37.00 short of something and left them to find out what -- so a
+    # refusal that said "no subset fits" carried no candidate at all, on six of fifteen
+    # exceptions including the largest. Naming the subset turns the same refusal into
+    # "these three payments come to Rs 37.00 less than this credit", which is a bank
+    # charge or a short-payment to go and look for. See REVIEW.md P1-3.
+    best_miss_ids: tuple[str, ...] = ()
+    pool_size: int = 0
+    capped: bool = False
+    nodes: int = 0
 
 
 def _effective_intervals(
@@ -128,13 +135,18 @@ def search(
 
     solutions: list[Solution] = []
     best_miss: int | None = None
+    best_miss_ids: tuple[str, ...] = ()
     nodes = 0
     capped = False
 
-    def record_miss(resid: int) -> None:
-        nonlocal best_miss
+    def record_miss(resid: int, chosen: list[int]) -> None:
+        nonlocal best_miss, best_miss_ids
         if best_miss is None or abs(resid) < abs(best_miss):
             best_miss = resid
+            # Snapshotted: `chosen` is mutated by the search as it backtracks, so keeping
+            # a reference would leave the "closest subset" describing wherever the walk
+            # happened to finish rather than where it was closest.
+            best_miss_ids = tuple(items[i][0] for i in chosen)
 
     def dfs(start: int, chosen: list[int], lo: int, hi: int, certain: bool) -> None:
         nonlocal nodes, capped
@@ -161,7 +173,7 @@ def search(
                     return
                 # A superset of a solution overshoots, so stop descending here.
                 return
-            record_miss(resid)
+            record_miss(resid, chosen)
 
         if len(chosen) >= kmax:
             return
@@ -181,7 +193,7 @@ def search(
                 # Only near overshoots are recorded; a wildly oversized subset is not
                 # evidence about anything.
                 if nlo - target <= 2 * tol:
-                    record_miss(target - nlo)
+                    record_miss(target - nlo, chosen + [i])
                 break
             if hi + suffix_hi[i] < target - tol:
                 break
@@ -192,7 +204,9 @@ def search(
                 return
 
     dfs(0, [], 0, 0, True)
-    return SearchResult(tuple(solutions), best_miss, n, capped, nodes)
+    return SearchResult(
+        tuple(solutions), best_miss, best_miss_ids, n, capped, nodes
+    )
 
 
 def uniqueness_margin(result: SearchResult, tolerance: int) -> float:
@@ -282,12 +296,42 @@ def _decompose(
         )
 
     if not result.solutions:
+        # The near miss is emitted as a CANDIDATE, and that is a deliberate widening of
+        # what a candidate means here. It is not a viable decomposition -- the category
+        # says plainly that nothing fits -- but it carries its own residual, so a row
+        # reading "4 payments, +3700p" is self-describing rather than misleading, and it
+        # is the difference between an exception a person can work and one they can only
+        # escalate. Six of fifteen refusals carried nothing at all before this, including
+        # the largest at Rs 45,673. See REVIEW.md P1-3.
+        near = []
+        if result.best_miss_ids:
+            payments = [p for p in pool if p.id in set(result.best_miss_ids)]
+            interval = fees.expected_credit_interval(payments, invoices_by_no)
+            near.append(
+                Candidate(
+                    payment_ids=tuple(result.best_miss_ids),
+                    residual_paise=fees.residual(txn.credit, interval),
+                    tier=TIER,
+                    interval_lo=interval.lo,
+                    interval_hi=interval.hi,
+                    certain=interval.certain,
+                )
+            )
         return (
-            [],
+            near,
             RefusalCategory.NO_SUBSET_FITS,
             f"no subset of the {result.pool_size} candidates sums to {txn.credit}p "
             f"within {tol}p at k<={cfg.MAX_SUBSET_K}"
-            + (f" (closest miss {result.best_miss:+d}p)" if result.best_miss is not None else ""),
+            + (
+                f"; the closest is {len(result.best_miss_ids)} payment(s) "
+                f"{result.best_miss:+d}p away, listed below"
+                if result.best_miss is not None and result.best_miss_ids
+                else (
+                    f" (closest miss {result.best_miss:+d}p)"
+                    if result.best_miss is not None
+                    else ""
+                )
+            ),
             0.0,
         )
 

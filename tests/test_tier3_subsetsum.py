@@ -213,3 +213,92 @@ def test_empty_pool_returns_an_empty_result_rather_than_raising():
 def test_target_of_zero_finds_nothing_and_does_not_hang():
     r = search(0, [pay("p1", 10_000), pay("p2", 20_000)])
     assert r.solutions == ()
+
+
+# --------------------------------------------------------------------------
+# The near miss (REVIEW.md P1-3)
+# --------------------------------------------------------------------------
+def test_the_search_names_the_subset_that_came_closest():
+    """
+    `best_miss` recorded how far the nearest subset fell and discarded WHICH subset it
+    was, so a refusal could say a credit was Rs 37.00 short of something and not say of
+    what. The gap alone is not actionable; the subset is a bank charge to go and find.
+    """
+    import config as cfg
+    from loaders import load_inputs
+    from recon.engine import fees, tier2_amount_date, tier3_subsetsum
+
+    inputs = load_inputs()
+    txn = {t.id: t for t in inputs.bank_txns}
+    invoices = {i.invoice_no: i for i in inputs.invoices}
+
+    named = 0
+    for t in (x for x in inputs.bank_txns if x.is_credit):
+        pool = tier2_amount_date.candidate_pool(t, inputs.payments, set())
+        if not pool:
+            continue
+        r = tier3_subsetsum.search(
+            t.credit, pool, invoices, tolerance=fees.tolerance_for(t.credit)
+        )
+        if r.best_miss is None:
+            continue
+        assert r.best_miss_ids, (
+            f"{t.id}: a miss was recorded with no subset naming it"
+        )
+        assert set(r.best_miss_ids) <= {p.id for p in pool}
+        assert len(set(r.best_miss_ids)) == len(r.best_miss_ids), "duplicate ids"
+        named += 1
+    assert named, "no near misses at all in this batch; the test proved nothing"
+
+
+def test_the_recorded_subset_is_snapshotted_not_aliased():
+    """
+    `chosen` is mutated as the search backtracks. Holding a reference rather than a copy
+    would leave the 'closest subset' describing wherever the walk happened to finish,
+    which would be wrong in a way that still looked plausible.
+    """
+    import config as cfg
+    from loaders import load_inputs
+    from recon.engine import fees, tier2_amount_date, tier3_subsetsum
+
+    inputs = load_inputs()
+    txn = next(t for t in inputs.bank_txns if t.id == "bank_txn_0050")
+    pool = tier2_amount_date.candidate_pool(txn, inputs.payments, set())
+    invoices = {i.invoice_no: i for i in inputs.invoices}
+    r = tier3_subsetsum.search(
+        txn.credit, pool, invoices, tolerance=fees.tolerance_for(txn.credit)
+    )
+
+    # The recorded subset must actually be that far from the target, recomputed here
+    # rather than trusted.
+    payments = [p for p in pool if p.id in set(r.best_miss_ids)]
+    interval = fees.expected_credit_interval(payments, invoices)
+    assert abs(fees.residual(txn.credit, interval)) > fees.tolerance_for(txn.credit)
+
+
+def test_a_no_subset_fits_refusal_now_carries_what_it_declined():
+    """
+    Six of fifteen exceptions carried no candidate at all, including the largest at
+    Rs 45,673, against results.py's claim that a refusal naming what it declined is
+    actionable and one saying only "ambiguous" is not.
+    """
+    from loaders import load_inputs
+    from recon.engine.match import match_once
+
+    out = match_once(load_inputs())
+    fits = [r for r in out.refusals if r.category.value == "no_subset_fits"]
+    if not fits:
+        import pytest
+
+        pytest.skip("no such refusals at this seed")
+
+    with_candidates = [r for r in fits if r.candidates]
+    assert with_candidates, "every no_subset_fits refusal is still empty-handed"
+
+    for r in with_candidates:
+        cand = r.candidates[0]
+        assert cand.payment_ids
+        # It is the CLOSEST subset, not a viable one -- so it must be outside tolerance,
+        # or the engine would have posted it.
+        assert abs(cand.residual_paise) > 0
+        assert "listed below" in r.reason

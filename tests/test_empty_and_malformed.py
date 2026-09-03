@@ -320,3 +320,39 @@ def test_the_reported_batches_both_reconcile():
             continue
         txns = list(load_bank_statement(statement))
         assert assert_balance_continuity(txns, statement) == len(txns)
+
+
+def test_a_blank_credit_is_zero_but_a_blank_balance_is_an_error(tmp_path):
+    """
+    Blank-means-zero has to be per-column (REVIEW.md P2-1).
+
+    A blank `credit` on a debit row is how every bank writes a statement, so zero is
+    correct and refusing it would reject valid exports. A blank `balance` is a MISSING
+    number: read as zero it makes the running balance appear to collapse to nil and
+    recover, which the continuity check then reports as a reconciliation failure at a row
+    that is merely incomplete -- sending an operator after a defect that does not exist.
+    """
+    import csv
+
+    from loaders import load_bank_statement
+
+    def write(balance_cell):
+        path = tmp_path / f"stmt_{balance_cell or 'blank'}.csv"
+        with path.open("w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(
+                ["txn_date", "value_date", "description", "ref_no", "credit", "debit", "balance"]
+            )
+            # A debit row with a BLANK credit: legitimate, and must load.
+            w.writerow(["2026-07-01", "2026-07-01", "CHG", "U1", "", "100.00", "49900.00"])
+            w.writerow(["2026-07-02", "2026-07-02", "NEFT-CR", "U2", "500.00", "", balance_cell])
+        return path
+
+    ok = load_bank_statement(write("50400.00"))
+    assert ok[0].credit == 0 and ok[0].debit == 10000, "a blank credit must read as zero"
+
+    with pytest.raises(ValueError) as e:
+        load_bank_statement(write(""))
+    msg = str(e.value)
+    assert "'balance'" in msg and "empty" in msg
+    assert "never stated" in msg

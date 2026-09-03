@@ -289,7 +289,18 @@ def cmd_match(args: argparse.Namespace) -> int:
         inputs, out, seed=seed, elapsed_s=elapsed,
         relations=relations, ensemble=ensemble, llm=llm, recorder=recorder,
     )
-    written = run_output.write(payload)
+    # The holdout writes to its OWN file. `reports/run_output.json` is what the API
+    # serves and the UI renders, and a holdout run was silently replacing it -- so
+    # scoring the shifted set left the demo showing the shifted set, with a seed and a
+    # density nobody had asked for and no indication anything had changed.
+    #
+    # This is P0-1's failure shape again, from a new direction: the served artefact
+    # being overwritten by something that had no business writing it. Found because the
+    # exception count printed after a holdout run did not match the primary's.
+    written = run_output.write(
+        payload,
+        (cfg.REPORTS / "run_output_holdout.json") if generated_dir is not None else None,
+    )
 
     # ---- the comparison arm ----
     #

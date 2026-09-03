@@ -86,7 +86,9 @@ def load_payments(path: Path) -> tuple[Payment, ...]:
     )
 
 
-def _money(row: dict, field: str, path: Path, row_no: int) -> int:
+def _money(
+    row: dict, field: str, path: Path, row_no: int, blank_means_zero: bool = True
+) -> int:
     """
     Read one rupee-denominated column, naming the file, row and column if it is bad.
 
@@ -94,6 +96,17 @@ def _money(row: dict, field: str, path: Path, row_no: int) -> int:
     traceback that says only `not a rupee amount: '(500)'` sends an operator hunting
     through a 200-row CSV by hand. The loader is the only layer that knows the
     coordinates, so it is the layer that attaches them.
+
+    **`blank_means_zero` is per-column, and it has to be.** A blank `credit` on a debit
+    row is how every bank in the world writes a statement, so treating an empty cell as
+    zero is correct there and refusing it would reject valid exports. A blank `balance`
+    is not the same thing at all: it is a missing number, and reading it as zero produces
+    a running balance that appears to collapse to nil and then recover -- which the
+    continuity check would then report as a reconciliation failure at a row that is
+    merely incomplete, sending an operator after a defect that does not exist.
+
+    The distinction was previously global: every blank became zero, so the two cases were
+    indistinguishable and the second was silent. Callers now say which they mean.
     """
     if field not in row:
         raise ValueError(
@@ -102,7 +115,13 @@ def _money(row: dict, field: str, path: Path, row_no: int) -> int:
         )
     raw = row[field]
     if raw is None or not str(raw).strip():
-        return 0
+        if blank_means_zero:
+            return 0
+        raise ValueError(
+            f"{path.name} row {row_no}, column {field!r}: empty. This column carries a "
+            f"number that must be present -- reading a blank as zero here would put a "
+            f"figure in the ledger that the file never stated."
+        )
     try:
         return rupees_to_paise(raw)
     except ValueError as e:
@@ -141,7 +160,8 @@ def load_bank_statement(path: Path) -> tuple[BankTxn, ...]:
                     ref_no=_text(row, "ref_no", path, i),
                     credit=_money(row, "credit", path, i),
                     debit=_money(row, "debit", path, i),
-                    balance=_money(row, "balance", path, i),
+                    # A blank balance is a MISSING number, not zero -- see _money.
+                    balance=_money(row, "balance", path, i, blank_means_zero=False),
                 )
             )
     assert_balance_continuity(out, path)

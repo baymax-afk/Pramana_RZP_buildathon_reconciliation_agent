@@ -71,11 +71,22 @@ class RefusalCategory(str, Enum):
 @dataclass(frozen=True, slots=True)
 class Candidate:
     """
-    One decomposition the engine considered viable.
+    One decomposition the engine weighed -- usually viable, and on one refusal not.
 
     Refusals carry every candidate they saw, not just the best one. An exception that
     says "two subsets fit, here they both are, Rs 800 at risk" is actionable; one that
     says "ambiguous" is not.
+
+    **`no_subset_fits` deliberately carries a candidate that does NOT fit**, and the
+    widening is worth stating here because this is where a reader looks. That refusal
+    means the search ran to completion and nothing summed within tolerance, so its
+    candidate is the CLOSEST subset rather than a viable one. It is safe to report
+    because the category already says nothing fits and because `residual_paise` travels
+    with it: a row reading "4 payments, +3700p" describes itself. Without it, six of
+    fifteen exceptions carried nothing at all -- including the largest, at Rs 45,673 --
+    and "no combination accounts for this credit" is a fact an operator can do nothing
+    with, where "these four come to Rs 37.00 less than it" is a bank charge to go and
+    find. See REVIEW.md P1-3.
     """
 
     payment_ids: tuple[str, ...]
