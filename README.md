@@ -127,7 +127,10 @@ No real card, account, or credential was used at any point.
 
 ### Injected defects
 
-**Sixteen categories**, each ground-truth labelled.
+**Sixteen categories.** Fifteen carry a ground-truth label; `chargeback_debit`
+deliberately carries none, because the engine structurally cannot produce a verdict for a
+debit and inventing one would score it against a permanent, unclosable miss. It is
+disclosed instead — see *not examined*, below.
 
 The original nine: MDR/gateway fee deduction · TDS deduction · T+1 and T+2 settlement
 date drift · one bank credit covering N payments · partial payment · duplicate UTR ·
@@ -270,8 +273,13 @@ would be worse than none.
 pytest tests/
 ```
 
-287 tests, including the end-to-end isolation test — which deletes the ground-truth
+295 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
+
+The percentages in the build order below are **what each block achieved when it landed**,
+not current figures. The current ones are in `docs/METRICS.md`, and
+`tests/test_reported_numbers.py` re-derives them from a live run so they cannot go stale
+in prose.
 
 *Full command reference lands with the engine — see the build order below.*
 
@@ -284,15 +292,15 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 
 - [x] **Block 0** — repo skeleton, frozen config, architecture and metrics docs
 - [x] **Block 1** — real payment capture: 24 R1 payments (18 captured), 12 R2 orders
-- [x] **Block 2** — generator, ground truth, nine defects, ambiguity case
-- [x] **Block 3** — matching engine, tiers 1–2 (76.6% coverage, precision 1.0000)
+- [x] **Block 2** — generator, ground truth, nine defects, ambiguity case *(sixteen now)*
+- [x] **Block 3** — matching engine, tiers 1–2 *(76.6% coverage at the time)*
 - [x] **Block 4** — scorer, metrics harness, isolation test  ← **metrics block lands here**
 - [x] **Block 5** — metamorphic harness + runtime permutation gate (MR1–MR6 all pass)
-- [x] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal (86.1% match rate, precision 1.0000)
+- [x] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal *(86.1% at the time)*
 - [x] **Block 7** — Layer 3 Fellegi–Sunter (two-threshold band, unsupervised `u`)
 - [x] **Block 8** — Layer 4 materiality (AS 2315) + composite confidence
 - [ ] **Block 8b** — BenchRec calibration fit (weights currently UNCALIBRATED)
-- [x] **Block 9** — LLM tier (no verdict changes; see DEFECT_LOG 2026-09-02-03)
+- [x] **Block 9** — LLM tier — changes reasons, and now one decision; see `DEFECT_LOG` 2026-09-03-01
 - [x] **Block 10** — FastAPI + React exception triage UI
 
 [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) records what broke during the build, as it

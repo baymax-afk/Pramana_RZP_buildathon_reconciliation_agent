@@ -71,33 +71,33 @@ flowchart TD
 
     T1{"Tier 1<br/>exact reference"}
     T1 -->|one match| CHECK1{"amount also fits?"}
-    T1 -->|reference hits 2+ payments| REF_DUP["REFUSE<br/>duplicate reference"]
+    T1 -->|reference hits 2+ payments| REF_DUP["REFUSE<br/>multiple_candidates<br/>(duplicate reference)"]
     T1 -->|no reference match| T2
 
     CHECK1 -->|yes| ASSIGN
-    CHECK1 -->|no| RESID["REFUSE<br/>unexplained residual"]
+    CHECK1 -->|no| RESID["REFUSE<br/>unexplained_residual"]
 
     T2{"Tier 2<br/>amount + date window"}
     T2 -->|exactly one fits| ASSIGN
-    T2 -->|several fit| MULTI2["REFUSE<br/>amount cannot single one out"]
+    T2 -->|several fit| MULTI2["REFUSE<br/>multiple_candidates<br/>(amount cannot single one out)"]
     T2 -->|none fit| T3
 
     T3{"Tier 3<br/>bounded subset-sum"}
-    T3 -->|pool > MAX_POOL| BOUNDS["REFUSE<br/>cannot search exhaustively"]
-    T3 -->|no subset fits| NONE["REFUSE<br/>nothing accounts for it"]
-    T3 -->|2+ subsets fit| MULTI3["REFUSE<br/>Layer 2 uniqueness"]
+    T3 -->|pool > MAX_POOL| BOUNDS["REFUSE<br/>decomposition_out_of_bounds"]
+    T3 -->|no subset fits| NONE["REFUSE<br/>decomposition_out_of_bounds<br/>(nothing accounts for it)"]
+    T3 -->|2+ subsets fit| MULTI3["REFUSE<br/>multiple_candidates<br/>or solution_cap_reached"]
     T3 -->|exactly one subset| ASSIGN
 
     ASSIGN["Candidate assignment"] --> COUNT{"narration states a<br/>transaction count?<br/>does it MATCH the<br/>number of payments?"}
     COUNT -->|"count disagrees"| CNTNO["REFUSE<br/>narration_count_conflict"]
     COUNT -->|"agrees, or silent"| FS{"Layer 3 · Fellegi-Sunter<br/>does the name/reference<br/>evidence CONTRADICT?"}
-    FS -->|contradicts| FSNO["REFUSE<br/>counterparty disagrees"]
+    FS -->|contradicts| FSNO["REFUSE<br/>amount_name_conflict<br/>fs_below_lower_threshold<br/>fs_review_band"]
     FS -->|silent or supports| PROP["PROPOSE<br/>bid for these payments<br/>nothing is granted yet"]
 
     PROP --> RES{"Layer 2 · resolve<br/>does another credit bid<br/>for the same payment?"}
     RES -->|"rival evidence >= mine"| CONT["REFUSE<br/>contested_payment<br/>a tie refuses BOTH"]
     RES -->|"uncontested, or I win strictly"| GATE{"Layer 1 · permutation gate<br/>stable across K=8 orderings?"}
-    GATE -->|no| ORD["REFUSE<br/>decided by iteration order"]
+    GATE -->|no| ORD["REFUSE<br/>order_dependent_assignment"]
     GATE -->|yes| FINAL(["ASSIGN"])
 
     style REF_DUP fill:#fdeceb,stroke:#c0392b
@@ -113,7 +113,7 @@ flowchart TD
     style FINAL fill:#eaf5ee,stroke:#2c6b41,stroke-width:2px
 ```
 
-**Nine distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
+**Ten distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
 Every refusal names its cause, so an exception says which mechanism objected rather than
 merely that something did.
 

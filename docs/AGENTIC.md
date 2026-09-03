@@ -207,7 +207,7 @@ problems.
 
 **The claim it would let the project make**, which no current metric supports:
 
-> Coverage rose from 92.78% to X% **without precision moving off 1.0000**, and every
+> Coverage rose from its current figure to X% **without precision moving off 1.0000**, and every
 > point of that rise is attributable to a named piece of evidence an agent went and
 > found — not to a threshold that was loosened.
 

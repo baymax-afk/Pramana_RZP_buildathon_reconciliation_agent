@@ -203,16 +203,18 @@ Mean over five held-out seeds, disjoint from both reported runs:
 
 | payments/window | realised pool | match rate | match precision | refusal rate |
 |---|---|---|---|---|
-| 3 | 8.8 | 86.1% | 1.0000 | 7.7% |
-| 6 | 15.4 | 83.2% | 1.0000 | 9.8% |
-| 12 | 27.8 | 80.7% | 1.0000 | 11.6% |
-| 24 | 53.0 | 63.3% | 0.9978 | 18.2% |
+| 3 | 8.8 | 87.0% | **1.0000** | 9.0% |
+| 6 | 15.0 | 88.9% | **1.0000** | 10.1% |
+| 12 | 27.8 | 89.0% | **1.0000** | 9.2% |
+| 24 | 52.8 | 76.6% | **1.0000** | 13.8% |
 
-As the candidate pool grows six-fold, **refusal rate rises 2.4x while precision stays
-flat** and coverage is what degrades. That is the behaviour the architecture was built
-to produce: the engine declines work it cannot justify instead of guessing at it.
+As the candidate pool grows six-fold, **refusal rate rises while precision stays flat**
+and coverage is what degrades. That is the behaviour the architecture was built to
+produce: the engine declines work it cannot justify instead of guessing at it.
 
-Reproduce with `python run.py sweep`.
+Reproduce with `python run.py sweep`. `tests/test_reported_numbers.py` re-derives this
+table from a live run and fails if any figure here drifts from it — these numbers have
+been stale twice, and prose is where a measured claim goes to rot.
 
 ---
 
