@@ -38,12 +38,23 @@ Every bank transaction receives exactly one of three verdicts — **assign**,
 ```
                 number of payments assigned to some bank transaction
 match rate  =  ─────────────────────────────────────────────────────
-                          total payments in the batch
+                        CAPTURED payments in the batch
 ```
 
 Counts payments, not bank transactions, so a many-to-one settlement covering six
 payments contributes six to the numerator. Refused and unmatched payments are
 excluded from the numerator and included in the denominator.
+
+**The denominator is CAPTURED payments, not all of them, and the distinction is worth
+stating because it moves the headline.** At the reported seed there are 200 payments of
+which 194 are captured, so 172 assigned reads 88.66% rather than 86.0%. An uncaptured
+payment — one that failed at the gateway, or an order never completed — has no money
+behind it and can never appear on a bank statement; counting it against the engine would
+score it for failing to match something that does not exist.
+
+This document previously said "total payments in the batch" while `scorer/score.py`
+divided by `captured_payments`. The code was right and the definition was wrong.
+`tests/test_reported_numbers.py` now pins the denominator so the two cannot drift again.
 
 ### Match precision
 
@@ -323,6 +334,24 @@ for the reason stated at the top — one number reads as a property of the engin
 is **not** evidence that the refusal layers are exercised, and the density sweep remains
 the only place that is demonstrated. Saying so here rather than letting the second column
 imply otherwise.
+
+> **SUPERSEDED — the table above is kept as the finding that prompted the fix.** It was
+> true when written, and what it identified is exactly what got fixed: the batch was too
+> clean for the refusal machinery to be visible at the reported density. Seven further
+> defect categories were added in response (`OUTSTANDING_TASKS` O6), and the same three
+> arms at the same seed now read:
+>
+> | | ppw=6 | ppw=12 | ppw=24 |
+> |---|---|---|---|
+> | worst realised pool | 15 | 28 | 53 |
+> | match rate | 88.7% | 88.1% | 83.5% |
+> | match precision | **1.0000** | **1.0000** | **1.0000** |
+> | refusal rate | 10.6% | 10.3% | 10.2% |
+> | exceptions at seed 20260905 | **15** | **15** | **14** |
+>
+> The refusal layers are now exercised at every density rather than only at `ppw=24`,
+> which is what the original finding said was missing. The density sweep is still the
+> place the *trend* is demonstrated — these are one seed, not five.
 
 ## LLM tier: reported as unmeasured
 

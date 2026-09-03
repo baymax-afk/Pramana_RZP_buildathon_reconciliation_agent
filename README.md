@@ -184,7 +184,8 @@ would be worth less than an accurate account of what is real.
 | **R2 — Razorpay-issued orders** | Real orders created through the API. Genuine Razorpay-issued IDs, receipts, notes and server timestamps. **Never completed — no `fee`, no `tax`, not `captured`.** | **12** |
 | **S — synthetic** | Schema-conformant records generated locally, carrying the injected defects. | **164** |
 
-Total batch: **200 payments**, 136 bank transactions, 200 invoices, across 23
+Total batch: **200 payments**, 147 bank transactions, 187 invoices, across 34
+settlement windows.
 settlement windows.
 
 The R1 slice spans **7 distinct payer contacts**, **7 banks** (BARB_R, CNRB, DEUT,

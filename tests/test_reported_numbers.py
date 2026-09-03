@@ -352,3 +352,91 @@ def test_every_refusal_category_is_actually_reachable():
         f"category the engine cannot emit is documentation of a behaviour that does "
         f"not exist."
     )
+
+
+def test_the_match_rate_denominator_is_captured_payments_everywhere():
+    """
+    `METRICS.md` defined match rate over "total payments in the batch" while
+    `scorer/score.py` divided by `captured_payments` — 86.0% against 88.66% on the same
+    run. The code was right (an uncaptured payment has no money behind it and can never
+    appear on a statement) and the document was wrong, which is the worse way round: a
+    reader checking the arithmetic would have found the published figure irreproducible.
+
+    Pinned in both directions — the scorer's arithmetic and the document's wording — so
+    a change to either without the other fails.
+    """
+    from recon.generator import build
+    from recon.engine.match import match_once
+    from scorer.score import score
+
+    batch = build.generate(seed=cfg.SEED_PRIMARY)
+    out = match_once(batch.inputs)
+    captured = sum(1 for p in batch.inputs.payments if p.captured)
+    card = score(
+        out, batch.truth,
+        total_payments=len(batch.inputs.payments),
+        captured_payments=captured,
+        ambiguity_bank_txn_id=batch.ambiguity_bank_txn_id or "",
+        credits_by_id={x.id: x.credit for x in batch.inputs.bank_txns},
+        seed=cfg.SEED_PRIMARY,
+    )
+
+    assert captured < card.total_payments, (
+        "this batch has no uncaptured payments, so the test cannot tell the two "
+        "denominators apart"
+    )
+    assert card.match_rate == card.payments_assigned / captured
+    assert card.match_rate != card.payments_assigned / card.total_payments
+
+    # Scoped to the FORMULA block, not the whole file: the prose below it quotes the old
+    # wording to explain what was wrong, and a document is allowed to describe its own
+    # history. A whole-file scan would forbid that, which is how a drift test starts
+    # deleting the record of the drift.
+    metrics = (cfg.ROOT / "docs" / "METRICS.md").read_text(encoding="utf-8")
+    section = metrics.split("### Match rate", 1)[1].split("```", 2)[1]
+    assert "CAPTURED payments in the batch" in section, section
+    assert "total payments in the batch" not in section, (
+        "METRICS.md's match-rate formula still divides by all payments; the scorer "
+        "divides by captured payments"
+    )
+
+
+def test_the_readme_batch_shape_matches_the_generated_manifest():
+    """
+    The README described a batch of 136 bank transactions and 200 invoices against a
+    manifest reading 147 and 187 — numbers from before `advance_payment` stopped every
+    payment carrying an invoice. Nobody notices a count drifting by eleven, which is
+    precisely why it should not be maintained by hand.
+    """
+    manifest = json.loads(
+        (cfg.GENERATED / "manifest.json").read_text(encoding="utf-8")
+    )
+    readme = (cfg.ROOT / "README.md").read_text(encoding="utf-8")
+
+    row = re.search(
+        r"Total batch: \*\*(\d+) payments\*\*, (\d+) bank transactions, "
+        r"(\d+) invoices, across (\d+)\s*\n?settlement windows",
+        readme,
+    )
+    assert row, "the README's batch-shape sentence has moved or been reworded"
+    payments, bank, invoices, _windows = (int(g) for g in row.groups())
+    assert payments == manifest["payments"]
+    assert bank == manifest["bank_txns"]
+    assert invoices == manifest["invoices"]
+
+
+def test_metrics_carries_one_current_refusal_rate_for_the_reported_density():
+    """
+    `METRICS.md` held two refusal rates for ppw=6 — 10.1% in the sweep table and 0.7%
+    in the second-arm discussion — and a reader had no way to tell which was live. The
+    stale one is now explicitly marked SUPERSEDED with the current figures beside it,
+    because it records the finding that prompted the fix and deleting it would erase why
+    seven defect categories exist.
+    """
+    metrics = (cfg.ROOT / "docs" / "METRICS.md").read_text(encoding="utf-8")
+    assert "SUPERSEDED" in metrics, (
+        "the stale ppw table is unmarked; a reader cannot tell which refusal rate is live"
+    )
+    stale = metrics.index("| refusal rate | 0.7% | 0.8% | **4.9%** |")
+    marker = metrics.index("SUPERSEDED")
+    assert marker > stale, "the SUPERSEDED note must follow the table it qualifies"
