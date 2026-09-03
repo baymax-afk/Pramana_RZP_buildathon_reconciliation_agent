@@ -1573,3 +1573,39 @@ line and finding it took the whole diagnosis.
 **The lesson worth keeping:** ids that are a property of the FILE rather than of the data
 are a standing hazard for anything that reorders rows. `loaders.py` says so in a
 docstring, and that docstring was written by whoever last got caught by it.
+
+## 2026-09-03-04 — "deterministic at the verdict level" was five runs, and the tenth broke it
+
+**The claim.** After measuring the live LLM tier, this project published: *"the model is
+non-deterministic at the field level and deterministic at the verdict level"*, on the
+evidence of five runs with a fresh live tier that all hashed to one fingerprint. It went
+into the README, `OUTSTANDING_TASKS` W2, `AGENTIC.md` and `REVIEW.md`'s demo-risk
+register, described in the last as *"the strongest single piece of evidence that the
+verification architecture does what it claims."*
+
+**What happened.** Regenerating `run_output.json` after unrelated work produced **126
+assignments, not 127**. Four further runs went back to 127. Ten observations now stand at
+**nine 127s and one 126**.
+
+**It is not the gate catching order-dependence.** That run reported `unstable: 0` across
+all eight shuffled passes, and its exception categories match the LLM-off arm exactly:
+`amount_name_conflict: 5`. The tier simply recovered nothing useful on `bank_txn_0103`
+that time and contributed zero. The eight passes agreed with each other; they just agreed
+on a different answer than the previous nine runs did.
+
+**Why the original claim was wrong even though the measurement was right.** Five runs
+agreeing is evidence of stability, not of determinism, and the sentence written from it
+asserted the stronger thing. The mechanism was there to see in the reasoning already
+published beside it: the tier's output is an *input* to the engine, so a tier that varies
+makes the engine's input vary. "The engine is deterministic given its inputs" is true and
+provable; "the engine does not vary in what it decides with a live tier" does not follow
+from it and is now falsified.
+
+**Corrected in all four places rather than restated.** The honest version: the
+deterministic arm (`--no-llm`) is bit-identical every run and is what a live demo should
+use; the live arm assigns 127 in 9 of 10 observed runs and 126 in one.
+
+**The lesson.** This project's whole argument is about not claiming more than the
+evidence carries, and the failure here was of exactly that kind, in a sentence written
+about its own verification. A run count is not a proof, and "we observed N runs agree" is
+the claim the data supports.

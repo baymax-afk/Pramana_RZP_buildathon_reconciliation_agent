@@ -85,9 +85,15 @@ the LLM tier makes precision worse, that is what the metrics block says.
 the tier fills 8 of the 13 narrations the regex tier cannot read — all merchant
 references, no payer names — and changes exactly **one** verdict, correctly.
 **Match rate 88.66% → 89.18%; precision 1.0000 → 1.0000.** Over five runs with a fresh
-live tier each time, the assignment map and refusal set hash to a single fingerprint,
-identical to the offline arm's: the model varies in what it extracts and the engine does
-not vary in what it decides. Full numbers, including where the live model does *worse*
+live tier each time, the assignment map and refusal set hashed to a single fingerprint,
+identical to the offline arm's.
+
+**That was five runs, and a tenth run broke it.** One gated run produced 126 assignments
+rather than 127 — the model recovered nothing useful on that one borderline credit, so the
+tier contributed zero. The permutation gate reported `unstable: 0`, so this is not
+order-dependence: it is the tier's output being an *input* to the engine, and that input
+moving. **9 of 10 observed live runs assign 127; one assigns 126.** The deterministic arm
+(`--no-llm`) is bit-identical every time, which is what a live demo should run. Full numbers, including where the live model does *worse*
 than the offline stand-in, in [`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) W2.
 
 Ground truth is written by the generator to a directory the matching engine never

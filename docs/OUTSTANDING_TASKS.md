@@ -85,6 +85,12 @@ nothing.** Small, real, and measured rather than asserted.
    tier decision, and the amount channel still has to agree. This is the strongest
    available evidence that the verification architecture does what it claims.
 
+   **Corrected 2026-09-03, on the tenth observed run.** The claim above said the engine does not vary in what it decides with a live tier, on the evidence of five runs that all produced one fingerprint. A sixth, run through the gated path while regenerating the artefact, produced **126 assignments instead of 127** -- the model recovered nothing useful on `bank_txn_0103` that time, so the tier contributed zero. Four further ungated runs went back to 127.
+
+   So the honest statement is: **9 of 10 observed live runs assign 127 and one assigns 126.** The permutation gate reported `unstable: 0` on the 126 run, so this is not order-dependence being caught -- it is the tier's output being an INPUT to the engine, and that input moving. The deterministic arm (`--no-llm`) is bit-identical every time and remains what the demo should run.
+
+   Five runs agreeing was a real observation and it was not enough to support the word "deterministic". Recorded rather than quietly restated.
+
 3. **It costs 30–35 seconds of wall clock, against 33 ms with the tier off** — a ~1000x
    slowdown, all of it sequential HTTP. See the demo-risk note in `REVIEW.md` §6: the
    live arm is a pre-computed artifact for the demo, not something to run on stage.
