@@ -16,8 +16,9 @@ number from a doc, I say so and I say whether the code agrees.
 > |---|---|---|
 > | **P0-1** verification missing from the served artefact | `relations: []`, gate `null` | MR1–MR6 all pass, gate K=8 with 0 of 127 unstable. **Root cause was the test suite itself**, which rewrote the file without `--verify` on every run; the payload now carries an explicit `status` and the UI renders its absence as a warning |
 > | **P0-2** no way to see why a match was made | 126 of 141 outcomes invisible | Every match and exception carries a plain sentence, evidence links, and the recorded paise-level transcript |
-| **"where is the agent?"** | in a markdown file | `run.py agent`: tool-calling Ring 2 + Ring 3, **88.66% → 90.21% at precision 1.0000**, null-agent control byte-identical |
+> | **"where is the agent?"** | in a markdown file | `run.py agent`: tool-calling Ring 2 + Ring 3, **88.66% → 90.21% at precision 1.0000**, null-agent control byte-identical |
 > | **P0-3** a live key makes the demo hang | first live run killed after minutes | cache + 10 s timeout + call cap; **same command now finishes in 0.40 s** |
+> | **"is your data too easy?"** | unanswerable | shifted holdout: match rate **88.66% → 84.54%**, refusals **10.64% → 18.11%**, precision **1.0000 → 1.0000** |
 > | **P0-4** `decomposition_out_of_bounds` miscategorised | all 6 instances said the opposite of what happened | split into `pool_exceeded` / `no_subset_fits`; re-measured, all 6 are the latter |
 >
 > **W2 is also closed.** The LLM comparison ran live: **+1 assignment, precision
@@ -425,7 +426,22 @@ of a promise, and it is the one slide an LLM-prompt submission cannot fake.
    assignment** — worth reporting precisely because it is small and measured rather than
    asserted.
 
-3. **"Precision is 1.0000 — is your synthetic data too easy?"**
+3. ~~**"Precision is 1.0000 — is your synthetic data too easy?"**~~ — **partially
+   answered 2026-09-03.** A *shifted* holdout now exists (`run.py match --dataset
+   holdout`): unseen narration formats, adversarial free text, cross-day duplicate
+   references, and drift past the engine's lookback. **Match rate 88.66% → 84.54%,
+   refusal rate 10.64% → 18.11%, precision 1.0000 → 1.0000.** Coverage falls and
+   correctness does not, on data the engine was not built against.
+
+   **Still say what it does not settle.** It is the same generator, shifted — not real
+   bank data. BenchRec would settle it and remains blocked. The honest sentence is: *"we
+   moved the distribution as far as we could without leaving our own generator, and the
+   refusal machinery did what it claims; we cannot show you real-world precision and we
+   do not claim it."*
+
+   *(Original answer kept below.)*
+
+   **"Precision is 1.0000 — is your synthetic data too easy?"**
    The sweep is a partial answer (precision holds while coverage drops 10 points), but
    every number comes from one generator, and 1.0000 across four arms is more likely to
    read as *unfalsified* than as *strong*. BenchRec would settle it and is blocked two

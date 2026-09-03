@@ -1,0 +1,2 @@
+invoice_no,customer_name,customer_gstin,invoice_date,due_date,gross_amount,tds_amount,currency,status,po_reference
+INV-2026-9001,Offshore Holdings Inc,,2026-07-01,2026-07-31,12500.00,0.00,USD,open,PO-9001

@@ -136,6 +136,43 @@ Details, including the four name-matching bugs found by reading its output, in
 
 ---
 
+## Generalization: the shifted holdout
+
+`python run.py holdout` builds it once; `python run.py match --dataset holdout` scores it.
+
+**Not a fresh seed.** The density sweep already reports five held-out seeds at precision
+1.0000, so another sample from the same distribution answers a question nobody is asking.
+This set is *shifted*: narration formats the regex tier was never written against,
+adversarial free text, references duplicated across days, and settlement drift pushed past
+the engine's own lookback — five credits made **provably unreachable on purpose**, counted
+rather than relabelled.
+
+| | primary | shifted holdout |
+|---|---:|---:|
+| match rate | 88.66% | **84.54%** |
+| match precision | **1.0000** | **1.0000** |
+| refusal rate | 10.64% | **18.11%** |
+| refusal correctness | 66.67% | 39.13% |
+
+**Coverage falls, correctness does not.** Under a distribution it was not built against
+the engine declines more work rather than getting more of it wrong. That is the whole
+claim, tested where it could have failed.
+
+The set is **frozen** — its content is hashed in `tests/test_holdout.py` — and no constant
+in `config.py` may be changed in response to a holdout result. The one change a holdout is
+allowed to motivate is a correctness fix, and it motivated one: non-INR rows are now
+rejected by name at ingest. Read as paise, a USD row would reconcile against rupee
+invoices at ~85× the true value, and *conservation would balance* — both sides wrong the
+same way — so nothing downstream could have caught it.
+
+The first run of this set reported precision **52.88%**. It was the holdout that was
+wrong, not the engine: bank ids are assigned by position in the file, so drifting a date
+re-sorted the statement and shuffled the answer key. See
+[`DEFECT_LOG`](docs/DEFECT_LOG.md) 2026-09-03-03 — the fourth time a generator defect has
+presented as an engine failure.
+
+---
+
 ## Data provenance
 
 Three disclosed tiers. The gradation is the honest part — a bigger "real" number
@@ -321,7 +358,7 @@ would be worse than none.
 pytest tests/
 ```
 
-365 tests, including the end-to-end isolation test — which deletes the ground-truth
+376 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,

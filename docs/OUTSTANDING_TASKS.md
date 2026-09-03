@@ -303,6 +303,57 @@ it.
 
 ---
 
+## Phase C, 2026-09-03 — the shifted holdout
+
+`python run.py holdout` builds it once; `run.py match --dataset holdout` scores it.
+
+| | primary | shifted holdout |
+|---|---:|---:|
+| match rate | 88.66% | **84.54%** |
+| match precision | **1.0000** | **1.0000** |
+| refusal rate | 10.64% | **18.11%** |
+| refusal correctness | 66.67% | 39.13% |
+
+**Coverage falls, correctness does not.** That is the project's central claim, tested on a
+distribution the engine was not built against — where it could have failed and did not.
+
+**Shifted, not merely re-seeded.** The sweep already reports five held-out seeds at
+precision 1.0000, so another sample from the same distribution answers nothing. This set
+carries narration formats the regex tier was never written against, adversarial free text
+(injected instructions, a fake system tag, a JSON blob naming a verdict, a line naming a
+payment id), references duplicated *across days* rather than within a window, and
+settlement drift pushed past the engine's own lookback — five credits made **provably
+unreachable on purpose**, counted rather than relabelled.
+
+**Frozen.** The content is hashed in `tests/test_holdout.py`. No constant in `config.py`
+may be changed in response to a holdout result; the one change a holdout is allowed to
+motivate is a correctness fix.
+
+**It motivated exactly one.** Non-INR rows are now rejected by name at ingest. The field
+was read and never checked, so a USD row would have been parsed as paise and reconciled
+against rupee invoices at ~85× the true value — and *conservation would have balanced*,
+both sides wrong the same way, so no downstream layer could have caught it.
+
+### The first run reported 52.88% precision, and the holdout was wrong
+49 wrong assignments out of 104, which read as a spectacular generalisation failure. It
+was the answer key: bank ids are assigned **by position in the file**, `write` sorts the
+statement by date, and drifting five dates re-sorted it — so every truth link at or after
+a moved row described a different transaction. `_renumber_bank_txns` already existed and
+already remaps the links; the shift was not calling it.
+
+**The fourth time a generator defect has presented as an engine failure** — after
+`refund_netted`, `partial_payment` and ambiguity-window orphaning. `DEFECT_LOG`
+2026-09-03-03. What caught it was refusing to publish a number that surprising without
+first reading the wrong assignments.
+
+### What the holdout does NOT settle
+It is the same generator, shifted — not real bank data. BenchRec would settle it and
+remains blocked (W1). The honest sentence for a judge: *"we moved the distribution as far
+as we could without leaving our own generator, and the refusal machinery did what it
+claims; we cannot show you real-world precision and we do not claim it."*
+
+---
+
 ## Phase B, 2026-09-03 — the agent, shipped
 
 `python run.py agent`. Rings 2 and 3 of `AGENTIC.md`, which until today was a design note

@@ -1,0 +1,17 @@
+[
+ {
+  "id": "pay_FOREIGN0000001",
+  "amount": 990000,
+  "currency": "EUR",
+  "status": "captured",
+  "captured": true,
+  "method": "netbanking",
+  "order_id": null,
+  "created_at": 1782000000,
+  "description": "",
+  "contact": "",
+  "email": "",
+  "provenance": "S",
+  "notes": {}
+ }
+]

@@ -1535,3 +1535,41 @@ a fresh live tier each time, the assignment map and refusal set hash to one fing
 identical to the offline arm's: **the model is non-deterministic at the field level and
 the engine is deterministic at the verdict level.** That is the clearest evidence the
 project has produced that the layers do what they claim.
+
+## 2026-09-03-03 — the holdout scored 52.88% precision, and it was the holdout that was wrong
+
+**Symptom.** The first run against the new shifted held-out set reported **match
+precision 52.88% — 49 wrong assignments out of 104**, against 1.0000 on every reported
+batch and every sweep arm. Read at face value it was a spectacular generalisation
+failure: the engine confidently posting wrong matches the moment the distribution moved.
+
+**It was the truth file.** `load_bank_statement` assigns `bank_txn_NNNN` **by position in
+the file**, and `build.write` sorts the statement by date. The holdout shift drifts five
+credits' dates past the engine's lookback — which RE-SORTS the statement, so every truth
+link at or after a moved row silently came to describe a different transaction. The
+engine was matching correctly and being scored against a shuffled answer key.
+
+`_renumber_bank_txns` already existed and already remaps the links alongside the sort;
+the shift simply was not calling it. One line.
+
+**Corrected: precision 1.0000, and the real result is the one that was wanted.**
+
+| | primary | holdout |
+|---|---:|---:|
+| match rate | 88.66% | **84.54%** |
+| match precision | 1.0000 | **1.0000** |
+| refusal rate | 10.64% | **18.11%** |
+
+Coverage falls, correctness does not. That is the project's central claim, tested on a
+distribution the engine was not built against, where it could have failed.
+
+**This is the fourth time.** `refund_netted`, `partial_payment`, ambiguity-window
+orphaning, and now this: a generator defect presenting as an engine failure, each time
+convincingly. The pattern is always that the generator hid or moved something and the
+scorer was pointed at the wrong thing. What caught it this time was refusing to publish a
+number that surprising without first reading the wrong assignments — the fix took one
+line and finding it took the whole diagnosis.
+
+**The lesson worth keeping:** ids that are a property of the FILE rather than of the data
+are a standing hazard for anything that reorders rows. `loaders.py` says so in a
+docstring, and that docstring was written by whoever last got caught by it.

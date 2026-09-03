@@ -335,6 +335,26 @@ PAYER_DIRECTORY_DECOYS = 6
 AGENT_MODEL = "claude-sonnet-5"
 AGENT_STEP_BUDGET = 8          # model turns per exception
 AGENT_MALFORMED_RETRIES = 1    # one retry on bad tool arguments, then abandon
+
+# --------------------------------------------------------------------------
+# The shifted holdout (Phase C).
+#
+# A second dataset the engine was NOT built against: unseen narration formats,
+# adversarial free text, references duplicated across days, and settlement drift pushed
+# past the engine's own lookback. Generated once at a seed disjoint from every reported
+# run and from the density sweep, then FROZEN.
+#
+# **No constant in this file may be changed in response to a holdout result.** That rule
+# is the reason the set is worth anything: a tolerance widened until the holdout scored
+# better would be a tolerance fitted to the evaluation data, which is exactly what the
+# rest of this file exists to forbid. `tests/test_holdout.py` pins the dataset's hash so
+# it cannot be quietly regenerated after a disappointing number either.
+#
+# The one code change a holdout result is allowed to motivate is a CORRECTNESS fix -- a
+# row the engine should have rejected and did not. Non-INR rejection at ingest came from
+# exactly that and is not tuning.
+HOLDOUT_SEED = 8080808
+HOLDOUT_PPW = 12               # denser than the reported 6, inside MAX_POOL's reach
 FS_M_SOURCE = "fallback priors (unfitted) -- run src/external/fit_fs.py to replace"
 
 # u-probabilities are NOT set here. They are chance-agreement rates, estimated
@@ -394,6 +414,7 @@ assert len(set(AMBIGUITY_NET_PAISE)) == 4, (
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 GENERATED = DATA / "generated"
+HOLDOUT = DATA / "holdout"       # the shifted held-out set; see HOLDOUT_SEED
 TRUTH_DIR = GENERATED / "_truth"        # scorer only; the engine may not read this
 BENCHREC = DATA / "benchrec"            # src/external only
 MCP_CREATED = DATA / "mcp_created"

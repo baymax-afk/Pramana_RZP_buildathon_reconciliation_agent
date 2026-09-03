@@ -1,0 +1,7 @@
+{
+ "seed": 8080808,
+ "payments_per_window": 12,
+ "payments": 200,
+ "bank_txns": 130,
+ "invoices": 192
+}

@@ -28,13 +28,40 @@ from recon.schemas import (
 )
 
 
+def _currency(value: str, where: str, path: Path, row: object) -> str:
+    """
+    Reject anything that is not INR, by name, at the boundary.
+
+    **This engine is rupee-only and every amount downstream is integer paise.** The
+    currency field was read and never checked, so a USD row would have had its amount
+    parsed as paise and reconciled against rupee invoices -- silently, producing a
+    confident wrong answer at roughly 85x the true value. Nothing later in the pipeline
+    could have caught it: conservation would balance, because both sides of the
+    comparison were wrong in the same way.
+
+    Multi-currency is listed as out of scope in the README, and this is what honouring
+    that costs: a named refusal at ingest rather than an unstated assumption. Doing FX
+    properly needs a rate at settlement time, which is a different problem; pretending
+    the field does not exist is not the alternative.
+    """
+    code = (value or "").strip().upper()
+    if code != "INR":
+        raise ValueError(
+            f"{path.name}: {where} carries currency {value!r}, and this engine handles "
+            f"INR only -- every amount downstream is integer paise. Multi-currency "
+            f"reconciliation needs an FX rate at settlement time and is out of scope "
+            f"(see README). Row: {row!r}."
+        )
+    return code
+
+
 def load_payments(path: Path) -> tuple[Payment, ...]:
     raw = json.loads(path.read_text(encoding="utf-8"))
     return tuple(
         Payment(
             id=r["id"],
             amount=int(r["amount"]),
-            currency=r["currency"],
+            currency=_currency(r["currency"], f"payment {r['id']}", path, r["id"]),
             status=r["status"],
             captured=bool(r["captured"]),
             method=r["method"],
@@ -168,7 +195,11 @@ def load_invoices(path: Path) -> tuple[Invoice, ...]:
                     due_date=_text(row, "due_date", path, i),
                     gross_amount=_money(row, "gross_amount", path, i),
                     tds_amount=_money(row, "tds_amount", path, i),
-                    currency=_text(row, "currency", path, i),
+                    currency=_currency(
+                        _text(row, "currency", path, i),
+                        f"invoice {row.get('invoice_no', '?')}",
+                        path, i,
+                    ),
                     status=_text(row, "status", path, i),
                     po_reference=_text(row, "po_reference", path, i),
                 )

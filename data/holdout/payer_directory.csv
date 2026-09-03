@@ -1,0 +1,13 @@
+payer_name,authorised_for_customer,relationship,on_record_since
+Greenfield Organics Private Limited,Acme Industrial Supplies Private Limited,group_treasury,2025-04-01
+Greenfield Organics Private Limited,Bharat Traders and Co,parent,2025-04-01
+Harbour Marine Supplies,Acme Industrial Supplies Private Limited,affiliate,2025-04-01
+Harbour Marine Supplies,Sunline Textiles Limited,affiliate_decoy,2025-04-01
+Meridian Logistics LLP,Nova Chemicals India Private Limited,affiliate_decoy,2025-04-01
+Meridian Logistics LLP,Sunline Textiles Limited,affiliate_decoy,2025-04-01
+Meridian Logistics LLP,Sunrise Textiles Limited,affiliate_decoy,2025-04-01
+Nova Chemicals India Private Limited,Harbour Marine Supplies,affiliate,2025-04-01
+Orchid Foods Private Limited,Nova Chemicals India Private Limited,parent,2025-04-01
+Orchid Foods Private Limited,Sunline Textiles Limited,affiliate_decoy,2025-04-01
+Sunline Textiles Limited,Pinnacle Steel Traders,affiliate_decoy,2025-04-01
+Sunrise Textiles Limited,Harbour Marine Supplies,affiliate,2025-04-01

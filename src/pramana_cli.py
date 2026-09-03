@@ -51,6 +51,64 @@ def _print_block(title: str, rows: list[tuple[str, object]]) -> None:
         print(f"  {k:<{width}}  {v}")
 
 
+def cmd_holdout(args: argparse.Namespace) -> int:
+    """
+    Build the shifted held-out set, once, and freeze it.
+
+    Deliberately a separate command rather than a flag on `generate`: regenerating a
+    holdout is a decision, and a decision that happens by muscle memory is not one. The
+    hash of what it writes is pinned by `tests/test_holdout.py`, so a set quietly rebuilt
+    after a disappointing number fails the suite.
+    """
+    from recon.generator import build as _build
+    from recon.generator import holdout as _holdout
+
+    batch = _build.generate(seed=cfg.HOLDOUT_SEED, payments_per_window=cfg.HOLDOUT_PPW)
+    shifted, info = _holdout.shift(batch, cfg.HOLDOUT_SEED)
+    report = _holdout.assert_wellformed(shifted, info["unreachable_bank_txn_ids"])
+
+    _print_block(
+        f"HOLDOUT  seed={cfg.HOLDOUT_SEED}  ppw={cfg.HOLDOUT_PPW}",
+        [
+            ("payments", len(shifted.inputs.payments)),
+            ("bank transactions", len(shifted.inputs.bank_txns)),
+            ("invoices", len(shifted.inputs.invoices)),
+        ],
+    )
+    _print_block(
+        "DISTRIBUTION SHIFT  (what the engine was not built against)",
+        [
+            ("narrations in unseen formats", info["narrations_reformatted"]),
+            ("adversarial free text", info["adversarial_narrations"]),
+            ("references duplicated across days", info["cross_day_duplicate_refs"]),
+            ("drifted past the engine's lookback", info["drifted_past_lookback"]),
+        ],
+    )
+    _print_block(
+        "WELL-FORMEDNESS",
+        [
+            ("assign links", report["assign_links"]),
+            (
+                "deliberately unreachable",
+                f"{report['deliberately_unreachable']}  "
+                f"(counted, not relabelled -- these are real misses)",
+            ),
+        ],
+    )
+
+    if args.write:
+        paths = _build.write(shifted, out_dir=cfg.HOLDOUT)
+        _print_block(
+            "WRITTEN", [(k, str(v.relative_to(cfg.ROOT))) for k, v in paths.items()]
+        )
+        print(
+            "\n  FROZEN. No constant in config.py may be changed in response to a\n"
+            "  holdout result -- a tolerance fitted to the evaluation data measures\n"
+            "  nothing. The one change a holdout may motivate is a correctness fix."
+        )
+    return 0
+
+
 def cmd_generate(args: argparse.Namespace) -> int:
     densities = list(cfg.DENSITY_SWEEP) if args.density_sweep else [args.payments_per_window]
     rc = 0
@@ -133,12 +191,20 @@ def cmd_match(args: argparse.Namespace) -> int:
     different package, into a different object. There is no point in this function at
     which the engine could see the answer key.
     """
+    generated_dir = cfg.HOLDOUT if getattr(args, "dataset", "") == "holdout" else None
     try:
-        inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+        inputs = load_inputs(
+            generated_dir=generated_dir,
+            seed=args.seed,
+            payments_per_window=args.payments_per_window,
+        )
     except ValueError as e:
         # A seed/batch mismatch is a reporting error waiting to happen, not a crash to
         # trace. Say what is wrong and what to run.
         print(f"\n  {e}\n")
+        return 1
+    if generated_dir is not None and not (generated_dir / "manifest.json").is_file():
+        print("\n  No holdout present -- run `python run.py holdout` first.\n")
         return 1
 
     # From here down, ALWAYS report `inputs.seed` / `inputs.payments_per_window`, never
@@ -189,7 +255,11 @@ def cmd_match(args: argparse.Namespace) -> int:
     from scorer.report import render
     from scorer.score import load_truth, score
 
-    truth_path = cfg.TRUTH_DIR / "ground_truth.json"
+    truth_path = (
+        (generated_dir / "_truth" / "ground_truth.json")
+        if generated_dir is not None
+        else cfg.TRUTH_DIR / "ground_truth.json"
+    )
     if not truth_path.exists():
         print("\n  No ground truth present -- run `python run.py generate` first.")
         print("  (The engine ran fine without it; only scoring needs it.)")
@@ -238,7 +308,9 @@ def cmd_match(args: argparse.Namespace) -> int:
     # column of zeroes wearing the costume of a measurement.
     compare = None
     cmp_batch = None
-    if args.compare_density and args.compare_density != ppw:
+    # No second density arm on the holdout: it is a FROZEN artefact, and generating a
+    # fresh comparison batch beside it would put an unfrozen number in the same block.
+    if generated_dir is None and args.compare_density and args.compare_density != ppw:
         from recon.generator import build as _build
 
         # The comparison arm is DECORATION on the headline. It must never be able to
@@ -693,6 +765,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="fail unless the batch on disk was generated with this seed")
     m.add_argument("--payments-per-window", type=int, default=None,
                    help="fail unless the batch on disk was generated at this density")
+    m.add_argument("--dataset", choices=("primary", "holdout"), default="primary",
+                   help="which batch to score: the reported one, or the frozen "
+                        "shifted holdout")
     m.add_argument("--no-score", dest="score", action="store_false", default=True,
                    help="match only; do not load ground truth at all")
     m.add_argument("--verify", action="store_true", default=False,
@@ -736,6 +811,12 @@ def main(argv: list[str] | None = None) -> int:
     g2.add_argument("--no-write", dest="write", action="store_false", default=True,
                     help="do not persist the evidence ledger")
     g2.set_defaults(func=cmd_agent)
+
+    h = sub.add_parser(
+        "holdout", help="build the frozen shifted held-out set (a deliberate act)"
+    )
+    h.add_argument("--no-write", dest="write", action="store_false", default=True)
+    h.set_defaults(func=cmd_holdout)
 
     w = sub.add_parser("sweep", help="density sweep: refusal rate vs precision")
     w.add_argument("--seeds", type=int, nargs="+", default=[11111, 22222, 33333, 44444, 55555])
