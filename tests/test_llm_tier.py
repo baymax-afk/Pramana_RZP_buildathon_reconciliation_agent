@@ -8,6 +8,7 @@ failure rather than merely discouraging it.
 
 from __future__ import annotations
 
+import os
 from dataclasses import fields as dc_fields
 
 import config as cfg
@@ -295,3 +296,75 @@ def test_each_narration_is_parsed_once_per_credit_per_round():
         f"a narration was parsed {worst} times, above the {cfg.MAX_ROUNDS}-round bound "
         f"-- something is parsing twice inside one round"
     )
+
+
+# --------------------------------------------------------------------------
+# `.env` loading
+#
+# The credential reached this project as a `.env` file three separate times and the
+# code could not read one, so every run silently selected the recorded stand-in and
+# printed `recorded` next to numbers nobody noticed were the offline arm. The tier a
+# run uses must not depend on how the process happened to be launched.
+# --------------------------------------------------------------------------
+def test_dotenv_populates_missing_keys(tmp_path, monkeypatch):
+    from recon.llm import load_dotenv
+
+    env = tmp_path / ".env"
+    env.write_text(
+        "# a comment\n"
+        "\n"
+        "export QUOTED_KEY='quoted-value'\n"
+        'DOUBLE_KEY="double-value"\n'
+        "PLAIN_KEY=plain-value\n"
+        "malformed line with no equals sign\n",
+        encoding="utf-8",
+    )
+    for k in ("QUOTED_KEY", "DOUBLE_KEY", "PLAIN_KEY"):
+        monkeypatch.delenv(k, raising=False)
+
+    loaded = load_dotenv(env)
+
+    assert set(loaded) == {"QUOTED_KEY", "DOUBLE_KEY", "PLAIN_KEY"}
+    assert os.environ["QUOTED_KEY"] == "quoted-value"
+    assert os.environ["DOUBLE_KEY"] == "double-value"
+    assert os.environ["PLAIN_KEY"] == "plain-value"
+    # The malformed line is skipped, not raised on: refusing to start the engine over a
+    # stray line in an optional convenience file is the wrong trade.
+
+
+def test_dotenv_never_overrides_a_real_environment_variable(tmp_path, monkeypatch):
+    """
+    A real environment variable is a deliberate act by whoever launched the process; a
+    file on disk is a default. Shadowing the former with the latter is how a run ends up
+    using a credential nobody in the room believes it is using.
+    """
+    from recon.llm import load_dotenv
+
+    env = tmp_path / ".env"
+    env.write_text("PRAMANA_TEST_KEY=from-file\n", encoding="utf-8")
+    monkeypatch.setenv("PRAMANA_TEST_KEY", "from-environment")
+
+    loaded = load_dotenv(env)
+
+    assert "PRAMANA_TEST_KEY" not in loaded
+    assert os.environ["PRAMANA_TEST_KEY"] == "from-environment"
+
+
+def test_dotenv_reports_names_but_never_values(tmp_path, monkeypatch):
+    """The return value is logged. A credential must not be able to reach a log line."""
+    from recon.llm import load_dotenv
+
+    env = tmp_path / ".env"
+    env.write_text("ANTHROPIC_API_KEY=sk-ant-secret-value\n", encoding="utf-8")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    loaded = load_dotenv(env)
+
+    assert loaded == ("ANTHROPIC_API_KEY",)
+    assert "sk-ant-secret-value" not in repr(loaded)
+
+
+def test_dotenv_is_a_no_op_when_the_file_is_absent(tmp_path):
+    from recon.llm import load_dotenv
+
+    assert load_dotenv(tmp_path / "does-not-exist.env") == ()
