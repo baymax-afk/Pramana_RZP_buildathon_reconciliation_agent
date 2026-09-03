@@ -309,6 +309,41 @@ it.
 
 ---
 
+## The P1/P2 tail, 2026-09-03 — closed
+
+Everything `REVIEW.md` raised below P0 is now done, plus one thing Phase B turned up.
+
+| | Finding | Resolution |
+|---|---|---|
+| **dead categories** | `FS_BELOW_THRESHOLD` and `FS_REVIEW_BAND` defined and never raised | **Deleted.** Measured first: wiring the two-threshold band would have refused 78 of 126 assignments on the primary and 63 of 104 on the holdout, every one CORRECT and zero wrong ones saved. 4.0/7.0 are Splink's record-linkage conventions, where names *are* the evidence; here the amount channel is primary and 39.7% of correct assignments score `non_match` on names alone. Eleven refusal paths → nine |
+| **P1-2** | METRICS defined match rate over "total payments", the scorer divides by captured | Doc fixed — 86.0% vs 88.66% on the same run. An uncaptured payment can never appear on a statement |
+| **P1-1** | README said 136 bank txns / 200 invoices against a manifest of 147/187; METRICS held two refusal rates for ppw=6 | Both fixed. The stale ppw table is marked **SUPERSEDED** rather than deleted — it records the finding that prompted seven defect categories |
+| **P1-4** | the `balance` column was loaded and never verified | Continuity check, relative between rows so it needs no opening balance. 147 and 130 rows verified on the two batches |
+| **P1-3** | 6 of 15 exceptions carried no candidate, including the largest at ₹45,673 | The search now retains **which** subset came closest, not just how far. Primary 6 → 4, holdout 12 → 5 |
+| **P2-1** | a blank cell became 0 everywhere | Per-column now: blank `credit` is zero (every bank writes statements that way), blank `balance` is an error |
+
+**Two bugs found while doing it, both mine, both from this session.**
+
+`match --dataset holdout` was overwriting `reports/run_output.json` — the file the API
+serves and the UI renders — so scoring the shifted set left the demo showing the shifted
+set under a seed nobody asked for. P0-1's shape from a new direction. Found because the
+exception count printed after a holdout run did not match the primary's.
+
+And a published claim was falsified on its tenth observation: see `DEFECT_LOG`
+2026-09-03-04. "Deterministic at the verdict level" was five runs agreeing, which is
+evidence of stability and not of determinism. Nine of ten live runs assign 127; one
+assigns 126.
+
+**397 tests.** Precision 1.0000 on both datasets throughout.
+
+### Still open
+- **W1** — the confidence score is uncalibrated. Re-checked tonight and still blocked two
+  independent ways: no Kaggle credentials (`~/.kaggle/kaggle.json` absent, `kaggle` not
+  installed) and the proxy still refuses the host (`CONNECT tunnel failed, response 403`).
+- **O8** — `split_settlement` and `chargeback_debit` remain outside the model by design.
+
+---
+
 ## Phase C, 2026-09-03 — the shifted holdout
 
 `python run.py holdout` builds it once; `run.py match --dataset holdout` scores it.
