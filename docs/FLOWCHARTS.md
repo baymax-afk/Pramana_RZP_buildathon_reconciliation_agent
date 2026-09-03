@@ -91,7 +91,7 @@ flowchart TD
     ASSIGN["Candidate assignment"] --> COUNT{"narration states a<br/>transaction count?<br/>does it MATCH the<br/>number of payments?"}
     COUNT -->|"count disagrees"| CNTNO["REFUSE<br/>narration_count_conflict"]
     COUNT -->|"agrees, or silent"| FS{"Layer 3 · Fellegi-Sunter<br/>does the name/reference<br/>evidence CONTRADICT?"}
-    FS -->|contradicts| FSNO["REFUSE<br/>amount_name_conflict<br/>fs_below_lower_threshold<br/>fs_review_band"]
+    FS -->|contradicts| FSNO["REFUSE<br/>amount_name_conflict"]
     FS -->|silent or supports| PROP["PROPOSE<br/>bid for these payments<br/>nothing is granted yet"]
 
     PROP --> RES{"Layer 2 · resolve<br/>does another credit bid<br/>for the same payment?"}
@@ -113,7 +113,7 @@ flowchart TD
     style FINAL fill:#eaf5ee,stroke:#2c6b41,stroke-width:2px
 ```
 
-**Eleven distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
+**Nine distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
 Every refusal names its cause, so an exception says which mechanism objected rather than
 merely that something did.
 

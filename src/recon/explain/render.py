@@ -262,11 +262,6 @@ class Explainer:
                 f"{rec.parsed_txn_count} transaction(s), but the amounts fit a different "
                 f"number. Two independent channels disagree."
             )
-        if cat in ("fs_below_lower_threshold", "fs_review_band"):
-            return (
-                f"Not posted. The name and reference evidence for this {amount} credit "
-                f"is too weak to support the match on its own and needs a human look."
-            )
         if cat == "order_dependent_assignment":
             return (
                 f"Not posted. This match appeared only in some orderings of the same "

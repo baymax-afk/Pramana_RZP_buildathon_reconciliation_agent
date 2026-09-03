@@ -46,8 +46,22 @@ class RefusalCategory(str, Enum):
     # the window. The first is a limit of the search, the second is a finding.
     POOL_EXCEEDED = "pool_exceeded"                      # declined to search
     NO_SUBSET_FITS = "no_subset_fits"                    # searched; nothing accounts for it
-    FS_BELOW_THRESHOLD = "fs_below_lower_threshold"      # Layer 3
-    FS_REVIEW_BAND = "fs_review_band"                    # Layer 3, clerical review
+    # FS_BELOW_THRESHOLD and FS_REVIEW_BAND lived here and were NEVER RAISED. Layer 3
+    # gates on `Evidence.contradicts` alone, and measuring what the two-threshold band
+    # would have done settles why:
+    #
+    #   wiring it would have refused 78 of 126 assignments on the primary batch and
+    #   63 of 104 on the holdout -- every one of them CORRECT, and zero wrong ones saved.
+    #
+    # That is not a threshold needing adjustment, it is the wrong test for this engine.
+    # 4.0/7.0 are Splink's record-linkage conventions, where name and reference ARE the
+    # evidence. Here the amount channel is primary and Fellegi-Sunter corroborates it, so
+    # a correct match routinely sits below +4 bits on names alone -- 39.7% of correct
+    # assignments score `non_match` on non-amount evidence and are right anyway.
+    #
+    # `contradicts` already encodes the correct rule, and its docstring records the same
+    # lesson learned the expensive way: treating silence as dissent refused 86 of 137
+    # credits on the first attempt.
     NARRATION_COUNT_CONFLICT = "narration_count_conflict"  # credit says N, match says M
     CONTESTED_PAYMENT = "contested_payment"              # two credits, equal evidence
     AMOUNT_NAME_CONFLICT = "amount_name_conflict"        # layers disagree

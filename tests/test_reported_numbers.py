@@ -312,3 +312,43 @@ def test_the_assignment_payload_carries_every_field_the_ui_asserts():
         assert isinstance(row["certain_fee"], bool), (
             "certain_fee must be a real boolean, not null -- the UI branches on it"
         )
+
+
+def test_every_refusal_category_is_actually_reachable():
+    """
+    A category the engine can never emit is a promise the exception list does not keep.
+
+    `FS_BELOW_THRESHOLD` and `FS_REVIEW_BAND` sat in this enum unraised while
+    `FLOWCHARTS.md` counted them among the ways to refuse, `METRICS.md` described when
+    they fire, the UI carried labels and a colour for them, and the operator-prose table
+    had entries ready. Everything downstream was built for two verdicts that could not
+    occur. Nothing failed, because nothing checks that an enum member is used.
+
+    Static scan rather than a runtime census: some categories need a batch shaped to
+    provoke them (`order_dependent_assignment` needs a genuinely order-dependent
+    matcher, and the permutation gate exists precisely so that never happens on real
+    data), so requiring each to fire in one run would either be flaky or force the
+    matcher to be wrong on purpose. Requiring each to be CONSTRUCTED somewhere in the
+    engine is the property that actually matters and it cannot be satisfied by accident.
+    """
+    import ast
+
+    from recon.engine.results import RefusalCategory
+
+    engine = cfg.ROOT / "src" / "recon"
+    constructed: set[str] = set()
+    for source in engine.rglob("*.py"):
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            # RefusalCategory.X anywhere in the engine, however it is spelled.
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                if node.value.id in ("RefusalCategory", "RC"):
+                    constructed.add(node.attr)
+
+    unreachable = {c.name for c in RefusalCategory} - constructed
+    assert not unreachable, (
+        f"{sorted(unreachable)} are defined in RefusalCategory and never constructed "
+        f"anywhere under recon/. Either raise them or delete them -- an exception "
+        f"category the engine cannot emit is documentation of a behaviour that does "
+        f"not exist."
+    )

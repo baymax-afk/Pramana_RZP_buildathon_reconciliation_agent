@@ -37,8 +37,6 @@ const CATEGORY_LABEL = {
   solution_cap_reached: "Ambiguous — many fit",
   pool_exceeded: "Too many to search",
   no_subset_fits: "Nothing accounts for it",
-  fs_below_lower_threshold: "Counterparty disagrees",
-  fs_review_band: "Weak evidence",
   amount_name_conflict: "Amount/name conflict",
   narration_count_conflict: "Statement says a different count",
   contested_payment: "Two credits, one payment",

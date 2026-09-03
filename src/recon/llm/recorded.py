@@ -103,17 +103,6 @@ _TEMPLATES: dict[str, tuple[str, str]] = {
         "Verify the counterparty before posting -- the money fitting is not "
         "evidence it came from this customer.",
     ),
-    "fs_below_lower_threshold": (
-        "The amounts fit, but there is too little supporting evidence -- no matching "
-        "payer name and no usable reference -- to be confident this is the right "
-        "payment.",
-        "Confirm the payer against the remittance advice before posting.",
-    ),
-    "fs_review_band": (
-        "The evidence points this way but is not strong enough to post automatically. "
-        "This is the band where a person should look.",
-        "Review and confirm; the engine has done as much as the evidence allows.",
-    ),
     "narration_count_conflict": (
         "The bank's own description says this settlement covers a different number of "
         "transactions than the payments that fit its amount.",

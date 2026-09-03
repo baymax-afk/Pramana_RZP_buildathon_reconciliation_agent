@@ -92,7 +92,6 @@ h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
 .cat-no_candidate, .cat-pool_exceeded, .cat-no_subset_fits { background: #eef1f5; color: #45505f; }
 /* Layer 3 bands: evidence is weak or absent rather than contradictory, so they read
    cooler than the conflict categories above. */
-.cat-fs_below_lower_threshold, .cat-fs_review_band { background: #eef4fb; color: #1f5c9e; }
 
 .exception-body { padding: 4px 16px 18px 62px; border-top: 1px solid var(--line); }
 .next-step { background: #f4f8fc; border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 0 7px 7px 0; margin: 14px 0; }

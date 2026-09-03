@@ -71,7 +71,7 @@ refusal rate  =  ─────────────────────
 The denominator excludes transactions with no candidate at all, because declining to
 assign where nothing fits is not a refusal — it is an empty result. Refusals are
 counted by cause: `order_dependent_assignment` (Layer 1), `multiple_candidates` and
-`solution_cap_reached` (Layer 2), `fs_below_lower_threshold` (Layer 3),
+`solution_cap_reached` (Layer 2), `amount_name_conflict` (Layer 3),
 `pool_exceeded` and `no_subset_fits` (search bounds).
 
 ### Refusal correctness
@@ -232,7 +232,6 @@ deterministic engine; the LLM tier only writes the prose describing them.
 | `no_subset_fits` | The search ran to completion at `k ≤ MAX_SUBSET_K` and nothing summed within tolerance. **A finding, not a limit** |
 | `amount_name_conflict` | Conservation tight but FS weight low — layers disagree |
 | `unexplained_residual` | FS weight high but conservation loose — layers disagree |
-| `fs_review_band` | Layer 3 — match weight between the two thresholds |
 
 ---
 
