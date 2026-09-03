@@ -98,12 +98,25 @@ def _with_forced_unsatisfiable(argv: list[str]) -> subprocess.CompletedProcess:
 
     A sitecustomize shim is used rather than editing the source, so the test cannot
     leave the tree modified if it is killed.
+
+    **The shim also redirects `cfg.REPORTS`, and that is not housekeeping.** This helper
+    runs the real `run.py match` with `cwd=ROOT` and no `--verify`, so every invocation
+    was overwriting the committed `reports/run_output.json` -- the artefact the API and
+    the UI serve -- and stripping its verification block on the way past. The docstring
+    above promised the tree survived a KILLED run; the tree did not survive a SUCCESSFUL
+    one. Running the test suite was, reliably, how the demo lost its verification
+    section. See REVIEW.md P0-1 and P1-5.
     """
     import os
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
+        reports = Path(tmp, "reports")
+        reports.mkdir()
         Path(tmp, "sitecustomize.py").write_text(
+            "from pathlib import Path\n"
+            "import config as cfg\n"
+            f"cfg.REPORTS = Path({str(reports)!r})\n"
             "from recon.generator import build\n"
             "def _boom(batch):\n"
             "    raise AssertionError('FORCED: ground truth unsatisfiable')\n"

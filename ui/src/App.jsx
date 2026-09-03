@@ -194,8 +194,23 @@ function ExceptionCard({ row, rank }) {
 
 function Verification({ block }) {
   if (!block) return null;
-  const { relations = [], permutation_gate: gate } = block;
-  if (!relations.length && !gate) return null;
+  const { relations = [], permutation_gate: gate, status, note } = block;
+  // An absent claim must LOOK absent. This used to `return null` when both were empty,
+  // so a run produced without --verify rendered no Verification section at all -- the
+  // project's central claim vanished from the page silently, and nothing looked wrong
+  // until someone asked where the verification had gone. See REVIEW.md P0-1.
+  if (status === "not_run" || (!relations.length && !gate)) {
+    return (
+      <section className="verification not-run">
+        <h2>Verification — did not run</h2>
+        <p className="gate">
+          {note ||
+            "This run was produced without --verify, so the metamorphic relations and " +
+              "the permutation refusal gate did not run."}
+        </p>
+      </section>
+    );
+  }
   return (
     <section className="verification">
       <h2>Verification</h2>

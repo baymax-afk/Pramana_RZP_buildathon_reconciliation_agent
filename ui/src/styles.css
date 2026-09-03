@@ -227,3 +227,23 @@ table.mini th {
 table.mini td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
 table.mini .num { text-align: right; font-variant-numeric: tabular-nums; }
 table.mini .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+
+/* A verification section that did not run must read as a warning, not as a heading
+   with nothing under it. Same slot on the page, unmistakably different weight. */
+.verification.not-run {
+  border-left: 3px solid #b45309;
+  background: #fffbeb;
+  padding-left: 0.9rem;
+}
+.verification.not-run h2 {
+  color: #92400e;
+}
+@media (prefers-color-scheme: dark) {
+  .verification.not-run {
+    background: #2a1f05;
+    border-left-color: #f59e0b;
+  }
+  .verification.not-run h2 {
+    color: #fbbf24;
+  }
+}

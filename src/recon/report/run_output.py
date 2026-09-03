@@ -115,9 +115,19 @@ def build(
     elapsed_s: float | None = None,
     relations=None,
     ensemble=None,
+    llm=None,
 ) -> dict:
     """
     Assemble the run payload. Contains no ground truth and no scoring.
+
+    The payload records WHICH LLM tier produced it. The metrics block already prints
+    that, but the block is transient and this file is the artefact the API and the UI
+    serve -- and it is the thing that outlives the terminal it was printed in. A
+    recorded run and a live one differ in their tier attribution (the live model is
+    non-deterministic about which references it recovers, so a credit can be claimed by
+    tier 1 in one run and tier 2 in the next) even though, measured over five runs, they
+    do not differ in a single verdict. An artefact that does not say which tier made it
+    cannot be reproduced on purpose.
     """
     txn = {t.id: t for t in inputs.bank_txns}
     pay = {p.id: p for p in inputs.payments}
@@ -215,6 +225,7 @@ def build(
         "generated_at": datetime.now(UTC).isoformat(),
         "seed": seed,
         "density": inputs.payments_per_window,
+        "llm_tier": getattr(llm, "name", "disabled"),
         "totals": {
             "payments": len(inputs.payments),
             "captured_payments": sum(1 for p in inputs.payments if p.captured),
@@ -279,7 +290,33 @@ def build(
 
 
 def _verification_block(relations, ensemble) -> dict:
-    block: dict = {"relations": [], "permutation_gate": None}
+    """
+    What the four layers actually reported, or an explicit statement that they did not run.
+
+    **The status field exists because its absence was a live defect.** `run.py match`
+    without `--verify` produced `{"relations": [], "permutation_gate": null}`, and the UI
+    read that as "nothing to show" and rendered no Verification section at all. The
+    project's central claim disappeared from the artefact the demo serves, silently --
+    not a crash, which is worse, because nothing looks wrong until someone asks where
+    the verification is.
+
+    Empty containers cannot distinguish "we checked and found nothing" from "we never
+    checked". A status can, and every consumer is now obliged to handle it.
+    See REVIEW.md P0-1.
+    """
+    block: dict = {
+        "relations": [],
+        "permutation_gate": None,
+        "status": "verified" if (relations or ensemble is not None) else "not_run",
+        "note": (
+            ""
+            if (relations or ensemble is not None)
+            else "This run was produced WITHOUT --verify, so the metamorphic relations "
+            "and the permutation refusal gate did not run. The assignments below are "
+            "the matcher's single-pass output and have not been checked for "
+            "order-dependence. Re-run `python run.py match --verify`."
+        ),
+    }
     if relations:
         block["relations"] = [
             {

@@ -25,6 +25,7 @@ pinned: `README.md`, `METRICS.md`, `ARCHITECTURE.md`, `FLOWCHARTS.md`.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -212,3 +213,74 @@ def test_the_published_density_sweep_matches_a_live_run():
             f"ppw={ppw}: METRICS.md publishes precision {prec_s}, live run gives "
             f"{prec:.4f} -- a precision figure that drifts at all is the claim failing"
         )
+
+
+# --------------------------------------------------------------------------
+# The committed artefact (REVIEW.md P0-1)
+#
+# `reports/run_output.json` is what the API serves and the UI renders. It shipped with
+# `verification: {relations: [], permutation_gate: null}` because the test suite itself
+# rewrote it -- `test_cli_robustness.py` shelled out to `run.py match` with cwd=ROOT and
+# no --verify, on every run. The UI then returned null for an empty verification block,
+# so the project's central claim rendered as nothing at all. Silently: not a crash.
+#
+# Three separate assertions, because three separate things had to be true and only one
+# of them was about the file's contents.
+# --------------------------------------------------------------------------
+def _committed_run_output() -> dict:
+    path = cfg.REPORTS / "run_output.json"
+    assert path.is_file(), f"{path} is missing; run `python run.py match --verify`"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_the_served_artefact_carries_its_verification():
+    """The artefact the demo serves must contain the evidence the demo claims."""
+    v = _committed_run_output()["verification"]
+
+    assert v["status"] == "verified", (
+        "run_output.json was produced without --verify. The UI will render a "
+        "'did not run' warning where the four-layer claim should be. "
+        "Re-run `python run.py match --verify` and commit the result."
+    )
+    names = {r["name"] for r in v["relations"]}
+    assert names == {"MR1", "MR2", "MR3", "MR4", "MR5", "MR6"}, names
+    assert all(r["passed"] for r in v["relations"]), [
+        r["name"] for r in v["relations"] if not r["passed"]
+    ]
+    gate = v["permutation_gate"]
+    assert gate is not None and gate["passes"] == cfg.PERMUTATION_K
+    assert gate["unstable"] == 0, gate
+
+
+def test_an_unverified_payload_says_so_rather_than_going_quiet():
+    """
+    Empty containers cannot distinguish "checked, found nothing" from "never checked".
+
+    This is the assertion that actually prevents the regression: the file can be
+    regenerated correctly and then quietly regenerated wrong, but a payload that must
+    ANNOUNCE its own absence cannot be misread by whatever renders it next.
+    """
+    from recon.report.run_output import _verification_block
+
+    absent = _verification_block(None, None)
+    assert absent["status"] == "not_run"
+    assert "--verify" in absent["note"]
+
+    present = _verification_block(None, _StubEnsemble())
+    assert present["status"] == "verified"
+    assert present["note"] == ""
+
+
+class _StubEnsemble:
+    def summary(self):
+        return {"passes": 8, "txns_observed": 1, "unstable": 0}
+
+
+def test_the_artefact_names_the_tier_that_produced_it():
+    """
+    A recorded run and a live one differ in tier attribution -- the live model is
+    non-deterministic about which references it recovers, so a credit can be claimed by
+    tier 1 in one run and tier 2 in the next (measured; verdicts do not move). An
+    artefact that does not name its tier cannot be reproduced on purpose.
+    """
+    assert _committed_run_output()["llm_tier"], "llm_tier must never be empty"

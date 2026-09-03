@@ -207,7 +207,7 @@ def cmd_match(args: argparse.Namespace) -> int:
 
     payload = run_output.build(
         inputs, out, seed=seed, elapsed_s=elapsed,
-        relations=relations, ensemble=ensemble,
+        relations=relations, ensemble=ensemble, llm=llm,
     )
     written = run_output.write(payload)
 
