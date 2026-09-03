@@ -137,7 +137,7 @@ sentence available to this project, and it is true today.
 |---|---|---|---|
 | **P0-1** | **The shipped artifact has no verification data, and the test suite is what strips it.** `reports/run_output.json` carries `verification: {relations: [], permutation_gate: null}`. `App.jsx:198` returns `null` when both are empty, so the Verification section **silently vanishes** — not a crash; worse, you won't notice until you're on stage. **Root cause, reproduced during this audit:** `tests/test_cli_robustness.py:120` shells out to `run.py match` with `cwd=ROOT` — the real repo, no `--verify` — so **every `pytest` run overwrites the committed demo artifact and removes its verification block.** This is not an operator mistake to remember not to repeat; it is automated, and it will undo the fix. | `reports/run_output.json`; `ui/src/App.jsx:194-198`; `tests/test_cli_robustness.py:113-116` | **1** |
 | **P0-2** | **No assignments view in the UI.** Tabs are `exceptions` and `invoices` only. 126 of 141 outcomes are invisible. A judge cannot click a *match* and see why it was made — the data (`tier`, `residual_tightness`, `uniqueness_margin`, `fs_weight`, `confidence`) is already in `/api/run` and nothing renders it. | `ui/src/App.jsx:294-305` vs `run_output.json` `assignments[]` | **3** |
-| **P0-3** | **A live `ANTHROPIC_API_KEY` turns the demo into a 10-minute hang.** `ClaudeTier._ask` has **no timeout, no retry budget, no cache**, and 13 `needs_llm` narrations × up to 6 rounds × 8 permutation passes are made **serially** (the LLM tier is unpicklable, so `ProcessPoolExecutor` falls back to sequential). *Inference from code, not a live run: ~312–624 calls.* On venue wifi the SDK's default timeout applies per call. | `llm/claude.py:85-102`; `config.py:161,211` | **1** |
+| ~~**P0-3**~~ **FIXED 2026-09-03** | **A live `ANTHROPIC_API_KEY` turns the demo into a 10-minute hang.** *Confirmed, not projected: the first live run was killed after minutes with no output. Cache + timeout=10s + max_retries=1 + a call cap landed; the same command now finishes in 0.40 s.* `ClaudeTier._ask` has **no timeout, no retry budget, no cache**, and 13 `needs_llm` narrations × up to 6 rounds × 8 permutation passes are made **serially** (the LLM tier is unpicklable, so `ProcessPoolExecutor` falls back to sequential). *Inference from code, not a live run: ~312–624 calls.* On venue wifi the SDK's default timeout applies per call. | `llm/claude.py:85-102`; `config.py:161,211` | **1** |
 | **P0-4** | **`decomposition_out_of_bounds` is miscategorised on every instance.** All 6 fire on pools of **1, 1, 1, 2, 4, 4** — none exceeded `MAX_POOL=20` or `k=6`. The operator prose says *"there were too many candidates to search exhaustively"* on a credit with **one** candidate. The largest single exception (₹45,673) reads this way. A reconciliation judge will catch it. | run output; `run_output.json` `exceptions[].why` | **1.5** |
 
 ### P1
@@ -287,9 +287,9 @@ and it is preserved as the foundation of the larger rewrite now being undertaken
 | Risk | Severity | Reality | Mitigation |
 |---|---|---|---|
 | **Verification renders as nothing** | **Critical** | Confirmed. Shipped `run_output.json` has `relations: []`, `permutation_gate: null` | P0-1: regenerate with `--verify`, commit, and **open the UI once before you present** |
-| **Run-to-run variance** | **None** | **Proven.** 5× `match_once` → identical SHA-256 fingerprint of the assignment map + refusal set. Times 39.5/32.5/31.8/33.0/32.2 ms. K=3 and K=8 gated runs also produced identical fingerprints | Nothing to do. **Say this out loud — it is a differentiator** |
+| **Run-to-run variance** | **None, including with a live model** | **Proven twice.** 5× `match_once` offline → identical SHA-256 fingerprint of the assignment map + refusal set (39.5/32.5/31.8/33.0/32.2 ms); K=3 and K=8 gated runs matched. **Then re-proven with a live `claude-sonnet-5` tier: 5 runs, fresh tier each time, one fingerprint — the same one the offline arm produces.** The model is non-deterministic at the field level (7 refs one run, 8 the next) and the engine is deterministic at the verdict level, because a recovered reference only matters if it changes a tier decision and the amount channel still has to agree | Nothing to do. **Say this out loud — it is the strongest single piece of evidence that the verification architecture does what it claims** |
 | **API timeout / rate limit / dead wifi** | **Zero as configured; critical if a key appears** | Default `select()` returns `RecordedTier` — fully offline, zero API calls, ₹0 per batch. But it reports `enabled: True` | P0-3. Also: **`unset ANTHROPIC_API_KEY` before you present**, unless the agent demo needs it |
-| **Visible stall** | **None** | Worst path (`--verify`, K=8, MR1–MR6) ≈ **0.6 s** end to end | Nothing to do |
+| **Visible stall** | **None offline; 30 s with the live tier** | Worst deterministic path (`--verify`, K=8, MR1–MR6) ≈ **0.6 s** end to end. But a cold live tier costs **30–35 s**, all of it sequential HTTP — measured, ~1000× the 33 ms offline arm | Demo the deterministic arm; show the live comparison as a **pre-computed artifact**. Do not run the live tier on stage |
 | **Deterministic replay / cached fallback** | **Already exists** | `reports/run_output.json` is committed; API + UI read it and never invoke the engine. The demo is a static-file read | **Buildable in 0 h — it is already the architecture.** Just fix P0-1 so the cached file is the *good* one |
 | **"Your LLM is fake"** | **High, and fair** | `RecordedTier` is hand-authored rules, not recorded model output. `recorded.py:1-21` is admirably explicit | Say it first, in your own words, before a judge says it for you |
 
@@ -374,12 +374,18 @@ of a promise, and it is the one slide an LLM-prompt submission cannot fake.
 1. **"Where is the agent?"**
    There isn't one. `AGENTIC.md` is a design note by its own first line.
 
-2. **"Does the LLM help? By how much?"**
-   Unmeasured against a real model — W2, blocked on a key. What I *can* now say is
-   that the offline stand-in changes 1 verdict and 9 tier assignments, so the tier is
-   not inert. Whether a real model does better is unknown, and `recorded.py` agrees:
-   *"It demonstrates the architecture; it does not demonstrate that an LLM would parse
-   arbitrary bank narrations well."*
+2. ~~**"Does the LLM help? By how much?"**~~ — **answerable as of 2026-09-03.**
+   A key was supplied and the comparison ran live against `claude-sonnet-5`:
+   **+1 assignment (88.66% → 89.18%), precision unmoved at 1.0000**, from 8 of 13
+   unreadable narrations filled — all merchant references, no payer names.
+
+   Two caveats to give unprompted, because a judge will find them otherwise. **The live
+   model does slightly worse than the hand-written stand-in** (8 gaps filled vs 9),
+   which is exactly what `recorded.py` predicted: the stand-in was written for this
+   generator's narration shapes, so this measures the tier on home ground and says
+   nothing yet about arbitrary bank narrations. And **the honest size of the win is one
+   assignment** — worth reporting precisely because it is small and measured rather than
+   asserted.
 
 3. **"Precision is 1.0000 — is your synthetic data too easy?"**
    The sweep is a partial answer (precision holds while coverage drops 10 points), but

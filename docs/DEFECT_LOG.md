@@ -1495,3 +1495,43 @@ produced it: a guard that closed the loud path, a label written directly beneath
 forbidding exactly that mistake, and a test whose docstring named the wrong event. Every
 one passed 265 tests. **The suite grew by 137 tests in the session that introduced these,
 and caught none of them.**
+
+## 2026-09-03-02 — the credential arrived three times and the code never once read it
+
+**Symptom.** Every run printed `recorded` next to its numbers. W2 — the LLM on/off
+comparison — had been withheld for days on "there is no API key in this environment."
+
+**What was actually true.** The key had been supplied three separate times, as a `.env`
+file. `.env` is gitignored (correctly), so it never travelled with the repository; and
+nothing in the codebase read one. `select()` checked `os.environ` alone. On top of that,
+this execution environment *strips* `ANTHROPIC_API_KEY` from the inherited shell, so
+exporting it from a profile does not survive either — verified directly: a sibling
+variable exported from the same file in the same shell survived, and this one did not.
+
+So the diagnosis "no key is present" was correct about the environment and wrong about
+the world. The fix is fifteen lines: `select()` loads the repository `.env` before
+checking for the key.
+
+**The part worth recording is the consequence, not the fix.** From the moment a key
+exists on disk, every `select()` in the *test suite* would return the live tier —
+turning a 30-second offline run into hundreds of billed, rate-limited, non-deterministic
+API calls, and quietly changing what the assertions were testing. A suite must assert
+the same thing whether or not a credential happens to be present. A session fixture now
+removes the key and points the loader at a path that cannot exist, and a probe test
+asserts `select()` returns `RecordedTier` with a real key sitting in `.env`.
+
+**Second-order finding.** With the key working, the first live `llm-compare` had to be
+killed after several minutes without printing a line. Nothing on the tier's path
+memoised, so the same 13 unreadable narrations were bought again on every fixpoint round
+and again on every permutation pass, over a client carrying the SDK's default 600-second
+timeout. `parse_narration` is a pure function of the narration string, so a cache cannot
+change an answer — only how many times it is bought. **Same command afterwards: 0.40s.**
+
+**And the result was worth the trouble.** The live model fills 8 of 13 gaps where the
+hand-written offline stand-in fills 9 — it is *not better* on this data, exactly as
+`recorded.py` predicted, because the stand-in was written for this generator's shapes.
+Both change the same single verdict. Both leave precision at 1.0000. Over five runs with
+a fresh live tier each time, the assignment map and refusal set hash to one fingerprint,
+identical to the offline arm's: **the model is non-deterministic at the field level and
+the engine is deterministic at the verdict level.** That is the clearest evidence the
+project has produced that the layers do what they claim.

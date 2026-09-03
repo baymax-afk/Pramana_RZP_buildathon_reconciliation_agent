@@ -81,6 +81,15 @@ when the regex tier fails, and write human-readable exception explanations. The
 system runs with the LLM tier disabled, and **precision is reported both ways**. If
 the LLM tier makes precision worse, that is what the metrics block says.
 
+**Measured live against `claude-sonnet-5`, not asserted** (`run.py llm-compare`):
+the tier fills 8 of the 13 narrations the regex tier cannot read — all merchant
+references, no payer names — and changes exactly **one** verdict, correctly.
+**Match rate 88.66% → 89.18%; precision 1.0000 → 1.0000.** Over five runs with a fresh
+live tier each time, the assignment map and refusal set hash to a single fingerprint,
+identical to the offline arm's: the model varies in what it extracts and the engine does
+not vary in what it decides. Full numbers, including where the live model does *worse*
+than the offline stand-in, in [`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) W2.
+
 Ground truth is written by the generator to a directory the matching engine never
 reads. Enforced by function signatures, an import-time audit hook, and a test that
 deletes the ground-truth directory and asserts the engine and all four verification

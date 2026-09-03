@@ -38,36 +38,56 @@ than silently substituting the fallback.
     kaggle datasets download -d benchmarkteam/benchrec-real-world-cash-reconciliation-dataset
     unzip -d data/benchrec <archive>.zip
 
-### W2. The LLM on/off precision comparison is unmeasured
-**Status:** boundary enforced and tested; harness built; comparison still withheld ·
+### ~~W2. The LLM on/off precision comparison is unmeasured~~ — **measured 2026-09-03**
+**Status:** RESOLVED. A key was supplied, the command was run, and it reported VALID ·
 `DEFECT_LOG` 2026-09-02-02, 2026-09-02-06
 
 The trust boundary is real: `NarrationFields` carries no payment id, candidate or score,
 so a model cannot express a matching preference even in principle, and `parse_with_llm`
-fills gaps only. Both properties are tested.
-
-**The measurement is now one command**, and so is the refusal to report it:
+fills gaps only. Both properties are tested. (One qualification the audit added, and it
+matters: a `merchant_ref` reaches a payment id in **one hop** through `ReferenceIndex`,
+so "cannot express a preference" is too strong as an absolute. See `REVIEW.md` §5.)
 
     python run.py llm-compare --seed 20260905 --verify
 
-It reports three things in increasing order of what they license: parse yield at the
-field level, verdict deltas between the arms, and precision/match rate for both. It then
-states whether the comparison is VALID. Against the offline stand-in it exits 2 and says
-why; against a live tier it reports the comparison as evidence.
+**Measured, live, against `claude-sonnet-5`:**
 
-Running it corrected two numbers this document previously carried. Under the engine's
-own `needs_llm` definition there are **13** unreadable credit narrations, not 18, and
-every one of them is missing a *merchant reference* — not a payer name. The regex tier
-already reads a name off all 13. So the earlier claim that the stand-in "recovers the
-payer name on 8 of 18" does not reproduce: it recovers **10 merchant refs of 13**, and
-**0 payer names**, and still changes **0 verdicts**.
+| | LLM OFF | LLM ON (live) | delta |
+|---|---:|---:|---:|
+| match rate | 88.66% | 89.18% | **+0.52 pp** |
+| match precision | **1.0000** | **1.0000** | 0.0000 |
+| refusal rate | 10.64% | 9.93% | −0.71 pp |
+| assignments | 126 | 127 | +1 |
+| correct assignments | 126 | 127 | +1 |
 
-**Still withheld, and for the same reason as before.** There is no API key in this
-environment. The stand-in shares `normalize._extract_name`'s logic, so its agreement
-with the regex tier is a property of shared code, not evidence about a model.
+Of 141 credit narrations, **13** are unreadable by the regex tier. The live model filled
+**8**, all of them merchant references and **no payer names** — the regex tier already
+reads a name off all 13. Exactly **one** verdict changed: `bank_txn_0103`, from
+`refuse:amount_name_conflict` to `assign:pay_SYN001441035`, and ground truth agrees.
 
-**To resolve:** set `ANTHROPIC_API_KEY` and run the command above. It will report VALID
-and the numbers will mean what they say.
+**So the honest headline is: the LLM tier buys +1 assignment and costs precision
+nothing.** Small, real, and measured rather than asserted.
+
+**Three things the measurement showed that were not expected.**
+
+1. **The live model is not better than the hand-written stand-in on this data.** The
+   stand-in fills **9** of 13 gaps; the live model fills **8**. Both change the same
+   single verdict and both leave precision at 1.0000. That is not a failure of the
+   model — `recorded.py` predicted it in as many words: the stand-in was written for
+   *this generator's* narration shapes. It does mean the generalisation claim is still
+   unmade, and a shifted-distribution holdout is what would settle it.
+
+2. **The live tier is non-deterministic at the field level and deterministic at the
+   verdict level.** Repeated runs recovered 7 refs, then 8. But over **5 runs with a
+   fresh live tier each time, the assignment map and refusal set hashed to one
+   fingerprint** — the same one the offline stand-in produces. The layers downstream
+   absorb the variance: a recovered reference only changes anything if it changes a
+   tier decision, and the amount channel still has to agree. This is the strongest
+   available evidence that the verification architecture does what it claims.
+
+3. **It costs 30–35 seconds of wall clock, against 33 ms with the tier off** — a ~1000x
+   slowdown, all of it sequential HTTP. See the demo-risk note in `REVIEW.md` §6: the
+   live arm is a pre-computed artifact for the demo, not something to run on stage.
 
 ---
 
@@ -182,9 +202,17 @@ ambiguity case.
 ### O2. W1 — the confidence score is still uncalibrated
 Unchanged and still blocked on BenchRec. See above.
 
-### O3. W2 — the LLM comparison is still withheld
-The harness is built and is one command. Still blocked on an API key: `.env` is
-gitignored and did not reach this container, and a direct API call returns 401.
+### ~~O3. W2 — the LLM comparison is still withheld~~ — **closed 2026-09-03**
+A key was supplied and the comparison ran live: **+1 assignment, precision unmoved at
+1.0000**, and the verdict-level output identical across 5 runs. Full numbers under W2
+above.
+
+Two things had to be fixed before it could run at all, and both are recorded because
+they were real rather than incidental. `select()` could not read a gitignored `.env`,
+and this environment strips `ANTHROPIC_API_KEY` from the inherited shell — so the key
+had arrived three times and the code had never once seen it. And the first live run had
+to be killed: nothing on the tier's path memoised, so the same 13 narrations were bought
+on every fixpoint round and every permutation pass. See `REVIEW.md` P0-3.
 
 ### ~~O4. Density sweep has not been re-run since C2 and C3~~ — **re-run**
 
