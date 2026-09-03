@@ -368,3 +368,137 @@ def test_dotenv_is_a_no_op_when_the_file_is_absent(tmp_path):
     from recon.llm import load_dotenv
 
     assert load_dotenv(tmp_path / "does-not-exist.env") == ()
+
+
+# --------------------------------------------------------------------------
+# Live-tier bounds (P0-3)
+#
+# The tier sits on the demo path. A live `llm-compare` run was killed after minutes
+# without printing a line, because the matcher re-offers the same handful of unreadable
+# narrations on every fixpoint round and again on every permutation pass, and nothing
+# memoised. These pin the three bounds that fixed it, against a fake client so no test
+# ever makes a network call.
+# --------------------------------------------------------------------------
+class _FakeMessages:
+    def __init__(self, owner):
+        self._owner = owner
+
+    def create(self, **kwargs):
+        self._owner.wire_calls += 1
+        if self._owner.raise_with is not None:
+            raise self._owner.raise_with
+
+        class _Block:
+            type = "text"
+            text = '{"payer_name": "ACME PVT", "merchant_ref": "INV-2026-1001"}'
+
+        class _Resp:
+            content = [_Block()]
+
+        return _Resp()
+
+
+class _FakeClient:
+    """Stands in for `anthropic.Anthropic`, counting what reached the wire."""
+
+    def __init__(self, raise_with=None):
+        self.wire_calls = 0
+        self.raise_with = raise_with
+        self.messages = _FakeMessages(self)
+
+
+def _tier_with(fake, monkeypatch):
+    from recon.llm.claude import ClaudeTier
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")
+    tier = ClaudeTier.__new__(ClaudeTier)
+    tier.enabled = True
+    tier._client = fake
+    tier._parse_cache = {}
+    tier.calls = tier.failures = tier.cache_hits = 0
+    return tier
+
+
+def test_repeated_narrations_are_parsed_once(monkeypatch):
+    """
+    The cache is what makes a live run finishable at all.
+
+    parse_narration is a pure function of the narration string, so caching cannot change
+    an answer -- only how many times it is bought. The matcher offers the same string on
+    every round and every permutation pass.
+    """
+    fake = _FakeClient()
+    tier = _tier_with(fake, monkeypatch)
+
+    first = tier.parse_narration("NEFT-ACME-CR INV/2026/1001")
+    for _ in range(47):
+        assert tier.parse_narration("NEFT-ACME-CR INV/2026/1001") == first
+
+    assert fake.wire_calls == 1, "48 identical narrations must cost one API call"
+    assert tier.stats() == {"calls": 1, "cache_hits": 47, "failures": 0, "capped": 0}
+
+
+def test_distinct_narrations_are_not_collapsed(monkeypatch):
+    """The cache must key on the narration, not merely exist."""
+    fake = _FakeClient()
+    tier = _tier_with(fake, monkeypatch)
+
+    tier.parse_narration("NEFT-ACME-CR INV/2026/1001")
+    tier.parse_narration("NEFT-ORCHID-CR INV/2026/1002")
+
+    assert fake.wire_calls == 2
+
+
+def test_the_call_cap_disables_the_tier_rather_than_spending(monkeypatch):
+    """
+    A hard ceiling on a billed dependency on the demo path. Reaching it must DISABLE the
+    tier -- the engine is required to run to completion with the LLM absent, so
+    degrading is always available and is the right answer to a runaway loop.
+    """
+    import config as cfg
+
+    fake = _FakeClient()
+    tier = _tier_with(fake, monkeypatch)
+    monkeypatch.setattr(cfg, "LLM_MAX_CALLS", 3)
+
+    for i in range(10):
+        tier.parse_narration(f"unique narration {i}")
+
+    assert fake.wire_calls == 3
+    assert tier.enabled is False
+    assert tier.stats()["capped"] == 1
+
+
+def test_the_cap_is_per_instance_not_per_class(monkeypatch):
+    """
+    `enabled` was a CLASS attribute. Had the cap flipped that, one exhausted tier would
+    have silently disabled every other instance in the process -- including the second
+    arm of the very comparison the cap exists to make runnable.
+    """
+    import config as cfg
+
+    monkeypatch.setattr(cfg, "LLM_MAX_CALLS", 1)
+    exhausted = _tier_with(_FakeClient(), monkeypatch)
+    fresh = _tier_with(_FakeClient(), monkeypatch)
+
+    exhausted.parse_narration("a")
+    exhausted.parse_narration("b")
+
+    assert exhausted.enabled is False
+    assert fresh.enabled is True
+
+
+def test_failures_are_counted_rather_than_only_swallowed(monkeypatch):
+    """
+    Degrading to empty fields is correct -- a tier that raises would make the engine's
+    ability to run without the LLM a lie. Degrading SILENTLY is not: a tier failing on
+    every call was indistinguishable from one that found nothing, and the metrics block
+    printed the live tier's name beside numbers no model had touched.
+    """
+    fake = _FakeClient(raise_with=RuntimeError("connection reset"))
+    tier = _tier_with(fake, monkeypatch)
+
+    fields = tier.parse_narration("NEFT-ACME-CR")
+
+    assert fields.is_empty
+    assert tier.stats()["failures"] == 1

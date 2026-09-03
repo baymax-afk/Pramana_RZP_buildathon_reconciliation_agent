@@ -160,6 +160,25 @@ MAX_SOLUTIONS = 8              # enumerate up to this many; reaching it means re
 # stopping is the right answer. Six is well above the deepest observed (2).
 MAX_ROUNDS = 6
 
+# --------------------------------------------------------------------------
+# Live LLM tier bounds. These exist because the tier is on the DEMO path.
+#
+# The tier is offered one narration per unsettled credit per fixpoint round, and the
+# whole matcher is replayed PERMUTATION_K times by the stability gate. Nothing in that
+# path memoised, so a run made MAX_ROUNDS x PERMUTATION_K calls for each of the ~13
+# narrations the regex tier cannot read -- several hundred sequential HTTP requests,
+# with no timeout on any of them. Measured, not projected: a live `llm-compare` run was
+# killed after minutes without producing a line of output.
+#
+# The cache is what actually fixes it (parse_narration is a pure function of the
+# narration string, and the same ~13 strings recur every round and every pass). The
+# timeout and the call cap are the belt: a cap cannot save a run that is blocked on a
+# socket, and a timeout cannot save one that is merely making too many calls.
+# --------------------------------------------------------------------------
+LLM_TIMEOUT_S = 10.0           # per request; the SDK default is 600s
+LLM_MAX_RETRIES = 1            # SDK default is 2; wall clock is timeout x (retries+1)
+LLM_MAX_CALLS = 200            # hard stop per process; the tier disables itself after
+
 # The headline reports this density alongside the primary one. A single density there
 # invites reading the numbers as a property of the engine rather than of the engine at
 # one crowding level, and density is the parameter the whole argument turns on. Set 0 to

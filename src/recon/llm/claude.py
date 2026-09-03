@@ -25,6 +25,8 @@ import json
 import os
 import re
 
+import config as cfg
+
 from .interface import ExceptionProse, NarrationFields
 
 MODEL = "claude-sonnet-5"
@@ -75,14 +77,50 @@ def _clean(value) -> str | None:
 
 class ClaudeTier:
     name = f"claude:{MODEL}"
-    enabled = True
+    # Instance-level, not class-level: the call cap flips it, and a class attribute
+    # would disable the tier for every other instance in the process.
+    enabled: bool
 
     def __init__(self) -> None:
         import anthropic  # imported lazily so the SDK is optional
 
-        self._client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        from . import load_dotenv
+
+        self.enabled = True
+        # `select()` already did this, but constructing the tier directly is a
+        # reasonable thing for a caller to do and a KeyError on a scrubbed environment
+        # variable is a poor way to find that out. Idempotent, and it never overrides a
+        # variable already set.
+        load_dotenv()
+
+        # The SDK's defaults are 600s and 2 retries, which on a dead network means a
+        # single narration can block for half an hour. Wall clock per call is
+        # timeout x (retries + 1), so this bounds one call at ~20s.
+        self._client = anthropic.Anthropic(
+            api_key=os.environ["ANTHROPIC_API_KEY"],
+            timeout=cfg.LLM_TIMEOUT_S,
+            max_retries=cfg.LLM_MAX_RETRIES,
+        )
+        # Narration -> parsed fields. `parse_narration` is a pure function of the
+        # narration string, so this cannot change an answer -- only how many times the
+        # answer is bought. The matcher re-offers the SAME handful of unreadable
+        # narrations on every fixpoint round and again on every permutation pass, so
+        # without this the call count is multiplied by MAX_ROUNDS x PERMUTATION_K for
+        # no additional information whatsoever.
+        self._parse_cache: dict[str, NarrationFields] = {}
+        self.calls = 0
+        self.failures = 0
+        self.cache_hits = 0
 
     def _ask(self, prompt: str, max_tokens: int) -> dict:
+        # A hard ceiling on a live, billed, demo-path dependency. Reaching it disables
+        # the tier for the rest of the process rather than continuing to spend: the
+        # engine is required to run to completion with the LLM absent, so degrading is
+        # always available and is the correct response to a runaway loop.
+        if self.calls >= cfg.LLM_MAX_CALLS:
+            self.enabled = False
+            return {}
+        self.calls += 1
         try:
             resp = self._client.messages.create(
                 model=MODEL,
@@ -94,20 +132,42 @@ class ClaudeTier:
             )
             start, end = text.find("{"), text.rfind("}")
             if start < 0 or end <= start:
+                self.failures += 1
                 return {}
             return json.loads(text[start : end + 1])
         except Exception:
             # Degrade to nothing. A tier that raises would make the engine's ability to
             # run without the LLM a lie.
+            #
+            # But degrading SILENTLY made a different lie possible: a tier that failed
+            # on every call was indistinguishable from one that found nothing to add,
+            # and the metrics block printed `claude:...` beside numbers no model had
+            # touched. The count is surfaced so a degraded run is visible.
+            self.failures += 1
             return {}
 
     def parse_narration(self, narration: str) -> NarrationFields:
-        data = self._ask(_PARSE_PROMPT.format(narration=(narration or "")[:400]), 200)
-        return NarrationFields(
+        key = narration or ""
+        if key in self._parse_cache:
+            self.cache_hits += 1
+            return self._parse_cache[key]
+        data = self._ask(_PARSE_PROMPT.format(narration=key[:400]), 200)
+        fields = NarrationFields(
             payer_name=_clean(data.get("payer_name")),
             merchant_ref=_clean(data.get("merchant_ref")),
             model=MODEL,
         )
+        self._parse_cache[key] = fields
+        return fields
+
+    def stats(self) -> dict[str, int]:
+        """What this tier actually did. Reported next to the numbers it influenced."""
+        return {
+            "calls": self.calls,
+            "cache_hits": self.cache_hits,
+            "failures": self.failures,
+            "capped": int(not self.enabled),
+        }
 
     def explain(self, category: str, reason: str, rupees_at_risk: float) -> ExceptionProse:
         data = self._ask(
