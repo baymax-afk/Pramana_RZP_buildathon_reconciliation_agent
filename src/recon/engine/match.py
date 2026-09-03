@@ -30,6 +30,7 @@ from . import (
     tier2_amount_date,
     tier3_subsetsum,
 )
+from ..explain.trace import FieldWeight as _FieldWeight
 from .normalize import parse_with_llm
 from .results import Assignment, Candidate, MatchOutput, Refusal, RefusalCategory
 
@@ -77,7 +78,8 @@ def _assignment_from(
 
 
 
-def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm=None):
+def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm=None,
+                 rec=None):
     """
     Run the three tiers against one credit, in descending order of evidence strength.
 
@@ -124,30 +126,57 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
             + ". Two independent channels disagree, so neither is trusted alone"
         )
 
+    def note(tier, outcome, cands=(), cat=None, reason="", uniq=None):
+        """Record one tier's answer. Inert without a recorder; never reads one back."""
+        if rec is None:
+            return
+        c = cands[0] if cands else None
+        rec.attempt(
+            tier=tier,
+            outcome=outcome,
+            category=getattr(cat, "value", "") if cat is not None else "",
+            reason=reason,
+            payment_ids=tuple(c.payment_ids) if c else (),
+            residual_paise=c.residual_paise if c else None,
+            interval_lo=c.interval_lo if c else None,
+            interval_hi=c.interval_hi if c else None,
+            certain_fee=c.certain if c else None,
+            uniqueness_margin=uniq,
+            candidates_seen=len(cands),
+        )
+
     cands, cat, reason = tier1_reference.match(
         txn, parsed, index, by_id, claimed, invoices_by_no
     )
     if cat is not None:
+        note(tier1_reference.TIER, "refuse", cands, cat, reason)
         return ("refuse", cands, cat, reason, 1.0, parsed)
     if cands and not count_conflict(cands):
+        note(tier1_reference.TIER, "assign", cands, None, "", 1.0)
         return ("assign", cands, None, "", 1.0, parsed)
     tier1_conflict = cands if count_conflict(cands) else []
+    note(tier1_reference.TIER, "conflict" if tier1_conflict else "fell_through", cands)
 
     cands, cat, reason = tier2_amount_date.match(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
+        note(tier2_amount_date.TIER, "refuse", cands, cat, reason)
         return ("refuse", cands, cat, reason, 1.0, parsed)
     if cands and not count_conflict(cands):
+        note(tier2_amount_date.TIER, "assign", cands, None, "", 1.0)
         return ("assign", cands, None, "", 1.0, parsed)
     tier2_conflict = cands if count_conflict(cands) else []
+    note(tier2_amount_date.TIER, "conflict" if tier2_conflict else "fell_through", cands)
 
     cands, cat, reason, uniq = tier3_subsetsum.match_with_margin(
         txn, payments, claimed, invoices_by_no
     )
     if cat is not None:
+        note(tier3_subsetsum.TIER, "refuse", cands, cat, reason, uniq)
         return ("refuse", cands, cat, reason, 0.0, parsed)
     if cands and not count_conflict(cands):
+        note(tier3_subsetsum.TIER, "assign", cands, None, "", uniq)
         return ("assign", cands, None, "", uniq, parsed)
 
     # Tier 3 could not produce a decomposition of the stated size either. Whatever a
@@ -156,11 +185,14 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
     # only "conflict" is not.
     blocked = cands or tier2_conflict or tier1_conflict
     if blocked:
+        note(tier3_subsetsum.TIER, "refuse", blocked,
+             RefusalCategory.NARRATION_COUNT_CONFLICT, conflict_reason(blocked))
         return (
             "refuse", blocked, RefusalCategory.NARRATION_COUNT_CONFLICT,
             conflict_reason(blocked), 0.0, parsed,
         )
 
+    note(tier3_subsetsum.TIER, "fell_through", cands)
     return ("none", [], None, "", 0.0, parsed)
 
 
@@ -280,7 +312,7 @@ def _resolve_contested(
     return granted, contested
 
 
-def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
+def match_once(inputs: ReconInputs, llm=None, recorder=None) -> MatchOutput:
     """
     Match a batch, iterating to a FIXPOINT.
 
@@ -299,6 +331,13 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
     Resolving genuine ambiguity with information that arrives later is correct
     behaviour, not a shortcut. What would NOT be acceptable is resolving it by picking,
     and the tiers still refuse rather than choose within any single round.
+
+    **`recorder` is inert and must stay that way.** When supplied it collects the
+    decision transcript `recon.explain` renders; when absent -- the default, and what
+    every reported number is produced by -- not one branch below reads it. This function's
+    purity is what makes MR1 meaningful, so `tests/test_explain.py` asserts the
+    assignment map and refusal set hash identically with recording on and off. An
+    explanation that changed the thing it explains would be worse than no explanation.
     """
     payments = inputs.payments
     by_id = {p.id: p for p in payments}
@@ -351,6 +390,16 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
         for txn in credits:
             if txn.id in settled:
                 continue
+            if recorder is not None:
+                lo, hi = tier2_amount_date.window_for(txn)
+                recorder.begin(
+                    txn, round_no=rounds,
+                    pool_size=len(
+                        tier2_amount_date.candidate_pool(txn, payments, claimed)
+                    ),
+                    claimed=len(claimed),
+                    window=(lo.isoformat(), hi.isoformat()),
+                )
             # The parse comes back with the verdict. It used to be discarded here and
             # recomputed below for `fs.evidence_for` -- and with a live ClaudeTier that
             # is a second API call per assigned credit, multiplied by up to MAX_ROUNDS
@@ -358,8 +407,14 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
             # path memoises, so the cost was real rather than theoretical.
             # REVIEW_2026-09-02 R11.
             verdict, cands, cat, reason, uniq, parsed = _verdict_for(
-                txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm
+                txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm,
+                rec=recorder,
             )
+            if recorder is not None and (r := recorder.active) is not None:
+                r.parsed_payer = parsed.payer_name
+                r.parsed_ref = parsed.merchant_ref
+                r.parsed_txn_count = parsed.txn_count
+                r.parsed_by_llm = bool(getattr(parsed, "llm_model", ""))
 
             if verdict == "assign":
                 cand = cands[0]
@@ -371,9 +426,26 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
                     u_est,
                     pool_size=blocking_pool_size[txn.id],
                 )
+                if recorder is not None and (r := recorder.active) is not None:
+                    r.fs_weight = ev.weight
+                    r.fs_prior = ev.prior_weight
+                    r.fs_contradicts = ev.contradicts
+                    r.fs_fields = [
+                        _FieldWeight(
+                            field=f.field,
+                            level=f.level.name if f.level is not None else "absent",
+                            weight=f.weight,
+                            detail=f.detail,
+                        )
+                        for f in ev.fields
+                    ]
                 if ev.contradicts:
                     # Names and references actively contradict the amount evidence.
                     # Two independent channels disagree, so neither is trusted alone.
+                    if recorder is not None and (r := recorder.active) is not None:
+                        r.verdict = "refuse"
+                        r.final_category = RefusalCategory.AMOUNT_NAME_CONFLICT.value
+                        r.final_payment_ids = tuple(cand.payment_ids)
                     refusals.append(
                         Refusal(
                             txn.id, RefusalCategory.AMOUNT_NAME_CONFLICT,
@@ -387,20 +459,33 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
                         )
                     )
                     continue
+                if recorder is not None and (r := recorder.active) is not None:
+                    r.proposed = True
                 proposals.append(
                     _Proposal(txn.id, txn.credit, cand, uniq, ev.weight)
                 )
             elif verdict == "refuse":
+                if recorder is not None and (r := recorder.active) is not None:
+                    r.verdict = "refuse"
+                    r.final_category = cat.value
+                    r.final_reason = reason
+                    r.final_payment_ids = tuple(cands[0].payment_ids) if cands else ()
                 refusals.append(
                     Refusal(txn.id, cat, reason, txn.credit, tuple(cands))
                 )
             else:
+                if recorder is not None and (r := recorder.active) is not None:
+                    r.verdict = "none"
                 no_candidate.append(txn.id)
 
         # ---- RESOLVE ----------------------------------------------------------
         granted, contested = _resolve_contested(proposals)
 
         for prop in granted:
+            if recorder is not None and (r := recorder.get(prop.txn_id)) is not None:
+                r.granted = True
+                r.verdict = "assign"
+                r.final_payment_ids = tuple(prop.cand.payment_ids)
             assignments.append(
                 _assignment_from(
                     prop.txn_id, prop.credit, prop.cand, by_id,
@@ -412,6 +497,11 @@ def match_once(inputs: ReconInputs, llm=None) -> MatchOutput:
             tier_counts[prop.cand.tier] = tier_counts.get(prop.cand.tier, 0) + 1
 
         for prop, blockers in contested:
+            if recorder is not None and (r := recorder.get(prop.txn_id)) is not None:
+                r.granted = False
+                r.verdict = "refuse"
+                r.final_category = RefusalCategory.CONTESTED_PAYMENT.value
+                r.rivals = tuple(b.txn_id for b in blockers)
             shared = sorted(
                 set(prop.cand.payment_ids).intersection(
                     *(set(b.cand.payment_ids) for b in blockers)
