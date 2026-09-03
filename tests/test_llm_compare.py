@@ -168,29 +168,51 @@ def test_a_changed_assignment_is_reported_as_a_delta(batch):
     assert off.startswith("assign:") and on == "absent"
 
 
-def test_the_offline_arms_differ_only_in_REASON_never_in_DECISION(batch):
+def test_the_offline_arms_now_differ_and_the_difference_is_always_an_improvement(batch):
     """
-    The recorded tier and the disabled tier used to produce identical verdicts, and this
-    test asserted that "so that if it ever STOPS holding, someone finds out".
+    A history of one assertion getting sharper, twice, as the data got more honest.
 
-    It stopped holding, and this is the finding. With `advance_payment` in the batch
-    there are more narrations the regex tier cannot read, the stand-in recovers a
-    merchant reference on some of them, and two credits change refusal category --
-    `decomposition_out_of_bounds` becomes `unexplained_residual`, because the recovered
-    reference lets tier 1 speak.
+    v1 asserted the two offline arms produce IDENTICAL verdicts, "so that if it ever
+    stops holding, someone finds out".
 
-    What did NOT change is any decision. Same verdict, same money in the same place,
-    same precision and match rate. So the assertion is now the sharper one: the tier may
-    improve the sentence an operator reads and must not move a verdict, which is the
-    trust boundary restated as a measurement rather than a promise.
+    v2, after `advance_payment` landed: they differ in two refusal REASONS and no
+    decisions, so the assertion became "may change a reason, never a decision".
+
+    v3, now, after `third_party_payer` stopped being mislabelled: the stand-in changes a
+    DECISION -- it recovers a merchant reference from a narration the regex tier cannot
+    read, that reference outweighs the payer-name disagreement, and a credit that was
+    refused is correctly assigned.
+
+    That is not a boundary breach, and calling it one would be the mistake. The tier
+    filled a narration FIELD; the deterministic engine decided. If filling fields never
+    changed an outcome the tier would have no reason to exist, and the boundary would be
+    enforced by the tier being useless rather than by the type system.
+
+    So the assertion is now the one that actually protects money: the tier may move a
+    verdict, and every verdict it moves must be moved to a correct one.
     """
     from recon.engine.match import match_once
-    from recon.llm.compare import split_changes
 
     on = match_once(batch.inputs, llm=RecordedTier())
     off = match_once(batch.inputs, llm=NullTier())
-    outcome_changes, _reason_changes = split_changes(diff_verdicts(on, off))
-    assert outcome_changes == (), (
-        "the offline stand-in changed a DECISION, not just a reason: "
-        f"{outcome_changes}"
-    )
+
+    truth = {l.bank_txn_id: l for l in batch.truth if l.bank_txn_id}
+    off_map = {a.bank_txn_id: frozenset(a.payment_ids) for a in off.assignments}
+
+    for a in on.assignments:
+        link = truth.get(a.bank_txn_id)
+        assert link is not None and link.expected_verdict == "assign", (
+            f"the LLM tier enabled an assignment ground truth does not want: "
+            f"{a.bank_txn_id}"
+        )
+        assert set(a.payment_ids) == set(link.payment_ids), (
+            f"the LLM tier enabled a WRONG assignment on {a.bank_txn_id}"
+        )
+        # It may add assignments; it must never silently rewrite one made without it.
+        if a.bank_txn_id in off_map:
+            assert frozenset(a.payment_ids) == off_map[a.bank_txn_id], (
+                f"the LLM tier changed an assignment the engine already made without "
+                f"it: {a.bank_txn_id}"
+            )
+
+    assert len(on.assignments) >= len(off.assignments)

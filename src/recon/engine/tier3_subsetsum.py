@@ -312,17 +312,6 @@ def _decompose(
     return [to_candidate(result.solutions[0])], None, "", uniqueness_margin(result, tol)
 
 
-def match(
-    txn: BankTxn,
-    payments: tuple[Payment, ...],
-    claimed: set[str],
-    invoices_by_no: dict[str, Invoice],
-) -> tuple[list[Candidate], RefusalCategory | None, str]:
-    """`_decompose` without the margin, for callers that do not need it."""
-    cands, cat, reason, _ = _decompose(txn, payments, claimed, invoices_by_no)
-    return cands, cat, reason
-
-
 def match_with_margin(
     txn: BankTxn,
     payments: tuple[Payment, ...],

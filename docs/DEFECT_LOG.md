@@ -1408,3 +1408,90 @@ problem. The engine refused, correctly, on the evidence it was given; the scorer
 a miss; and the investigation would naturally go to the matcher. `assert_truth_is_satisfiable`
 now fails the build on both shapes — hidden money and an out-of-reach payment — so the
 next instance is caught at generation rather than misdiagnosed at matching.
+
+---
+
+## 2026-09-03-01 — A review found three defects in the previous session's own fixes
+
+**Timestamp:** 2026-09-03, working `REVIEW_2026-09-02.md`
+
+**What broke:** Nothing new. A high-effort review of the previous session's 14 commits
+found 14 issues, **none of which the 265-passing suite reached** — and three of the top
+four were *incomplete fixes rather than new mistakes*.
+
+**1. The manifest guard closed one path of two (R1, R2).** The previous session added
+`manifest.json` specifically so the headline could not name a seed that did not produce
+its numbers. Reproduced afterwards:
+
+```
+python run.py generate --seed 77771 --payments-per-window 12
+python run.py match          # no flags
+  headline        seed=20260905  density=6
+  run_output.json seed=20260905  density=12
+```
+
+The payload disagreed with the headline *and with itself*, because it took density from
+the corrected `inputs` and seed from the uncorrected `args`. Worse, the guard read
+`if seed != cfg.SEED_PRIMARY and ...` while argparse *defaults* `--seed` to that value —
+so an explicit `--seed 20260905` was indistinguishable from no flag, skipped the check
+entirely, and silently relabelled. `payments_per_window` had **no check at all**.
+
+Fixed with a `None` sentinel and by reporting `inputs.seed` / `inputs.payments_per_window`
+everywhere below `load_inputs`. Six regression tests; there were none.
+
+**2. `third_party_payer` was ~29% mislabelled, and a reported conclusion rested on it
+(R3).** The label was appended before the narration style was chosen, and the
+messy-narration branch (~18%) ignored the third party. Measured: **2 of 7** links at the
+primary seed carried the *correct* payer name — a record labelled as a name-channel
+disagreement while carrying none.
+
+This is the exact defect the adjacent comment warns about: *a label that can disagree
+with the data it describes is worse than no label.* It was written one screen above the
+code that violates it.
+
+**The conclusion that rested on it did not survive.** The previous session reported that
+the third-party payments which reconcile are the ones quoting an invoice reference.
+Re-measured on a clean cohort across five seeds: **13 matched, 20 refused**.
+
+| | matched | refused |
+|---|---:|---:|
+| with a quoted reference | 9 | **0** |
+| without | 4 | 20 |
+
+So a reference is **sufficient** — nine of nine reconciled and not one was refused — but
+its absence is **not decisive**, since four without one still matched. The original claim
+was the stronger, cleaner, wrong one. `third_party_payer` is now by a wide margin the
+largest source of conservative refusals.
+
+**3. Two LLM tests failed, and one had predicted its own obsolescence wrongly.**
+`test_llm_does_not_change_precision_on_this_batch` asserted the arms produce identical
+assignments and said in its docstring that a change "is a trust-boundary event and this
+test should fail loudly". It failed loudly. **It is not a trust-boundary event.**
+
+The stand-in recovered a merchant reference from a narration the regex tier could not
+read; that reference outweighed a third-party payer's name disagreement; and the
+*deterministic engine* assigned a credit it had refused — correctly, with precision
+unmoved at 1.0000.
+
+The test conflated *"the LLM must not decide a match"* with *"the LLM must not change any
+outcome"*. Those are different claims. If filling narration fields never changed an
+outcome the tier would have no reason to exist, and the boundary would be enforced by the
+tier being useless rather than by the type system. Both tests now assert what the boundary
+actually promises: the tier never overrides a field the regex tier read (verified
+structurally), and every outcome it moves is moved to a correct one.
+
+**4. The harness raised a false alarm about itself.** `llm-compare` printed
+`contradicted the regex tier: 1 (must be 0)`. It is not a violation and the note was
+wrong about its own metric: the counter measures what the tier *returns*, not what the
+engine uses. Verified directly — on `CMS/ORCHIDFOODSPVT/INV/2026/1076/CR` the regex tier
+reads `ORCHIDFOODSPVT`, the stand-in reads `ORCHIDFOODS PVT`, and the merged parse keeps
+the regex value. The boundary held; the label on the counter did not.
+
+**Cost:** ~40 minutes for R1–R3.
+
+**The pattern, and it is about this project's own method.** The recurring lesson here has
+been *the metric that looked right*. This review is that lesson applied to the work that
+produced it: a guard that closed the loud path, a label written directly beneath a comment
+forbidding exactly that mistake, and a test whose docstring named the wrong event. Every
+one passed 265 tests. **The suite grew by 137 tests in the session that introduced these,
+and caught none of them.**

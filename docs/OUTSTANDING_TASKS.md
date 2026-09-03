@@ -272,3 +272,44 @@ amounts reconcile and the counterparty does not — but it is the largest remain
 source of conservative refusals, and an investigating agent (see `AGENTIC.md`) checking
 whether a payer is an authorised group entity is exactly the evidence that would close
 it.
+
+---
+
+## Code review, 2026-09-02 — 14 findings, none covered by the suite
+
+Full write-up: [`REVIEW_2026-09-02.md`](REVIEW_2026-09-02.md). Reviewed the whole session
+(14 commits, 48 files, ~9.6k insertions) at high effort. **All 265 tests pass**, so every
+finding is something the suite does not reach.
+
+Four were reproduced directly; the rest are read from the diff and marked as unverified,
+and that distinction is kept rather than collapsed.
+
+**RESOLVED 2026-09-03 — all 14.** Suite 265 → 287, precision 1.0000 at every density arm.
+Two fixes produced further defects while being applied, both recorded. The list below is
+kept as written so the order and the reasoning stay legible.
+
+**Was:**
+
+1. **R1 + R2** — the headline and `run_output.json` can name a seed and density that did
+   not produce them. Reproduced: a batch generated at seed 77771 / ppw 12 prints
+   `seed=20260905 density=6` and writes a payload inconsistent with itself. Same bug class
+   as the manifest guard added this session, which closed the loud path and left the
+   silent one open.
+2. **R3** — `third_party_payer` is ~29% mislabelled (2 of 7 at the primary seed carry the
+   *correct* payer name), so the `OUTCOME BY DEFECT` numbers for it — and the conclusion
+   drawn from them — rest on a partly wrong cohort. Fix the label, then re-measure and
+   restate or withdraw.
+3. **R4** — `pip install -e .` produces a broken `pramana` entry point and an unimportable
+   `api.main`. Reproduced. H1 removed the `sys.path` bootstrap on a premise that is not
+   true as it stands.
+4. **R5 + R6** — two `assert_truth_is_satisfiable` call sites abort their command instead
+   of reporting, while adjacent assertions in the same loop bodies are handled.
+5. **R9 + R10** — two guards that would fail silently: the ambiguity guard's claimed safety
+   margin is zero, and the satisfiability assertion covers two unreachability shapes of
+   three.
+6. **R11** — every assigned credit parses its narration twice, doubling live LLM cost.
+7. **R7, R8, R13, R14** — correctness of things nothing reads yet.
+
+**The pattern worth noting:** three of the top four are *incomplete fixes rather than new
+mistakes*. The session's own lesson — the metric that looked right — held for the
+session's own work.

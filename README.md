@@ -164,6 +164,15 @@ metrics block discloses the unexamined lines and their value instead.
 The statement contained **zero debits** until `chargeback_debit` existed, which is
 exactly why that blind spot went unnoticed.
 
+**On `third_party_payer`, a claim was made and then withdrawn.** An earlier version of
+this README said the payments that reconcile are the ones quoting an invoice reference.
+That was measured over a cohort ~29% of which was mislabelled — the messy-narration
+branch ignored the third party, so records carried the *correct* payer name while being
+labelled a name mismatch. Re-measured on a clean cohort over five seeds: **13 matched,
+20 refused**, and a quoted reference is *sufficient* to reconcile (9 of 9 with one
+matched; none was refused) but its absence is not decisive (4 of 24 without one still
+matched). See `DEFECT_LOG` 2026-09-03-01.
+
 **`bank_charge` is the one deliberately labelled unmatchable.** An engine that widened
 its tolerance to absorb bank charges would also start absorbing genuine coincidences,
 and the whole subset-sum uniqueness argument rests on tolerance staying far below the
@@ -190,6 +199,10 @@ verdict.
 ```bash
 pip install -e '.[api,test]'      # engine + API + test deps; the engine itself has none
 ```
+
+`pramana ...` and `python run.py ...` are the same code: the root `run.py` is a shim over
+the packaged `pramana_cli:main`, so both work and neither depends on the current
+directory.
 
 The engine, all four verification layers and the scorer run on the **standard library
 alone** — `pip install -e .` with no extras is enough for every number reported below.
@@ -235,13 +248,21 @@ the `ppw=6` run. `--compare-density 0` turns it off, `--compare-density 24` poin
 the crowded arm. See `docs/METRICS.md` for what that comparison does and does not show.
 
 ```bash
-uvicorn api.main:app --port 8000     # read-only API
+uvicorn api.main:app --port 8000     # read-only API (importable from anywhere)
 cd ui && npm install && npm run dev  # triage UI on :5173
 ```
 
 The UI is a single page: exceptions ranked by rupees at risk, each expanding to show
 why the engine declined, what to do next, and — for ambiguous credits — every candidate
-it refused to choose between. The API is **read-only by design**: there is no accept /
+it refused to choose between.
+
+Directly under the totals it qualifies sits a **"not examined" disclosure**. The at-risk
+figure counts refused *credits*, and the engine reads credits only — so chargebacks,
+reversals and bank fees are invisible to it. Showing the exception list without saying so
+would be misleading by omission, and the omission matters more here than in the metrics
+block, because this page is what someone acts on. The lines are listed but never mixed
+into the worklist: they are not items to work, they are items the engine cannot speak
+about. The API is **read-only by design**: there is no accept /
 reject endpoint, because a feedback loop is out of scope and a button that did nothing
 would be worse than none.
 
@@ -249,7 +270,7 @@ would be worse than none.
 pytest tests/
 ```
 
-261 tests, including the end-to-end isolation test — which deletes the ground-truth
+287 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 *Full command reference lands with the engine — see the build order below.*

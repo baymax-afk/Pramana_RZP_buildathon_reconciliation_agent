@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-02T15:22:08.904673+00:00",
+  "generated_at": "2026-09-02T23:46:05.324866+00:00",
   "seed": 20260905,
   "density": 6,
   "totals": {
@@ -8,10 +8,59 @@
     "captured_payments": 194,
     "bank_credits": 141,
     "invoices": 187,
-    "assigned": 128,
-    "refused": 13,
+    "assigned": 127,
+    "refused": 14,
     "no_candidate": 0,
-    "rupees_at_risk": 245025.29
+    "rupees_at_risk": 253889.05
+  },
+  "not_examined": {
+    "debit_lines": 6,
+    "rupees": 166732.77,
+    "reason": "The engine reads credit transactions only. Money leaving the account -- chargebacks, reversals, bank fees -- is outside its model and is neither matched nor refused.",
+    "lines": [
+      {
+        "bank_txn_id": "bank_txn_0044",
+        "txn_date": "2026-07-05",
+        "narration": "CHARGEBACK REV ICICR20389267501 DISPUTE",
+        "ref_no": "ICICR20389267501",
+        "rupees": 41102.54
+      },
+      {
+        "bank_txn_id": "bank_txn_0057",
+        "txn_date": "2026-07-10",
+        "narration": "CHARGEBACK REV PUNBR94445115394 DISPUTE",
+        "ref_no": "PUNBR94445115394",
+        "rupees": 39881.09
+      },
+      {
+        "bank_txn_id": "bank_txn_0145",
+        "txn_date": "2026-09-11",
+        "narration": "CHARGEBACK REV HDFCN41860995025 DISPUTE",
+        "ref_no": "HDFCN41860995025",
+        "rupees": 28876.88
+      },
+      {
+        "bank_txn_id": "bank_txn_0146",
+        "txn_date": "2026-09-13",
+        "narration": "CHARGEBACK REV UTIBP08760386266 DISPUTE",
+        "ref_no": "UTIBP08760386266",
+        "rupees": 20261.98
+      },
+      {
+        "bank_txn_id": "bank_txn_0070",
+        "txn_date": "2026-07-16",
+        "narration": "CHARGEBACK REV UTIBP73259920214 DISPUTE",
+        "ref_no": "UTIBP73259920214",
+        "rupees": 18360.66
+      },
+      {
+        "bank_txn_id": "bank_txn_0056",
+        "txn_date": "2026-07-10",
+        "narration": "CHARGEBACK REV KKBKH78913095583 DISPUTE",
+        "ref_no": "KKBKH78913095583",
+        "rupees": 18249.62
+      }
+    ]
   },
   "tolerances": {
     "tol_abs_paise": 100,
@@ -27,7 +76,7 @@
   },
   "tier_counts": {
     "tier1_reference": 46,
-    "tier2_amount_date": 62,
+    "tier2_amount_date": 61,
     "tier3_subsetsum": 20
   },
   "exceptions": [
@@ -174,6 +223,30 @@
           "residual_paise": 0,
           "customers": [
             "Meridian Logistics LLP"
+          ]
+        }
+      ],
+      "confidence": null
+    },
+    {
+      "bank_txn_id": "bank_txn_0027",
+      "category": "amount_name_conflict",
+      "rupees_at_risk": 8863.76,
+      "txn_date": "2026-06-22",
+      "narration": "BY CLG/666792/VERTEX ENGINEERIN",
+      "reference": "UTIBP51234026739",
+      "why": "The amounts reconcile but the counterparty does not. Either the payer was renamed, or this is a coincidental amount match to the wrong customer.",
+      "next_step": "Confirm the customer identity; do not post on the amount alone.",
+      "engine_reason": "amounts reconcile (residual +0p) but non-amount evidence contradicts it: Fellegi-Sunter field weight -3.26 (total -6.58). name disagreement: bank 'VERTEX ENGINEERIN' vs ['SILVERLINE PACKAGING']",
+      "candidates": [
+        {
+          "payment_ids": [
+            "pay_TWdulPFK9A74yH"
+          ],
+          "rupees": 8863.76,
+          "residual_paise": 0,
+          "customers": [
+            "Silverline Packaging LLP"
           ]
         }
       ],
@@ -556,9 +629,9 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.455,
+      "fs_weight": 0.815,
       "permutation_stability": 1.0,
-      "confidence": 0.982
+      "confidence": 0.9342
     },
     {
       "bank_txn_id": "bank_txn_0124",
@@ -2084,23 +2157,6 @@
       "confidence": 0.922
     },
     {
-      "bank_txn_id": "bank_txn_0027",
-      "payment_ids": [
-        "pay_TWdulPFK9A74yH"
-      ],
-      "invoice_nos": [
-        "INV-2026-1036"
-      ],
-      "tier": "tier2_amount_date",
-      "rupees": 8863.76,
-      "residual_paise": 0,
-      "residual_tightness": 1.0,
-      "uniqueness_margin": 1.0,
-      "fs_weight": -2.645,
-      "permutation_stability": 1.0,
-      "confidence": 0.9241
-    },
-    {
       "bank_txn_id": "bank_txn_0085",
       "payment_ids": [
         "pay_SYN001155256"
@@ -2547,7 +2603,7 @@
         "name": "MR1",
         "kind": "metamorphic",
         "statement": "shuffling input order must not change any assignment",
-        "checked": 128,
+        "checked": 126,
         "violations": 0,
         "passed": true
       },
@@ -2563,7 +2619,7 @@
         "name": "MR3",
         "kind": "metamorphic",
         "statement": "adding a constructively unmatchable record must not change any existing match",
-        "checked": 128,
+        "checked": 126,
         "violations": 0,
         "passed": true
       },
@@ -2571,7 +2627,7 @@
         "name": "MR4",
         "kind": "invariant",
         "statement": "assigned payments + MDR + TDS must equal the bank credit within tolerance",
-        "checked": 128,
+        "checked": 127,
         "violations": 0,
         "passed": true
       },
@@ -2587,18 +2643,18 @@
         "name": "MR6",
         "kind": "metamorphic",
         "statement": "rerunning on the unassigned residue must produce no new assignments",
-        "checked": 19,
+        "checked": 20,
         "violations": 0,
         "passed": true
       }
     ],
     "permutation_gate": {
       "passes": 8,
-      "txns_observed": 128,
+      "txns_observed": 127,
       "unstable": 0,
       "min_stability": 1.0,
       "mean_stability": 1.0
     }
   },
-  "throughput_records_per_s": 1007
+  "throughput_records_per_s": 1206
 }

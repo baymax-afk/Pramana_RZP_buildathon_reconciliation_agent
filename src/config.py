@@ -160,16 +160,43 @@ MAX_SOLUTIONS = 8              # enumerate up to this many; reaching it means re
 # stopping is the right answer. Six is well above the deepest observed (2).
 MAX_ROUNDS = 6
 
-# The K permutation passes are independent -- match_once is pure -- so running them
-# concurrently changes only wall time, never an answer. Results are collected by pass
-# index, so determinism does not depend on which worker finishes first. Set False to
-# force the sequential path when debugging; the output is identical either way.
 # The headline reports this density alongside the primary one. A single density there
 # invites reading the numbers as a property of the engine rather than of the engine at
 # one crowding level, and density is the parameter the whole argument turns on. Set 0 to
 # report one arm only.
 HEADLINE_COMPARE_DENSITY = 12
 
+# Extra days, beyond the engine's own lookback, that the ambiguity guard scans for
+# interlopers.
+#
+# ZERO, and deliberately. The engine's candidate pool is exactly
+# [txn_date - LOOKBACK_DAYS, txn_date], so scanning exactly that far is not "adequate",
+# it is precisely right: a payment outside it cannot be a candidate no matter what.
+#
+# A positive margin was tried and is arithmetically infeasible. The protected band
+# becomes LOOKBACK_DAYS + margin wide while a payment's own candidate window is only
+# LOOKBACK_DAYS wide, so a payment whose credit sits near the ambiguity credit has its
+# ENTIRE window swallowed and cannot be relocated anywhere legal. At margin 2 that made
+# seed 11111 -- one of the sweep's own seeds -- unconstructible.
+#
+# The real fix for the drift this constant was introduced for is the COUPLING, not the
+# margin: the guard reads LOOKBACK_DAYS instead of recomputing it, so widening
+# MAX_SETTLEMENT_DRIFT_DAYS widens the guard automatically. It previously recomputed
+# `SETTLEMENT_WINDOW_DAYS + 2` under a comment claiming to be "deliberately wider than
+# the engine's rule", which was equal, and would have silently fallen BEHIND the engine
+# the moment drift was widened. See DEFECT_LOG 2026-09-03-02.
+AMBIGUITY_GUARD_MARGIN_DAYS = 0
+
+# The K permutation passes are independent -- match_once is pure -- so running them
+# concurrently changes only wall time, never an answer. Results are collected by pass
+# index, so determinism does not depend on which worker finishes first. Set False to
+# force the sequential path when debugging; the output is identical either way.
+#
+# HEADLINE_COMPARE_DENSITY was inserted between this comment and these constants, so the
+# block documented the wrong thing and PERMUTATION_PARALLEL carried no rationale at all.
+# A reader following "Set False" would have set the density constant to False, which
+# argparse then accepts as compare-density 0. This file's header states that every
+# constant here carries its documented reason. REVIEW_2026-09-02 R13.
 PERMUTATION_PARALLEL = True
 PERMUTATION_MAX_WORKERS = 4
 

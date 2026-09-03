@@ -39,6 +39,66 @@ const CATEGORY_LABEL = {
   no_candidate: "Nothing accounts for it",
 };
 
+/*
+ * What the engine did not look at.
+ *
+ * The header leads with "at risk", and that figure counts refused CREDITS only. The
+ * engine reads `is_credit` transactions and nothing else, so a chargeback, a reversal
+ * or a bank fee is invisible to it -- not matched, not refused, not counted.
+ *
+ * Showing the exception list without this is misleading by omission, and the omission
+ * matters more here than in the metrics block: the metrics block is read by whoever
+ * builds the engine, and this page is read by whoever acts on it. So it sits directly
+ * under the totals it qualifies, not behind a tab, and it is styled as a disclosure
+ * rather than as an exception -- these are not items to work, they are items the engine
+ * cannot speak about.
+ */
+function NotExamined({ data }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="disclosure">
+      <button className="disclosure-head" onClick={() => setOpen((v) => !v)}>
+        <span className="disclosure-mark">Not examined</span>
+        <span>
+          {data.debit_lines} debit line{data.debit_lines === 1 ? "" : "s"} ·{" "}
+          <strong>{RUPEES.format(data.rupees)}</strong> left the account on lines the
+          engine does not read
+        </span>
+        <span className="chev">{open ? "\u2212" : "+"}</span>
+      </button>
+      {open && (
+        <div className="disclosure-body">
+          <p>{data.reason}</p>
+          <table className="mini">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Narration</th>
+                <th className="num">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.lines ?? []).map((l) => (
+                <tr key={l.bank_txn_id}>
+                  <td>{l.txn_date}</td>
+                  <td className="mono">{l.narration}</td>
+                  <td className="num">{RUPEES.format(l.rupees)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted">
+            These are not scored either way. Scoring them against a verdict the engine
+            structurally cannot produce would be theatre — a permanent miss no amount of
+            engine work could close. They are disclosed so this list is not mistaken for
+            a complete account of the statement.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function useRun() {
   const [state, setState] = useState({ status: "loading" });
   useEffect(() => {
@@ -196,6 +256,7 @@ export default function App() {
     );
 
   const { totals, tolerances, verification, seed, density } = run.data;
+  const notExamined = run.data.not_examined ?? {};
   const shownRupees = shown.reduce((s, e) => s + e.rupees_at_risk, 0);
 
   return (
@@ -227,6 +288,8 @@ export default function App() {
           />
         </div>
       </header>
+
+      {notExamined.debit_lines > 0 && <NotExamined data={notExamined} />}
 
       <nav className="tabs">
         <button className={tab === "exceptions" ? "on" : ""} onClick={() => setTab("exceptions")}>

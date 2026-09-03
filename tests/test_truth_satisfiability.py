@@ -168,7 +168,7 @@ def test_loading_with_a_seed_the_batch_did_not_come_from_is_refused(tmp_path):
     from loaders import load_inputs
 
     build.write(build.generate(seed=44444), out_dir=tmp_path)
-    with pytest.raises(ValueError, match="was generated with seed 44444"):
+    with pytest.raises(ValueError, match="the batch is seed 44444"):
         load_inputs(tmp_path, seed=77771)
 
 
@@ -177,3 +177,159 @@ def test_loading_without_a_seed_adopts_the_batchs_own(tmp_path):
 
     build.write(build.generate(seed=44444), out_dir=tmp_path)
     assert load_inputs(tmp_path).seed == 44444
+
+
+# --------------------------------------------------------------------------
+# R1 / R2 — a reported number must never name a run that did not produce it
+# --------------------------------------------------------------------------
+
+def test_reported_seed_and_density_come_from_the_batch_not_the_flags(tmp_path):
+    """
+    REGRESSION, REVIEW_2026-09-02 R1. `match --seed X` does not regenerate: it loads
+    whatever is on disk. The manifest guard was added to stop the headline naming a seed
+    that did not produce its numbers, and it closed only the loud path.
+
+    Reproduced before the fix: a batch generated at seed 77771 / ppw 12, matched with no
+    flags, printed `seed=20260905 density=6` and wrote a payload saying seed 20260905
+    with density 12 -- inconsistent with the headline AND with itself, because the
+    payload took density from the corrected inputs and seed from the uncorrected args.
+    """
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=77771, payments_per_window=12), out_dir=tmp_path)
+    inputs = load_inputs(tmp_path)
+    assert inputs.seed == 77771
+    assert inputs.payments_per_window == 12
+
+
+def test_naming_the_default_seed_explicitly_is_still_checked(tmp_path):
+    """
+    REGRESSION, REVIEW_2026-09-02 R2. The guard read `seed != cfg.SEED_PRIMARY`, but
+    argparse DEFAULTS --seed to that value -- so an explicit `--seed 20260905` was
+    indistinguishable from no flag at all and skipped the check entirely, silently
+    relabelling the run. Only a sentinel can tell "not passed" from "passed, and happens
+    to equal the default".
+    """
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=77771), out_dir=tmp_path)
+    with pytest.raises(ValueError, match="seed 20260905 was requested"):
+        load_inputs(tmp_path, seed=cfg.SEED_PRIMARY)
+
+
+def test_a_density_mismatch_is_reported_too(tmp_path):
+    """
+    REGRESSION, REVIEW_2026-09-02 R2. `payments_per_window` was overwritten with NO
+    check at all, so a density mismatch was never reported under any invocation.
+    """
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=44444, payments_per_window=12), out_dir=tmp_path)
+    with pytest.raises(ValueError, match="density 6 was requested"):
+        load_inputs(tmp_path, payments_per_window=6)
+
+
+def test_both_mismatches_are_reported_together(tmp_path):
+    """One error naming both beats two runs to discover them one at a time."""
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=44444, payments_per_window=12), out_dir=tmp_path)
+    with pytest.raises(ValueError) as e:
+        load_inputs(tmp_path, seed=11111, payments_per_window=3)
+    assert "seed 11111" in str(e.value) and "density 3" in str(e.value)
+
+
+def test_omitting_both_flags_adopts_the_batch(tmp_path):
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=44444, payments_per_window=12), out_dir=tmp_path)
+    inputs = load_inputs(tmp_path)
+    assert (inputs.seed, inputs.payments_per_window) == (44444, 12)
+
+
+def test_a_batch_with_no_manifest_falls_back_to_config_defaults(tmp_path):
+    """A fixture directory written before manifests existed must still load."""
+    from loaders import load_inputs
+
+    build.write(build.generate(seed=44444), out_dir=tmp_path)
+    (tmp_path / "manifest.json").unlink()
+    inputs = load_inputs(tmp_path)
+    assert inputs.seed == cfg.SEED_PRIMARY
+    assert inputs.payments_per_window == cfg.TARGET_POOL_SIZE
+
+
+# --------------------------------------------------------------------------
+# R9 / R10 — two guards that would have failed silently
+# --------------------------------------------------------------------------
+
+def test_the_ambiguity_guard_scans_exactly_the_engines_window(monkeypatch):
+    """
+    REGRESSION, REVIEW_2026-09-02 R9. `_protect_ambiguity_window` recomputed its scan as
+    `SETTLEMENT_WINDOW_DAYS + 2` under a comment claiming to be "deliberately wider than
+    the engine's rule". It was EQUAL to `cfg.LOOKBACK_DAYS`, so the stated margin was
+    zero -- and worse, it would have fallen BEHIND the engine the moment
+    `MAX_SETTLEMENT_DRIFT_DAYS` was widened, leaving interlopers the engine could see
+    neither detected nor relocated and the centrepiece guarantee void with nothing
+    raising.
+
+    Measured with drift widened to 3: the old expression left an unguarded interloper on
+    2 of 6 seeds; reading `cfg.LOOKBACK_DAYS` leaves none. The fix is the COUPLING, not a
+    margin -- a positive margin makes the protected band wider than a payment's own
+    candidate window, which makes some batches unconstructible (it made seed 11111 fail).
+    """
+    from recon.engine import tier2_amount_date as t2
+
+    assert cfg.AMBIGUITY_GUARD_MARGIN_DAYS == 0
+
+    b = build.generate(seed=cfg.SEED_PRIMARY)
+    amb = b.ambiguity_bank_txn_id
+    assert amb, "no ambiguity case in this batch"
+    credit = next(t for t in b.inputs.bank_txns if t.id == amb)
+    link = next(l for l in b.truth if l.bank_txn_id == amb)
+    lo, hi = t2.window_for(credit)
+    crafted = set(link.payment_ids)
+
+    intruders = [
+        p.id for p in b.inputs.payments
+        if p.captured and p.fee is not None and p.id not in crafted
+        and lo <= t2.payment_date(p) <= hi
+        and (p.amount - p.fee) <= cfg.AMBIGUITY_CREDIT_PAISE
+    ]
+    assert not intruders, (
+        f"payments the engine CAN see could join the ambiguity credit: {intruders}"
+    )
+
+
+@pytest.mark.parametrize("seed", [20260905, 77771, 11111, 22222, 33333, 55555])
+def test_every_sweep_seed_is_still_constructible(seed):
+    """
+    The R9 fix must not cost a batch. Widening the guard's scan by 2 days made seed
+    11111 -- one of the sweep's own default seeds -- impossible to construct, because a
+    payment's entire candidate window fell inside the protected band.
+    """
+    b = build.generate(seed=seed)
+    assert build.assert_truth_is_satisfiable(b) > 0
+    assert build.assert_ambiguity_is_exact(b) == cfg.AMBIGUITY_EXPECTED_CANDIDATES
+
+
+def test_a_narration_count_that_contradicts_the_link_is_caught(batch):
+    """
+    REGRESSION, REVIEW_2026-09-02 R10. `narration_count_conflict` became a hard refusal
+    channel, which makes a third shape of unreachable link: `assign` over k payments on
+    a credit narrating a different count. It held only by construction, and nothing
+    asserted it -- the same position `partial_payment` was in when recall sat at 0/5.
+    """
+    from dataclasses import replace
+
+    link = next(
+        l for l in batch.truth
+        if l.expected_verdict == "assign" and l.bank_txn_id and len(l.payment_ids) == 1
+    )
+    relabelled = tuple(
+        replace(t, narration="RAZORPAY SETTLEMENT setl_COUNTCHECK01 4 TXNS")
+        if t.id == link.bank_txn_id else t
+        for t in batch.inputs.bank_txns
+    )
+    broken = replace(batch, inputs=replace(batch.inputs, bank_txns=relabelled))
+    with pytest.raises(AssertionError, match="states 4 transaction"):
+        build.assert_truth_is_satisfiable(broken)

@@ -174,3 +174,67 @@ def test_every_refusal_category_has_a_ui_label_and_a_badge_style():
         if k not in {c.value for c in RefusalCategory} and k != "no_candidate"
     )
     assert not stale, f"UI labels for categories the engine never emits: {stale}"
+
+
+# --------------------------------------------------------------------------
+# The "not examined" disclosure
+# --------------------------------------------------------------------------
+
+@requires_run
+def test_the_payload_discloses_what_the_engine_never_read():
+    """
+    `rupees_at_risk` counts refused CREDITS only. The engine reads `is_credit`
+    transactions and nothing else, so a chargeback, a reversal or a bank fee is
+    invisible to it.
+
+    A merchant reading "Rs 800 at risk" while Rs 166,732 left the account on lines
+    nobody examined is being misled by omission -- and the omission matters more in the
+    payload than in the metrics block, because this is what someone acts on.
+    """
+    data = api_main._load()
+    assert "not_examined" in data, "the payload does not disclose unexamined lines"
+    ne = data["not_examined"]
+    assert set(ne) >= {"debit_lines", "rupees", "reason", "lines"}
+    if ne["debit_lines"]:
+        assert ne["rupees"] > 0
+        assert all(
+            {"bank_txn_id", "txn_date", "narration", "rupees"} <= set(l)
+            for l in ne["lines"]
+        )
+
+
+@requires_run
+def test_the_disclosure_is_served_with_the_summary_not_behind_its_own_route():
+    """A disclosure that has to be asked for separately is one nobody asks for."""
+    assert "not_examined" in client.get("/api/summary").json()
+
+
+@requires_run
+def test_unexamined_lines_are_never_mixed_into_the_exception_list():
+    """
+    They are disclosures, not work. An analyst must not be invited to action a line the
+    engine cannot speak about, and the totals must stay decomposable: at-risk counts
+    refused credits, the disclosure counts unread debits, and the two never overlap.
+    """
+    data = api_main._load()
+    unexamined = {l["bank_txn_id"] for l in data["not_examined"]["lines"]}
+    exceptions = {e["bank_txn_id"] for e in data["exceptions"]}
+    assert not (unexamined & exceptions)
+
+
+def test_the_ui_renders_the_disclosure_when_there_is_something_to_disclose():
+    """
+    Pinned at the source level: the payload key, the component and the conditional that
+    ties them together must stay in agreement. Same coupling as the category labels --
+    a field the UI silently stops reading is invisible in review.
+    """
+    from pathlib import Path
+
+    jsx = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text(
+        encoding="utf-8"
+    )
+    assert "not_examined" in jsx, "the UI never reads the disclosure from the payload"
+    assert "function NotExamined" in jsx
+    assert "notExamined.debit_lines > 0" in jsx, (
+        "the disclosure must render only when there is something to disclose"
+    )

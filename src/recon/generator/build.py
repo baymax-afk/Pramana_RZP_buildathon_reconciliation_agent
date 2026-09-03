@@ -101,6 +101,12 @@ def _load_r2_orders(path: Path) -> list[dict]:
 # --------------------------------------------------------------------------
 # Synthetic payment construction
 # --------------------------------------------------------------------------
+# The statement's opening balance. Named because `_renumber_bank_txns` recomputes the
+# whole column from it once row order is final, and the two must start from the same
+# number.
+OPENING_BALANCE_PAISE = 5_000_000
+
+
 def _invoice_nos(p: Payment) -> tuple[str, ...]:
     """
     The invoice(s) a payment settles -- empty for a payment on account.
@@ -254,7 +260,7 @@ def generate(
         )
         return invoices[-1]
 
-    balance = 5_000_000
+    balance = OPENING_BALANCE_PAISE
     txn_seq = 0
     pay_seq = 0
 
@@ -688,14 +694,28 @@ def generate(
             # ~18% of credits arrive in a shape the regex tier cannot parse. Real
             # statements contain these; a batch without them makes narration parsing
             # look solved and leaves the LLM tier with nothing to do.
+            #
+            # BOTH branches use `third_party or cust`. The messy branch used to ignore
+            # the third party and narrate with the invoice customer, so a record could
+            # be LABELLED as a name-channel disagreement while carrying no disagreement
+            # at all -- measured at 2 of 7 links on the primary seed, roughly a quarter
+            # of the cohort. Every number reported for `third_party_payer`, including
+            # the outcome-by-defect table, was then computed over data a quarter of
+            # which contradicted its own label.
+            #
+            # It is the same defect the comment below the partial-payment block was
+            # written about: a label that can disagree with the data it describes is
+            # worse than no label. A third-party payer whose narration is also messy is
+            # perfectly realistic -- the two defects are independent -- so the fix is to
+            # honour the payer in both branches rather than to suppress one.
+            # REVIEW_2026-09-02 R3.
+            payer = third_party or cust
             if rng.random() < 0.18:
-                nar = defects.messy_narration(rng, cust, p.notes.get("invoice_no") or "")
-            else:
-                # A third-party payer puts the PARENT's name on the wire, not the
-                # invoice customer's.
-                nar = defects.narrate(
-                    rng, utr, third_party or cust, merchant_ref=quoted
+                nar = defects.messy_narration(
+                    rng, payer, p.notes.get("invoice_no") or ""
                 )
+            else:
+                nar = defects.narrate(rng, utr, payer, merchant_ref=quoted)
             balance += net
             bank_txns.append(
                 BankTxn(
@@ -1004,7 +1024,18 @@ def _protect_ambiguity_window(
     link = next((t for t in truth if t.bank_txn_id == amb_id), None)
     crafted = set(link.payment_ids) if link else set()
     cd = date.fromisoformat(credit.txn_date)
-    lookback = cfg.SETTLEMENT_WINDOW_DAYS + 2  # deliberately wider than the engine's rule
+    # Read from cfg.LOOKBACK_DAYS and widen explicitly. This used to recompute
+    # `SETTLEMENT_WINDOW_DAYS + 2` with a comment claiming it was "deliberately wider
+    # than the engine's rule" -- but cfg.LOOKBACK_DAYS is SETTLEMENT_WINDOW_DAYS +
+    # MAX_SETTLEMENT_DRIFT_DAYS, which is the same 5, so the stated margin was zero.
+    #
+    # That is a guard that fails SILENTLY. Raise MAX_SETTLEMENT_DRIFT_DAYS to 3 -- a
+    # one-line config change this file's own header invites -- and the engine's
+    # candidate window widens to 6 while this scan stays at 5: an interloper at lag 6 is
+    # neither detected nor relocated, the post-condition below misses it for the same
+    # reason, and the centrepiece ambiguity guarantee fails with nothing raising.
+    # REVIEW_2026-09-02 R9.
+    lookback = cfg.LOOKBACK_DAYS + cfg.AMBIGUITY_GUARD_MARGIN_DAYS
 
     # Each payment's OWN settling credit, so a shift can be checked against it rather
     # than assumed safe. A payment with no credit (unsettled, or a truth link that
@@ -1019,36 +1050,52 @@ def _protect_ambiguity_window(
             own_credit[pid] = d
 
     def _relocate(p: Payment) -> Payment:
-        """Move p out of the ambiguity credit's lookback without orphaning it."""
+        """
+        Move p out of the ambiguity credit's lookback without orphaning it.
+
+        **Every legal date is considered, not two guesses.** This used to try exactly
+        `cd + 1` and `cd - lookback - 1` and give up if neither worked, which is a
+        needlessly narrow search: the payment must land outside the protected band
+        AND inside its own credit's candidate window, and that usually leaves a range
+        of valid days rather than a single one. Giving up after two made the generator
+        fail on batches that were perfectly constructible -- seed 11111 among them, one
+        of the sweep's own seeds, the moment the guard's scan widened.
+
+        Among the legal dates, the one nearest the payment's current date is chosen, so
+        the repair perturbs the batch as little as it can.
+        """
         current = date_of(p.created_at)
         ocd = own_credit.get(p.id)
 
-        # Later than the ambiguity credit, or earlier than its whole lookback.
-        forward = cd + timedelta(days=1)
-        backward = cd - timedelta(days=lookback + 1)
+        protected = {cd - timedelta(days=n) for n in range(lookback + 1)}
 
-        def ok(d: date) -> bool:
-            if ocd is None:
-                return True
-            # Must remain inside its own credit's candidate window.
-            return ocd - timedelta(days=cfg.LOOKBACK_DAYS) <= d <= ocd
+        if ocd is None:
+            # No settling credit, so the only constraint is the protected band.
+            candidates = [cd + timedelta(days=1)]
+        else:
+            # Every day inside its own credit's candidate window.
+            candidates = [
+                ocd - timedelta(days=n) for n in range(cfg.LOOKBACK_DAYS + 1)
+            ]
 
-        for candidate in sorted((forward, backward), key=lambda d: abs((d - current).days)):
-            if ok(candidate):
-                return replace(
-                    p, created_at=p.created_at + 86_400 * (candidate - current).days
-                )
+        legal = sorted(
+            (d for d in candidates if d not in protected),
+            key=lambda d: (abs((d - current).days), d.isoformat()),
+        )
+        if legal:
+            return replace(
+                p, created_at=p.created_at + 86_400 * (legal[0] - current).days
+            )
 
         raise AssertionError(
             f"Ambiguity guarantee cannot be enforced without orphaning {p.id}: it nets "
-            f"{p.amount - (p.fee or 0)}p inside the ambiguity credit's lookback "
-            f"({cd}), but its own credit is dated {ocd}, so neither {forward} nor "
-            f"{backward} leaves it inside that credit's {cfg.LOOKBACK_DAYS}-day window. "
+            f"{p.amount - (p.fee or 0)}p inside the ambiguity credit's protected band "
+            f"({cd} back {lookback} days), and every day of its own credit's "
+            f"{cfg.LOOKBACK_DAYS}-day window (ending {ocd}) falls inside that band. "
             f"Generation fails rather than emit a truth link the engine cannot satisfy."
         )
 
     out: list[Payment] = []
-    shifted = 0
     for p in payments:
         if (
             p.captured
@@ -1058,7 +1105,6 @@ def _protect_ambiguity_window(
             and (p.amount - p.fee) <= cfg.AMBIGUITY_CREDIT_PAISE
         ):
             out.append(_relocate(p))
-            shifted += 1
         else:
             out.append(p)
 
@@ -1095,7 +1141,22 @@ def _renumber_bank_txns(
     """
     ordered = sorted(bank_txns, key=lambda t: (t.txn_date, t.id))
     remap = {t.id: f"bank_txn_{i:04d}" for i, t in enumerate(ordered, start=1)}
-    renumbered = [replace(t, id=remap[t.id]) for t in ordered]
+
+    # Recompute the running balance AFTER sorting, because only now is the row order
+    # final. Rows were previously stamped with whatever the balance happened to be when
+    # they were appended, and two defects then made that incoherent: a split settlement
+    # wrote the SAME pre-split balance on both halves, and a chargeback debit was
+    # stamped with an end-of-generation total before being sorted into the middle of the
+    # statement. The emitted column was non-monotonic and arithmetically wrong.
+    #
+    # Nothing reads it today, which is exactly why it would have been believed later.
+    # The generator's stated contract is a realistic Indian bank export, and a balance
+    # column that does not add up is the first thing a finance reader would check.
+    balance = OPENING_BALANCE_PAISE
+    renumbered = []
+    for t in ordered:
+        balance += t.credit - t.debit
+        renumbered.append(replace(t, id=remap[t.id], balance=balance))
     retruth = [
         replace(link, bank_txn_id=remap.get(link.bank_txn_id, link.bank_txn_id))
         for link in truth
@@ -1255,6 +1316,12 @@ def assert_truth_is_satisfiable(batch: GeneratedBatch) -> int:
         interloper 6 days later while its own credit was at most 5 days away, pushing it
         outside that credit's lookback. Measured before the fix: **5 of 40 seeds** shipped
         one.
+      * **Contradict the narration.** A settlement narration states how many transactions
+        it covers, and `match.py`'s `count_conflict` now REFUSES any credit whose stated
+        count disagrees with the decomposition that fits. So a link marked `assign` over
+        k payments on a credit narrated with a different count is unsatisfiable at any
+        tolerance -- a third shape, added to this check because it held only by
+        construction and nothing asserted it (REVIEW_2026-09-02 R10).
 
     Both produce an automatic false negative that looks like an engine failure. The
     engine refuses -- correctly, on the evidence it was given -- and the scorer records a
@@ -1267,6 +1334,7 @@ def assert_truth_is_satisfiable(batch: GeneratedBatch) -> int:
     their settled interval. It fails the build; it does not warn.
     """
     from ..engine import fees as engine_fees, tier2_amount_date as t2
+    from ..engine.normalize import parse
 
     pay = {p.id: p for p in batch.inputs.payments}
     txn = {t.id: t for t in batch.inputs.bank_txns}
@@ -1299,6 +1367,17 @@ def assert_truth_is_satisfiable(batch: GeneratedBatch) -> int:
         group = [pay[pid] for pid in link.payment_ids if pid in pay]
         if not group:
             continue
+
+        # The narration's own transaction count must agree with the size of the
+        # decomposition ground truth asserts, or the engine refuses it outright.
+        stated = parse(t.narration).txn_count
+        if stated is not None and stated != len(link.payment_ids):
+            problems.append(
+                f"{link.bank_txn_id}: the narration states {stated} transaction(s) but "
+                f"ground truth assigns {len(link.payment_ids)} payment(s) -- the engine "
+                f"refuses this outright (narration_count_conflict), so the link is "
+                f"unsatisfiable at any tolerance"
+            )
         interval = engine_fees.expected_credit_interval(group, invoices_by_no)
         tol = engine_fees.tolerance_for(t.credit)
         if not (interval.lo - tol <= t.credit <= interval.hi + tol):

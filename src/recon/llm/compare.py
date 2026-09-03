@@ -27,7 +27,7 @@ never be mistaken for a live one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from ..engine.normalize import needs_llm, parse
 from ..schemas import ReconInputs
@@ -48,31 +48,6 @@ class ParseYield:
     @property
     def fill_rate(self) -> float:
         return self.filled_by_llm / self.unreadable_by_regex if self.unreadable_by_regex else 0.0
-
-
-@dataclass(frozen=True, slots=True)
-class Comparison:
-    """
-    The two arms, side by side, plus an explicit judgement on whether it is valid.
-
-    `valid` is False whenever the tier under test cannot support a claim about what a
-    model contributes. The scorecards are still reported in that case -- they are real
-    measurements of the stand-in -- but `invalid_reason` travels with them so the
-    numbers cannot be quoted free of the caveat that produced them.
-    """
-
-    tier_name: str
-    valid: bool
-    invalid_reason: str
-    parse_yield: ParseYield
-    verdict_changes: tuple[tuple[str, str, str], ...] = ()
-    on: object | None = None
-    off: object | None = None
-    notes: list[str] = field(default_factory=list)
-
-    @property
-    def changed_verdicts(self) -> int:
-        return len(self.verdict_changes)
 
 
 # Tiers whose output is derived from the same rules as the deterministic parser. Their
@@ -137,8 +112,18 @@ def measure_parse_yield(inputs: ReconInputs, tier: LLMTier) -> ParseYield:
             refs += 1
         if added_name or added_ref:
             filled += 1
-        # A tier CONTRADICTING the regex tier is worth counting separately: gap-filling
-        # is the tier's job, overriding is not, and `parse_with_llm` must never let it.
+        # How often the tier reads a field DIFFERENTLY from the regex tier.
+        #
+        # Informational, and deliberately not an alarm. It counts what the tier
+        # RETURNS, not what the engine uses: `parse_with_llm` fills gaps only, so a
+        # disagreement here is discarded by the merge and cannot reach a verdict.
+        # Verified -- on a jammed narration the regex tier reads "ORCHIDFOODSPVT" and
+        # the stand-in reads "ORCHIDFOODS PVT"; the merged parse keeps the regex value.
+        #
+        # This counter's note used to read "must be 0", which was simply wrong about its
+        # own metric: a non-zero value says the two parsers disagree about a hard string,
+        # which is expected and harmless. The boundary is enforced in `parse_with_llm`
+        # and asserted directly in tests/test_llm_tier.py.
         if (
             base.payer_name
             and got.payer_name
