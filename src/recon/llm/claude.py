@@ -17,6 +17,22 @@ Every design decision here exists to keep the model inside the trust boundary:
   * Any exception -- network, auth, quota, malformed output -- degrades to empty fields.
     The engine must run to completion with the LLM tier failing, and precision is
     reported both ways precisely so a degraded tier is visible rather than fatal.
+
+**Degrading silently is not the same as degrading safely, and this tier used to do the
+first.** Every failure returned `{}`, which is exactly what a successful call returns
+for an unreadable narration -- so a tier whose calls were ALL failing was indistinguishable
+from a tier that had honestly found nothing, and `llm-compare` would have reported "the
+measured contribution is zero" as though it were a finding about the model.
+
+That is not hypothetical. The first live key tried against this code was identity-linked
+and every request 400'd with `anthropic-workspace-id is required`; the tier swallowed all
+of them and reported empty fields. The comparison harness would have published a false
+zero attributed to Claude.
+
+So failures are still non-fatal -- the engine must run to completion with the tier
+broken -- but they are now COUNTED and NAMED. `ClaudeTier.transport_errors` holds what
+went wrong, and any consumer reporting a contribution figure is expected to check it
+first.
 """
 
 from __future__ import annotations
@@ -80,9 +96,24 @@ class ClaudeTier:
     def __init__(self) -> None:
         import anthropic  # imported lazily so the SDK is optional
 
-        self._client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        # An identity-linked key must name the workspace it acts in, or EVERY request
+        # 400s. Sent as a default header rather than per-call so no code path can forget
+        # it, and omitted entirely when unset so an ordinary key is unaffected.
+        headers = {}
+        workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip()
+        if workspace:
+            headers["anthropic-workspace-id"] = workspace
+
+        self._client = anthropic.Anthropic(
+            api_key=os.environ["ANTHROPIC_API_KEY"],
+            default_headers=headers or None,
+        )
+        # Transport failures, in order. Empty means every call that was made succeeded.
+        self.transport_errors: list[str] = []
+        self.calls_made = 0
 
     def _ask(self, prompt: str, max_tokens: int) -> dict:
+        self.calls_made += 1
         try:
             resp = self._client.messages.create(
                 model=MODEL,
@@ -96,9 +127,12 @@ class ClaudeTier:
             if start < 0 or end <= start:
                 return {}
             return json.loads(text[start : end + 1])
-        except Exception:
-            # Degrade to nothing. A tier that raises would make the engine's ability to
-            # run without the LLM a lie.
+        except Exception as e:
+            # Degrade to nothing, but RECORD it. A tier that raises would make the
+            # engine's ability to run without the LLM a lie; a tier that fails silently
+            # makes every measurement of its contribution a lie instead.
+            detail = str(e)
+            self.transport_errors.append(f"{type(e).__name__}: {detail[:200]}")
             return {}
 
     def parse_narration(self, narration: str) -> NarrationFields:

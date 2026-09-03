@@ -216,3 +216,90 @@ def test_the_offline_arms_now_differ_and_the_difference_is_always_an_improvement
             )
 
     assert len(on.assignments) >= len(off.assignments)
+
+
+# --------------------------------------------------------------------------
+# A tier whose calls never landed must not be reported as a null result
+# --------------------------------------------------------------------------
+
+class _BrokenTier:
+    """A live-looking tier whose every request failed in transport."""
+
+    name = "claude:claude-sonnet-5"
+    enabled = True
+
+    def __init__(self):
+        self.transport_errors = [
+            "BadRequestError: Error code: 400 - anthropic-workspace-id is required "
+            "when authenticating with an identity-linked API key"
+        ]
+        self.calls_made = 13
+
+    def parse_narration(self, narration):
+        from recon.llm.interface import NarrationFields
+
+        return NarrationFields(payer_name=None, merchant_ref=None, model=self.name)
+
+    def explain_refusal(self, *a, **k):
+        from recon.llm.interface import ExceptionProse
+
+        return ExceptionProse("", "")
+
+
+class _HealthyTier(_BrokenTier):
+    def __init__(self):
+        super().__init__()
+        self.transport_errors = []
+
+
+def test_a_tier_whose_calls_all_failed_is_not_measurable():
+    """
+    The failure this check exists for, and it is not hypothetical.
+
+    The first live key tried against this project was identity-linked. Every request
+    returned 400 `anthropic-workspace-id is required`, `ClaudeTier._ask` swallowed the
+    exception and returned `{}`, and `{}` is EXACTLY what a successful call returns for
+    a narration the model cannot read. The two are indistinguishable in the output.
+
+    One run away, the harness would have printed "VALID ... the measured contribution to
+    DECISIONS is zero" and attributed a missing HTTP header to Claude. That is precisely
+    the overclaim this project exists to argue against, so it is asserted rather than
+    trusted.
+    """
+    ok, why = tier_is_measurable(_BrokenTier())
+    assert not ok
+    assert "never reached the model" in why
+    assert "ANTHROPIC_WORKSPACE_ID" in why, "the message must say how to fix it"
+
+
+def test_a_live_tier_with_no_transport_errors_is_measurable():
+    """The check must not reject a working live tier."""
+    ok, why = tier_is_measurable(_HealthyTier())
+    assert ok, why
+
+
+def test_tier_health_is_judged_after_the_calls_not_before():
+    """
+    Ordering is the whole point. `tier_is_measurable` is called once BEFORE the arms run
+    -- to avoid paying for a run against a stand-in -- and a tier that has made no calls
+    yet has no transport errors yet, so that early check can never see them.
+
+    This asserts the property at the source: the CLI must re-evaluate validity after the
+    arms have executed, and the re-check must only ever downgrade.
+    """
+    from pathlib import Path
+
+    cli = (Path(__file__).resolve().parents[1] / "src" / "pramana_cli.py").read_text(
+        encoding="utf-8"
+    )
+    body = cli[cli.index("def cmd_llm_compare"):]
+    first = body.index("tier_is_measurable(tier_on)")
+    second = body.index("tier_is_measurable(tier_on)", first + 1)
+    ran_arms = body.index("elapsed = time.perf_counter() - t0")
+    assert first < ran_arms < second, (
+        "validity is never re-checked after the arms run, so a tier whose calls all "
+        "failed would still be reported as VALID"
+    )
+    assert "if valid:" in body[ran_arms:second], (
+        "the re-check must only downgrade, never resurrect an already-withheld verdict"
+    )

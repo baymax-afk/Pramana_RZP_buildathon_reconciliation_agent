@@ -402,6 +402,12 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
     seed = inputs.seed
     tier_on = select_llm(disabled=False)
     tier_off = select_llm(disabled=True)
+    # Two checks, and they must happen at different times.
+    #
+    # The tier IDENTITY check is a pre-check: it costs nothing and stops a pointless
+    # paid run against an offline stand-in. Tier HEALTH cannot be judged until the
+    # calls have actually been made, so it is re-evaluated below -- and it can only
+    # ever downgrade the verdict, never upgrade it.
     valid, why = tier_is_measurable(tier_on)
 
     print(_RULE)
@@ -421,6 +427,13 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
         out_on = match_once(inputs, llm=tier_on)
         out_off = match_once(inputs, llm=tier_off)
     elapsed = time.perf_counter() - t0
+
+    # Now that calls have been made, ask again. A tier whose requests never reached the
+    # model returns empty fields -- which is precisely what a SUCCESSFUL call returns
+    # for an unreadable narration -- so without this the harness would report a null
+    # result as a finding about the model instead of about the transport.
+    if valid:
+        valid, why = tier_is_measurable(tier_on)
 
     changes = diff_verdicts(out_on, out_off)
 
@@ -497,10 +510,19 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
         for line in _wrap(why, 70):
             print(f"    {line}")
         print("")
-        print("    The parse-yield and verdict-delta numbers above are real")
-        print("    measurements OF THE STAND-IN. They are not a null result for a")
-        print("    model, and quoting them as one would be the overclaim this")
-        print("    project exists to argue against.")
+        # The two withholding reasons need different sentences. Calling a transport
+        # failure "a measurement of the stand-in" would be its own small false claim.
+        if getattr(tier_on, "transport_errors", None):
+            print("    The numbers above are real, and they measure a BROKEN")
+            print("    TRANSPORT: every field came back empty because the requests")
+            print("    never reached the model. An empty field is also what a")
+            print("    successful call returns for an unreadable narration, which is")
+            print("    exactly why this cannot be read as a null result for a model.")
+        else:
+            print("    The parse-yield and verdict-delta numbers above are real")
+            print("    measurements OF THE STAND-IN. They are not a null result for a")
+            print("    model, and quoting them as one would be the overclaim this")
+            print("    project exists to argue against.")
 
     print(f"\n  both arms in {elapsed:.2f}s")
     print(_RULE)

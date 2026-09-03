@@ -182,9 +182,17 @@ ambiguity case.
 ### O2. W1 — the confidence score is still uncalibrated
 Unchanged and still blocked on BenchRec. See above.
 
-### O3. W2 — the LLM comparison is still withheld
-The harness is built and is one command. Still blocked on an API key: `.env` is
-gitignored and did not reach this container, and a direct API call returns 401.
+### O3. W2 — still withheld, but the blocker is now one environment variable
+A real key arrived and the live tier selects (`claude:claude-sonnet-5`). The key is
+**identity-linked**, so every request returns
+`400 anthropic-workspace-id is required`. Set `ANTHROPIC_WORKSPACE_ID` (Console →
+Settings → Workspaces) alongside `ANTHROPIC_API_KEY` in `.env` and re-run
+`python run.py llm-compare --verify`.
+
+Running it surfaced a defect worth more than the measurement would have been: the tier
+degraded silently, so a totally broken transport was indistinguishable from an honest
+null result, and the harness was one command from publishing "the measured contribution
+of the LLM is zero" as a finding about Claude. See `DEFECT_LOG` 2026-09-03-03.
 
 ### ~~O4. Density sweep has not been re-run since C2 and C3~~ — **re-run**
 

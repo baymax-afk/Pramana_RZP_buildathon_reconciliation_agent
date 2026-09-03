@@ -76,6 +76,30 @@ def tier_is_measurable(tier: LLMTier) -> tuple[bool, str]:
             "stand-in's shared logic and says nothing about what a model would "
             "contribute. Set ANTHROPIC_API_KEY to select the live tier."
         )
+
+    # A tier whose calls did not reach the model measures nothing, and its null result
+    # looks exactly like an honest one: both are empty fields. This check exists because
+    # the first live key tried against this project was identity-linked, every request
+    # 400'd with `anthropic-workspace-id is required`, and the tier degraded silently --
+    # so the harness was one run away from publishing "the measured contribution of the
+    # LLM is zero" as a finding about Claude rather than about a missing header.
+    errors = list(getattr(tier, "transport_errors", ()) or ())
+    if errors:
+        calls = getattr(tier, "calls_made", 0)
+        first = errors[0]
+        hint = ""
+        if "anthropic-workspace-id" in first:
+            hint = (
+                " This key is identity-linked: set ANTHROPIC_WORKSPACE_ID to the "
+                "workspace it acts in (Console -> Settings -> Workspaces) and re-run."
+            )
+        return False, (
+            f"{len(errors)} of {calls} call(s) to {name!r} never reached the model, so "
+            f"every field it returned is a transport failure rather than an answer -- "
+            f"and an empty answer is what a SUCCESSFUL call returns for an unreadable "
+            f"narration, so the two are indistinguishable in the output. First error: "
+            f"{first}.{hint}"
+        )
     return True, ""
 
 

@@ -1495,3 +1495,63 @@ produced it: a guard that closed the loud path, a label written directly beneath
 forbidding exactly that mistake, and a test whose docstring named the wrong event. Every
 one passed 265 tests. **The suite grew by 137 tests in the session that introduced these,
 and caught none of them.**
+
+---
+
+## 2026-09-03-03 — The first live API key proved the LLM harness would have lied
+
+**Timestamp:** 2026-09-03, W2 unblocked by a real `ANTHROPIC_API_KEY`
+
+**What happened:** A key finally arrived, so `llm-compare` could run against the live
+tier for the first time in the project's life. Before running the full comparison I made
+one call by hand. It returned empty fields for a narration the *offline stand-in* parses
+successfully — which made no sense, so I bypassed the tier and called the API directly:
+
+```
+BadRequestError: 400 — anthropic-workspace-id is required when authenticating
+with an identity-linked API key; send the id of the workspace this request acts in.
+```
+
+**Every request was failing.** `ClaudeTier._ask` caught the exception and returned `{}`,
+exactly as designed — "degrade to nothing, because a tier that raises would make the
+engine's ability to run without the LLM a lie."
+
+**The design was half right, and the missing half was the dangerous one.** `{}` is also
+what a *successful* call returns for a narration the model genuinely cannot read. Success
+and total transport failure were **indistinguishable in the output**.
+
+So `llm-compare` was one command away from printing:
+
+> VALID. The tier above is a live model … The measured contribution to DECISIONS is zero.
+> That is a result, not an absence of one.
+
+That sentence would have attributed a missing HTTP header to Claude, in the one measurement
+this project had spent its entire life refusing to publish without evidence. It would have
+been the exact overclaim the project exists to argue against — and it would have looked
+like rigour, because the harness had already been built to withhold judgement and would
+have been *asserting* validity rather than assuming it.
+
+**Fixes.**
+
+* `ClaudeTier` now counts calls and records `transport_errors`. Failures stay non-fatal —
+  the engine must still run to completion with the tier broken — but they are named.
+* `tier_is_measurable` refuses a tier with transport errors, quotes the first one, and
+  when it recognises the identity-linked case says exactly what to set.
+* **The check is run twice, and the ordering is the fix.** The tier-identity check stays
+  a pre-check so no money is spent comparing against a stand-in; transport health cannot
+  exist before any call is made, so validity is re-evaluated *after* both arms run and
+  may only ever be downgraded. A test asserts that ordering against the source, because
+  getting it wrong makes the guard silently inert — which is how it was first written.
+* `ANTHROPIC_WORKSPACE_ID` is now sent as a default header when present, so an
+  identity-linked key works without touching any call site.
+
+**Status of W2: still withheld, for a new and much smaller reason.** Not "no key" any
+more — the key is real and the tier selects `claude:claude-sonnet-5`. It needs the
+workspace id that identity-linked keys require. `llm-compare` exits 2 and prints the fix.
+
+**The lesson, which is the project's own.** Every failure mode this codebase has hit —
+`partial_payment` at 0/5, `refund_netted`, the ambiguity guard's phantom margin, the
+seed/density mislabel — has the same shape: **a number that looked right**. This one had
+the added property of being *unfalsifiable from the output alone*. A null result and a
+broken pipe are the same bytes. The only defence is to measure whether the measurement
+happened, and that is now what the harness does.

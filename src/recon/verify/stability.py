@@ -156,23 +156,50 @@ def _is_picklable(obj) -> bool:
 def _run_passes(
     inputs: ReconInputs, passes: int, base_seed: int, llm
 ) -> list[MatchOutput]:
-    """Run the K passes, in parallel where that is possible, in order either way."""
-    sequential = [
-        (
-            inputs
-            if i == 0
-            else inputs.shuffled(random.Random(base_seed + i))
-        )
-        for i in range(passes)
-    ]
+    """
+    Run the K passes, in parallel where that is possible, in order either way.
 
-    if (
-        not cfg.PERMUTATION_PARALLEL
-        or passes < 2
-        or not _is_picklable(llm)
-        or not _is_picklable(inputs)
-    ):
-        return [match_once(s, llm=llm) for s in sequential]
+    The two paths must be interchangeable, and `tests/test_verification.py` asserts they
+    produce identical ensembles rather than assuming it.
+    """
+
+    def run_sequentially() -> list[MatchOutput]:
+        # Built lazily and only in the branch that uses it. This list used to be
+        # materialised before the path was even chosen -- K-1 full copies of every
+        # payment, bank txn and invoice tuple -- and then thrown away on the parallel
+        # path, which re-derives its own shuffles from (i, base_seed) in the workers.
+        # Pure waste in the function added to make this fast. REVIEW_2026-09-02 R12.
+        return [
+            match_once(
+                inputs if i == 0 else inputs.shuffled(random.Random(base_seed + i)),
+                llm=llm,
+            )
+            for i in range(passes)
+        ]
+
+    # Only the LLM is probed. `inputs` is a tree of frozen dataclasses and is always
+    # picklable; probing it serialised the entire batch to a throwaway bytes object,
+    # which the pool then immediately serialised again for the initializer -- two full
+    # copies per run to answer a question the try/except below already answers. A live
+    # API client holding a socket is the realistic unpicklable case, and that one is
+    # cheap to check.
+    if not cfg.PERMUTATION_PARALLEL or passes < 2 or not _is_picklable(llm):
+        return run_sequentially()
+
+    try:
+        with ProcessPoolExecutor(
+            max_workers=min(passes, cfg.PERMUTATION_MAX_WORKERS),
+            initializer=_worker_init,
+            initargs=(inputs, llm),
+        ) as pool:
+            # `map` yields in argument order, so pass i is always result i.
+            return list(pool.map(_worker_pass, [(i, base_seed) for i in range(passes)]))
+    except Exception:
+        # A sandbox that forbids subprocesses, an exhausted process table, a worker
+        # killed by the OOM reaper, an object that only fails to pickle once the pool
+        # tries. None of that is a reason to fail a reconciliation run: the sequential
+        # path produces the identical answer.
+        return run_sequentially()
 
     try:
         with ProcessPoolExecutor(
