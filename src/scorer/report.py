@@ -164,25 +164,61 @@ def render(
     if sc.no_candidate:
         add(f"    no candidate found:   {sc.no_candidate}   {sc.no_candidate_by_relation}")
 
-    # ---- what the engine never looked at ----
-    #
-    # A disclosure, not a score. The engine reads `is_credit` transactions only, so
-    # every debit on the statement -- a chargeback, a reversal, a bank fee -- is
-    # invisible to it: not matched, not refused, not counted. The statement carried no
-    # debits at all until `chargeback_debit` existed, which is exactly why the blind
-    # spot went unnoticed. Reporting the gap is the honest alternative to inventing a
-    # ground-truth verdict the engine structurally cannot produce.
-    if sc.unexamined_lines:
+    # ---- settlement groups: Layer 2b ----
+    if sc.settlement_groups:
         add("")
-        add("  NOT EXAMINED  (the engine reads credits only)")
+        add("  SETTLEMENT GROUPS  (Layer 2b -- one payment set, several credits)")
         add(_THIN)
-        add(f"    {sc.unexamined_lines} debit line(s) on the statement, "
+        add(f"    {sc.settlement_groups} group(s) covering {sc.grouped_credits} credits "
+            f"and {sc.grouped_payments} payment(s), Rs {sc.grouped_paise / 100:,.2f}")
+        add("    A part-settlement arrives as two bank lines and neither balances on")
+        add("    its own, so the claim unit here is a GROUP of credits rather than one.")
+        add("    Groups are counted in the precision figures above, one entry per bank")
+        add("    line, and conservation is checked over the group's total (MR4).")
+
+    # ---- the reversal ledger: Layer 2c ----
+    #
+    # Reported as its own triple and never folded into the match figures. A reversal is
+    # a verdict about a DEBIT; putting debits into the credit denominators would move
+    # the headline by counting lines that are not matches.
+    if sc.reversals_expected or sc.reversals_found or sc.unexplained_debits:
+        add("")
+        add("  REVERSAL LEDGER  (Layer 2c -- money leaving, against settlements made)")
+        add(_THIN)
+        add(f"    reversals identified   {sc.reversals_found}/{sc.reversals_expected}"
+            f"   Rs {sc.reversed_paise / 100:,.2f} clawed back")
+        add(f"    correct                {sc.reversals_correct}"
+            f"   wrong {len(sc.reversals_wrong)}"
+            f"   missed {len(sc.reversals_missed)}")
+        if sc.unexplained_debits:
+            add(f"    unexplained debits     {sc.unexplained_debits}"
+                f"   Rs {sc.unexplained_debit_paise / 100:,.2f}")
+            add("    Money left the account against something this engine did not")
+            add("    reconcile -- a bank fee, a payout, or a claw-back on an earlier")
+            add("    statement. Reported rather than dropped.")
+        add("    A reversal does NOT undo the assignment it reverses: both events")
+        add("    happened, so the batch reports gross reconciled and net separately.")
+
+    # ---- what the engine STILL never looked at ----
+    #
+    # A disclosure, not a score, and one that now reads zero. It was every debit on the
+    # statement for the life of the project -- not matched, not refused, not counted --
+    # and the statement carried no debits at all until `chargeback_debit` existed, which
+    # is exactly why the blind spot went unnoticed. It is computed by subtraction from
+    # what actually reached a verdict, so it will find the next omission without anyone
+    # having to suspect one, and it is printed even at zero for the same reason.
+    add("")
+    add("  NOT EXAMINED  (bank lines that reached no verdict at all)")
+    add(_THIN)
+    if sc.unexamined_lines:
+        add(f"    {sc.unexamined_lines} line(s) on the statement, "
             f"Rs {sc.unexamined_paise / 100:,.2f}")
-        add("    Money LEAVING the account -- chargebacks, reversals, bank fees -- is")
-        add("    outside the engine's model. It is not scored either way, because")
-        add("    scoring it against a verdict the engine cannot produce would be")
-        add("    theatre. It is disclosed so the exception list is not mistaken for a")
-        add("    complete account of the statement.")
+        add("    These reached no verdict of any kind. Disclosed so the exception list")
+        add("    is not mistaken for a complete account of the statement.")
+    else:
+        add("    0 lines. Every credit and every debit on the statement reached a")
+        add("    verdict. Derived by subtraction from what was actually decided, not")
+        add("    asserted -- this line is what would catch the next blind spot.")
 
     # ---- the finer cut: what the engine does with each KIND of hard case ----
     if sc.outcome_by_defect:

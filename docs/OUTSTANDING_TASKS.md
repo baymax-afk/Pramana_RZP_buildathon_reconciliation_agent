@@ -419,12 +419,67 @@ hid: `generate` checked the primary seed and the sweep never checked its own fiv
 sweep could quietly average over unsatisfiable ground truth and report the generator's
 bugs as the engine's coverage. All 20 batches (4 densities x 5 seeds) pass.
 
-### O8. Two named model limitations, recorded not scheduled
-`split_settlement` (one payment, many credits) and `chargeback_debit` (the engine reads
-credits only) are outside the model rather than merely hard. Both refuse correctly and
-both cost real coverage. `docs/ARCHITECTURE.md` states what lifting each would take —
-in both cases a different engine, not a patch. Recorded so a correct-looking refusal
-cannot hide an unmodelled relation.
+### ~~O8. Two named model limitations, recorded not scheduled~~ — **both lifted, 2026-09-04**
+The original entry, kept because the entry is what made this findable: *"`split_settlement`
+(one payment, many credits) and `chargeback_debit` (the engine reads credits only) are
+outside the model rather than merely hard. Both refuse correctly and both cost real
+coverage. `docs/ARCHITECTURE.md` states what lifting each would take — in both cases a
+different engine, not a patch. Recorded so a correct-looking refusal cannot hide an
+unmodelled relation."*
+
+**Both are now in the model, and the interesting part is that one of the two "different
+engine" arguments was wrong on its own terms.**
+
+`ARCHITECTURE.md` had predicted that split settlements would require the claim unit to
+become `(payment, fraction)` and Layer 2's uniqueness test to enumerate over partitions
+rather than subsets. The claim unit did have to change — but a part-settlement is a
+**group** relation and the group balances exactly, so raising the unit from one credit to
+a group of credits expresses it with integer arithmetic and the same uniqueness question
+Layer 2 already answers. Fractions are only needed to post half a payment, which the same
+document already argued is a wrong answer rather than a partial one. **The simpler model
+was available the whole time, behind an assumption nobody had tested.**
+
+The chargeback argument was closer to right: a debit does ask a different question, and it
+gets its own module. What was wrong was the claim that the engine would have to *un-post*
+the settlement. It does not. Both events happened; the assignment stands, the reversal is a
+later entry against the same credit, MR5's accounting is untouched, and the batch reports
+reconciled **gross and net**. Conservation across time by addition, not by deletion.
+
+| | before | after |
+|---|--:|--:|
+| match rate (primary) | 88.66% | **89.69%** |
+| match rate (holdout) | 84.54% | **85.57%** |
+| match precision | 1.0000 | **1.0000** (both) |
+| assignments behind it | 126 / 104 | **130 / 108** |
+| 95% CI lower bound | 97.11% | **97.20% / 96.64%** |
+| exceptions (primary) | 15 | **11** |
+| exceptions (holdout) | 23 | **19** |
+| reachable ceiling (primary) | 91.24% | **92.27%** |
+| debit lines reaching a verdict | 0 of 6 | **6 of 6** |
+| bank lines reaching no verdict | 6 | **0** |
+
+**Zero wrong assignments on either batch, before and after.** The ceiling rose along with
+the match rate, which is the honest direction: the two split payments became *reachable*
+as well as matched, so the engine gets no free credit from the change — it has to do the
+work to keep the same distance from the ceiling.
+
+**Three things this cost, stated rather than buried.**
+
+1. **The holdout was rebuilt.** Its labels had to change — a set still saying "refuse" for
+   a relation the engine can now settle scored four correct assignments as wrong, at
+   0.9630 precision. The rebuild changed **labels only**: every input file is
+   byte-identical, which took a deliberate fix (newly-assignable split links had entered
+   the drift sampler's population and re-sorted the statement). `FROZEN_DIGEST` was updated
+   in the same commit with the reason written next to it.
+2. **Two pre-existing defects surfaced**, both hidden by the split settlements rather than
+   caused by removing them: `no_subset_fits` refusals carrying no candidate at all — on the
+   largest exception in the batch, which is the exact complaint `REVIEW.md` P1-3 raised —
+   and the foreign auditor reporting the engine's own correct groups as double-posts. Both
+   fixed; see `DEFECT_LOG` 2026-09-04-09.
+3. **Two new named limitations**, in the same spirit as the two just closed: a settlement
+   split more than `MAX_GROUP_CREDITS = 3` ways, and a *partial* chargeback. Both are
+   refused visibly rather than searched for; both are named in `ARCHITECTURE.md` so a
+   correct-looking refusal still cannot hide an unmodelled relation.
 
 ### ~~O9. `third_party_payer` refusals are correct but expensive~~ — **closed, and measured on two batches**
 The original entry, kept: *"an investigating agent checking whether a payer is an
@@ -436,13 +491,28 @@ interesting than the hypothesis.
 
 | | reported | shifted holdout |
 |---|--:|--:|
-| exceptions in the baseline | 15 | 23 |
-| `amount_name_conflict` among them | 5 | 10 |
+| exceptions in the baseline | 11 | 19 |
 | evidence asserted | **3** | **1** |
-| declined — insufficient evidence | 12 | 22 |
-| match rate | 88.66% → **90.21%** | 84.54% → **85.05%** |
+| declined — insufficient evidence | 8 | 18 |
+| match rate | 89.69% → **91.24%** | 85.57% → **86.08%** |
 | released | **₹66,357.55** | **₹872.74** |
 | match precision | 1.0000 → **1.0000** | 1.0000 → **1.0000** |
+| wrong assignments | 0 → **0** | 0 → **0** |
+
+**Re-measured after O8, and the agent's own contribution did not move: still 3 and 1, still
+the same rupees.** The baselines fell — 15 exceptions to 11 on the reported batch, 23 to 19
+on the holdout — because Layer 2b resolved four part-settlements that used to be refused.
+Those were never exceptions the agent could close: it closes `amount_name_conflict`
+refusals with register evidence, and a split settlement is an arithmetic relation the
+register knows nothing about. **A deterministic fix absorbing work the agent was doing
+would have been the interesting result; this is the other one, and it is worth saying
+plainly because the reverse happened last time** (`DEFECT_LOG` 2026-09-04-04, where a
+parsing fix cut the agent's headline from 3 to 1 and we reported the smaller number).
+
+**Reproduce with `--offline --no-llm`, and both flags matter.** Without `--no-llm` the
+engine selects a live `ClaudeTier` when a key is present in the environment, which resolves
+one extra credit and reports a baseline of 90.21% that no one without that key can
+reproduce. The published figures are the fully deterministic arm.
 
 **The agent closes 60% of name conflicts on the reported batch and 10% on the shifted
 one.** Same code, same investigator; the difference is register coverage, and 7 of the
@@ -531,7 +601,8 @@ assigns 126.
 - **W1** — the confidence score is uncalibrated. Re-checked tonight and still blocked two
   independent ways: no Kaggle credentials (`~/.kaggle/kaggle.json` absent, `kaggle` not
   installed) and the proxy still refuses the host (`CONNECT tunnel failed, response 403`).
-- **O8** — `split_settlement` and `chargeback_debit` remain outside the model by design.
+- ~~**O8** — `split_settlement` and `chargeback_debit` remain outside the model by design.~~
+  **Both lifted 2026-09-04.** The successors are a >3-way split and a partial chargeback.
 
 ---
 

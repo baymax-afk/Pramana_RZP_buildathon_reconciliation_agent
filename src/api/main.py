@@ -133,12 +133,18 @@ def get_explanation(bank_txn_id: str) -> dict:
         )
     row = explanations.get(bank_txn_id)
     if row is None:
+        # A debit HAS a verdict now -- it is tied to the settlement it reverses, or
+        # reported unexplained -- but not a decision TRANSCRIPT: there is no candidate
+        # pool, no subset search and no Fellegi-Sunter vector behind it, so there is
+        # nothing for `recon.explain` to render. The 404 points at where the verdict
+        # actually lives instead of implying the id was malformed. It used to say debits
+        # "are not examined by the engine", which stopped being true.
         raise HTTPException(
             status_code=404,
             detail=(
-                f"No credit {bank_txn_id!r} in this run. Debit lines are not examined "
-                f"by the engine and have no verdict to explain -- see "
-                f"/api/summary -> not_examined."
+                f"No credit {bank_txn_id!r} in this run. Debit lines reach a verdict in "
+                f"the reversal ledger rather than through the matcher, so they have no "
+                f"decision transcript -- see /api/summary -> debits."
             ),
         )
     return row
@@ -179,6 +185,7 @@ def get_summary() -> dict:
         "throughput_records_per_s": data.get("throughput_records_per_s"),
         # Served alongside the totals, deliberately, rather than behind its own route.
         # A disclosure that has to be asked for separately is one nobody asks for.
+        "debits": data.get("debits", {}),
         "not_examined": data.get("not_examined", {}),
     }
 

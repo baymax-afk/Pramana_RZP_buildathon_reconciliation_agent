@@ -140,6 +140,10 @@ _ROUTE: dict[str, str] = {
     RefusalCategory.CONTESTED_PAYMENT.value: "treasury_confirm",
     RefusalCategory.AMOUNT_NAME_CONFLICT.value: "collections",
     RefusalCategory.UNEXPLAINED_RESIDUAL.value: "investigations",
+    # Layer 2b. A credit balances inside more than one settlement group -- the same
+    # shape as MULTIPLE_CANDIDATES one level up, and the same desk: someone with the
+    # settlement advice can say which grouping is real in minutes.
+    RefusalCategory.AMBIGUOUS_GROUPING.value: "treasury_confirm",
     # The third verdict, not a refusal category. Routed deliberately -- see above.
     "no_candidate": "investigations",
 }

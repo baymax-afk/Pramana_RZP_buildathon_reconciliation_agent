@@ -127,9 +127,26 @@ def shift(batch: GeneratedBatch, seed: int) -> tuple[GeneratedBatch, dict]:
     from datetime import date, timedelta
 
     truth_by_txn = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
+    # Split settlements are excluded, and the exclusion is load-bearing twice over.
+    #
+    # On the merits: drifting ONE HALF of a part-settlement past the lookback tests
+    # whether the group resolver's date span reaches it, which is a different question
+    # from the period-boundary failure this stress is for, and it is not on the
+    # holdout's declared list of shifts. A compound stress nobody named is not a
+    # stronger test, it is an unlabelled one.
+    #
+    # On the freeze: this list is what `rng.sample` draws from, so its LENGTH and
+    # CONTENT decide which credits drift, which changes their dates, which re-sorts the
+    # statement file. When split links became `assign` -- Layer 2b made them
+    # satisfiable -- four entries appeared here and the holdout's bank statement came
+    # out different: a rebuilt evaluation set, indistinguishable from one rebuilt after
+    # a disappointing number. Excluding them keeps the frozen inputs byte-identical, so
+    # the only thing the rebuild changes is the labels, which is the whole intent.
     assignable = [
         i for i in credits
-        if (l := truth_by_txn.get(txns[i].id)) and l.expected_verdict == "assign"
+        if (l := truth_by_txn.get(txns[i].id))
+        and l.expected_verdict == "assign"
+        and l.relation != "split"
     ]
     n_drift = max(1, len(assignable) // 20)
     unreachable: list[str] = []

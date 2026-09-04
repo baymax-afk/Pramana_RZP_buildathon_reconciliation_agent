@@ -119,6 +119,13 @@ _TEMPLATES: dict[str, tuple[str, str]] = {
         "Identify which credit the payment belongs to from the remittance advice, then "
         "assign it manually.",
     ),
+    "ambiguous_grouping": (
+        "This credit looks like part of a settlement that arrived split across several "
+        "bank lines -- but it fits more than one such grouping, and each accounts for "
+        "the money just as well.",
+        "Pull the settlement advice for these lines: it names which parts belong "
+        "together, which is the one fact the statement itself does not carry.",
+    ),
 }
 
 

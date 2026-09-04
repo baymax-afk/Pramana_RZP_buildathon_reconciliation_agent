@@ -64,6 +64,10 @@ class RefusalCategory(str, Enum):
     # credits on the first attempt.
     NARRATION_COUNT_CONFLICT = "narration_count_conflict"  # credit says N, match says M
     CONTESTED_PAYMENT = "contested_payment"              # two credits, equal evidence
+    # Layer 2b. A credit fits more than one settlement group, or a group's payments are
+    # wanted by a rival group. Same doctrine as MULTIPLE_CANDIDATES one level up: the
+    # constraint identified several groupings, so it identified none.
+    AMBIGUOUS_GROUPING = "ambiguous_grouping"            # Layer 2b, group uniqueness
     AMOUNT_NAME_CONFLICT = "amount_name_conflict"        # layers disagree
     UNEXPLAINED_RESIDUAL = "unexplained_residual"        # layers disagree
 
@@ -118,6 +122,102 @@ class Assignment:
 
 
 @dataclass(frozen=True, slots=True)
+class SettlementGroup:
+    """
+    One payment set settled across SEVERAL bank credits -- the claim unit that
+    `split_settlement` needs and a single `Assignment` cannot express.
+
+    **Why this is a new type rather than a flag on `Assignment`.** Every invariant the
+    engine rests on is stated per credit: MR4 checks that one credit equals the settled
+    interval of the payments assigned to it, and MR5 refuses to see one payment claimed
+    by two credits and calls it double-posting. Both are correct, and a part-settlement
+    violates both by construction -- credit 1 is only half the payment, and credits 1
+    and 2 name the same payment. Smuggling a group into `Assignment` would have made the
+    engine's own conservation checks start failing on its own correct output, and the
+    obvious next step -- relaxing them -- would have destroyed the thing they protect.
+
+    So the invariants were not relaxed; they were RESTATED at the group level.
+    Conservation holds over the group's total credit against the group's total settled
+    interval, and each credit and each payment still belongs to exactly one verdict. A
+    single-credit assignment is the degenerate case, and it keeps its own type because
+    rewriting 500 tests' worth of scoring for a relation that occurs twice per batch
+    would be the wrong trade the week before a deadline.
+
+    **`ARCHITECTURE.md` predicted this would need fractional claims. It does not.**
+    The claim unit had to stop being "one credit", but it did not have to become
+    "(payment, fraction)": a part-settlement is a GROUP relation, and the group balances
+    exactly. Fractions are only needed to post half a payment, which the same document
+    already argues is a wrong answer rather than a partial one. The simpler model was
+    available the whole time, behind an assumption nobody had tested.
+    """
+
+    bank_txn_ids: tuple[str, ...]
+    payment_ids: tuple[str, ...]
+    invoice_nos: tuple[str, ...]
+    credit_paise: int
+    residual_paise: int
+    residual_tightness: float
+    certain_fee: bool
+    tier: str = "layer2b_group"
+    uniqueness_margin: float | None = None
+    permutation_stability: float = 1.0
+    confidence: float | None = None
+
+    @property
+    def size(self) -> int:
+        return len(self.bank_txn_ids)
+
+
+@dataclass(frozen=True, slots=True)
+class Reversal:
+    """
+    A DEBIT that claws back money a credit already brought in.
+
+    The engine read `t for t in inputs.bank_txns if t.is_credit` for the life of the
+    project, so every debit -- chargeback, reversal, bank fee, payout -- was not
+    matched, not refused and not counted. The gap went unnoticed because the generated
+    statement contained no debits at all, so the engine had never been shown the half of
+    a bank statement it ignores by construction.
+
+    **A reversal does not delete the assignment it reverses, and that is deliberate.**
+    The settlement happened and the claw-back happened; both are facts, and erasing the
+    first would leave the books describing a batch that never occurred. MR5's accounting
+    stays intact -- the credit keeps its single verdict, the payment keeps its single
+    claim -- and the reversal is a second, later entry against the same money. What
+    changes is the NET position, which is why the reconciled total is reported gross and
+    net rather than silently as one number.
+
+    `settled_by` is the credit being reversed, not the payment: a chargeback is raised
+    against a settlement line, and tying it to the credit is what lets conservation be
+    checked across the two events.
+    """
+
+    bank_txn_id: str
+    settled_by: str
+    payment_ids: tuple[str, ...]
+    debit_paise: int
+    reason: str
+    evidence: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class UnexplainedDebit:
+    """
+    A debit the engine could not tie to anything it had posted.
+
+    Reported rather than dropped. A bank fee, a payout, or a chargeback against a
+    settlement outside this batch all land here, and the honest statement is "money left
+    the account and this engine cannot say against what" -- not silence. `candidates`
+    carries whatever it did consider, on the same principle as `Refusal`.
+    """
+
+    bank_txn_id: str
+    debit_paise: int
+    reason: str
+    candidates: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class Refusal:
     bank_txn_id: str
     category: RefusalCategory
@@ -146,6 +246,13 @@ class MatchOutput:
     no_candidate: tuple[str, ...]
     unassigned_payment_ids: tuple[str, ...]
     tier_counts: dict[str, int] = field(default_factory=dict)
+    groups: tuple[SettlementGroup, ...] = ()
+    reversals: tuple[Reversal, ...] = ()
+    unexplained_debits: tuple[UnexplainedDebit, ...] = ()
+    # True when group resolution hit a search bound and therefore granted nothing.
+    # A disclosure about the SEARCH, not a verdict about any credit -- which is why it
+    # lives here and not in the refusal list. See config.MAX_GROUP_RESIDUE.
+    group_search_truncated: bool = False
 
     @property
     def assignment_map(self) -> dict[str, frozenset[str]]:
@@ -154,13 +261,71 @@ class MatchOutput:
 
         Order-independent by construction, which is what makes MR1's comparison across
         shuffled passes meaningful rather than an artefact of list ordering.
+
+        **Group members appear here too, and they must.** MR1 compares this map across
+        K shuffled passes and refuses anything that moves; a settlement group left out
+        of the map would be exempt from the permutation gate -- decided by iteration
+        order with nothing checking. Each credit in a group maps to the group's payment
+        set, which is exactly the claim being made about it.
         """
-        return {a.bank_txn_id: frozenset(a.payment_ids) for a in self.assignments}
+        m = {a.bank_txn_id: frozenset(a.payment_ids) for a in self.assignments}
+        for g in self.groups:
+            for txn_id in g.bank_txn_ids:
+                m[txn_id] = frozenset(g.payment_ids)
+        return m
+
+    @property
+    def grouped_txn_ids(self) -> frozenset[str]:
+        return frozenset(t for g in self.groups for t in g.bank_txn_ids)
+
+    @property
+    def credit_verdicts(self) -> tuple[str, ...]:
+        """
+        Every credit-side verdict, WITH duplicates, so double-verdicts are detectable.
+
+        A credit now leaves the matcher with one of FOUR outcomes -- assigned, settled
+        inside a settlement group, refused, or no candidate -- and this property is the
+        single statement of that. It exists because the three-way version of the same
+        sentence had been written out by hand in MR5 and in four separate tests, and
+        when the fourth outcome arrived every one of them silently began asserting that
+        four correctly-settled credits had received no verdict at all. One place to
+        change is the difference between an invariant and a copied incantation.
+        """
+        return tuple(
+            [a.bank_txn_id for a in self.assignments]
+            + sorted(self.grouped_txn_ids)
+            + [r.bank_txn_id for r in self.refusals]
+            + list(self.no_candidate)
+        )
+
+    @property
+    def debit_verdicts(self) -> tuple[str, ...]:
+        """The same, for the debit half: reversed, or reported unexplained."""
+        return tuple(
+            [r.bank_txn_id for r in self.reversals]
+            + [u.bank_txn_id for u in self.unexplained_debits]
+        )
+
+    @property
+    def claimed_payment_ids(self) -> tuple[str, ...]:
+        """Every payment claimed by any verdict, single or grouped, with duplicates."""
+        return tuple(
+            [pid for a in self.assignments for pid in a.payment_ids]
+            + [pid for g in self.groups for pid in g.payment_ids]
+        )
+
+    @property
+    def reversed_paise(self) -> int:
+        return sum(r.debit_paise for r in self.reversals)
 
     def summary(self) -> dict[str, int]:
         return {
             "assigned": len(self.assignments),
+            "grouped_credits": len(self.grouped_txn_ids),
+            "groups": len(self.groups),
             "refused": len(self.refusals),
             "no_candidate": len(self.no_candidate),
             "unassigned_payments": len(self.unassigned_payment_ids),
+            "reversals": len(self.reversals),
+            "unexplained_debits": len(self.unexplained_debits),
         }

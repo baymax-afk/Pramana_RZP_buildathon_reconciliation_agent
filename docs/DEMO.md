@@ -29,17 +29,21 @@ and reproduces bit-for-bit; the live tier moves one assignment in nine runs out 
 
 The first screen is the reconciliation summary. Read the top line off it:
 
-> **₹36,37,182.79 reconciled and verified**, across **126 bank credits**, **172 payments**
-> and **161 invoices** — from **534 records** across three sources.
+> **₹36,70,814.44 reconciled and verified**, across **130 bank credits**, **174 payments**
+> and **162 invoices** — from **534 records** across three sources.
 
 Then the two numbers that qualify it, both on the same screen:
 
-- **Match rate 88.66%** — 172 of 194 settleable payments.
-- **Accuracy 100.00%** — 126 of 126 postings correct, **95% CI ≥ 97.11%**.
+- **Match rate 89.69%** — 174 of 194 settleable payments.
+- **Accuracy 100.00%** — 130 of 130 postings correct, **95% CI ≥ 97.20%**.
 
-Say the bound out loud. *"126 observations support a 95% floor of 97.1%, not 99.9%. We
+Say the bound out loud. *"130 observations support a 95% floor of 97.2%, not 99.9%. We
 report the floor because the point estimate on a sample this size doesn't mean what it
 looks like."* It is the line that separates this from a demo that quotes 100% and stops.
+
+And read the amber line under it: **₹35,04,081.67 net** of six chargebacks totalling
+₹1,66,732.77. *"The matches stand — the settlements were correct and the money was clawed
+back afterwards. That is two facts, so we report two numbers."*
 
 ## 2 · One concrete before → after — 90 s
 
@@ -55,8 +59,9 @@ looks like."* It is the line that separates this from a demo that quotes 100% an
 Two things worth saying here:
 
 1. **This is the hard case, not the easy one.** A lump settlement that no single payment
-   explains. **20 of the 126** credits are like this, covering **66 payments** between
-   them.
+   explains. **20 of the 130** credits are like this, covering **66 payments** between
+   them — and two more are the mirror case: **one** payment that arrived across **two**
+   bank lines, matched as a group. Open the row marked **SPLIT** if there is time.
 2. **"And no other combination fits" is the claim that matters.** Finding *an* answer is
    easy; proving it is *the* answer is why this refuses anything at all.
 
@@ -65,7 +70,8 @@ uniqueness margin. Do not lead with it.
 
 ## 3 · It processes the batch, not a record — 30 s
 
-Scroll the Reconciled tab. 126 rows, largest first. Then:
+Scroll the Reconciled tab. 128 rows over 130 credits — a split settlement is one row,
+because the money moved once. Largest first. Then:
 
 ```bash
 python run.py match --verify --no-llm     # the whole batch, end to end
@@ -78,7 +84,7 @@ Under a second for 534 records with all four verification layers on.
 Bottom of the Reconciled tab, **Verification**:
 
 > **Every match held when the records were shuffled.** The batch was reconciled 8 times
-> over, each time with the bank lines in a different order, and all 126 matches came out
+> over, each time with the bank lines in a different order, and all 130 matches came out
 > the same.
 
 Then say why it is not a formality: *"a reconciler that works through records in file
@@ -86,7 +92,7 @@ order can hand the same money to whichever candidate it saw first, and the wrong
 looks exactly like the right one. Re-running in a different order is how that gets
 caught — and anything caught is refused, not posted."*
 
-Click **Show the raw metric** if they want `unstable 0/126, K=8`.
+Click **Show the raw metric** if they want `unstable 0/130, K=8`.
 
 ## 5 · What it refused, and why that is the point — 90 s
 
@@ -102,7 +108,7 @@ The line to land: **"it would have been trivial to post this. The amounts are pe
 We didn't, because the counterparty doesn't match — and a wrong post is worse than an
 exception."**
 
-Then the **Worklist** tab for ten seconds: the same 15 exceptions routed to 5 desks with
+Then the **Worklist** tab for ten seconds: the same 11 exceptions routed to 5 desks with
 owners and turnaround times, materiality halving the clock. Say plainly that the routing
 is a configured default and the categories are what is measured.
 
@@ -110,7 +116,7 @@ is a configured default and the categories are what is measured.
 
 Pick two:
 
-- **The ceiling.** *"91.24% is the maximum this data permits — 17 of the 22 unmatched
+- **The ceiling.** *"92.27% is the maximum this data permits — 15 of the 20 unmatched
   payments never settled or belong to a relation we don't model. We are 5 payments from
   the ceiling, and here they are, named."* (Bottom of the Reconciled tab.)
 - **Verification-as-a-service.** `python run.py verify-foreign --naive --score` — point
@@ -144,6 +150,20 @@ No, and it is measurable: `run.py llm-compare` runs both arms. The served demo h
 tier off entirely.
 
 **"What about chargebacks / split settlements?"**
-Outside the model, disclosed on the page as *not examined* (6 debit lines, ₹1,66,732.77).
-Lifting either needs a different engine — a signed transaction model and a bipartite
-residual model — and we would rather name it than have it found.
+Both were outside the model until 2026-09-04, and both are in it now — which is the more
+interesting answer, because **one of our own "this needs a different engine" arguments
+was wrong.** `ARCHITECTURE.md` had said split settlements would need fractional claims
+and a search over partitions. They do not: a part-settlement is a *group* relation that
+balances exactly, so raising the claim unit from one credit to a group of credits
+expresses it with integer arithmetic and the uniqueness question Layer 2 already answers.
+Nobody wants half a payment posted.
+
+Chargebacks were closer: a debit does ask a different question, so it gets its own
+module. What was wrong was the claim that the engine would have to *un-post* the
+settlement. It does not — both events happened — so the assignment stands and the batch
+reports reconciled gross and net. All **6 of 6** chargebacks are tied to the settlement
+they reverse, and the *not examined* line now reads **zero**.
+
+The cost, if asked: 15 exceptions became 11, match rate 88.66% → 89.69%, precision 1.0000
+unchanged with zero wrong assignments, and two *new* named limitations in their place — a
+settlement split more than three ways, and a partial chargeback.

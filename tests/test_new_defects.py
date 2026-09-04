@@ -260,30 +260,82 @@ def test_a_split_settlement_is_two_credits_for_one_payment(batch):
     )
 
 
-def test_a_split_settlement_is_labelled_refuse_because_the_model_cannot_hold_it(batch):
+def test_a_split_settlement_now_expects_an_assignment(batch):
     """
-    `claimed` is a set, so a payment is taken once, and every tier asks which SUBSET OF
-    PAYMENTS sums to a credit. There is nowhere to put half a payment.
+    This test used to assert the OPPOSITE, and the change of mind is the point.
 
-    Labelling it `assign` would make it an automatic false negative -- the shape this
-    project has shipped three times. Labelling it `refuse` is honest, because refusing
-    IS correct: posting a part-settlement against a whole payment is a wrong answer, not
-    a partial one. The coverage cost is real and is reported in the outcome-by-defect
-    table rather than hidden behind a correct-looking refusal.
+    Its previous name was `..._is_labelled_refuse_because_the_model_cannot_hold_it`, and
+    the reasoning was sound for as long as it held: `claimed` is a set, a payment is
+    taken exactly once, every tier asks which SUBSET OF PAYMENTS sums to a credit, and
+    there is nowhere to put half a payment. Refusing was not a shortcoming, it was the
+    only correct verdict available -- posting a part-settlement against a whole payment
+    is a wrong answer, not a partial one.
+
+    Layer 2b changed what is available. The claim unit is now a GROUP of credits, the
+    two halves balance against the payment exactly, and `expected_verdict="refuse"`
+    would now score the engine DOWN for doing the work correctly.
     """
     links = _labelled(batch, "split_settlement")
-    assert all(l.expected_verdict == "refuse" for l in links)
+    assert all(l.expected_verdict == "assign" for l in links)
     assert all(l.relation == "split" for l in links)
 
 
 def test_the_engine_never_posts_half_a_payment(batch):
+    """
+    Still true, and it is the constraint the group model had to respect rather than
+    escape. A split settlement is settled as a GROUP -- both credits together, against
+    the whole payment -- and never as one credit against a payment it only half covers.
+    """
     out = match_once(batch.inputs)
-    assigned = {a.bank_txn_id for a in out.assignments}
+    singly_assigned = {a.bank_txn_id for a in out.assignments}
     for l in _labelled(batch, "split_settlement"):
-        assert l.bank_txn_id not in assigned, (
+        assert l.bank_txn_id not in singly_assigned, (
             f"{l.bank_txn_id} is one half of a split settlement and was posted against "
             f"the whole payment"
         )
+
+
+def test_a_split_settlement_is_settled_as_one_group(batch):
+    out = match_once(batch.inputs)
+    links = _labelled(batch, "split_settlement")
+    assert links
+    by_payment: dict[tuple, set] = {}
+    for l in links:
+        by_payment.setdefault(l.payment_ids, set()).add(l.bank_txn_id)
+
+    for payment_ids, txn_ids in by_payment.items():
+        if len(txn_ids) < 2:
+            continue
+        match = [g for g in out.groups if set(g.bank_txn_ids) == txn_ids]
+        assert match, (
+            f"the split settlement {sorted(txn_ids)} was not resolved as a group; "
+            f"groups found: {[g.bank_txn_ids for g in out.groups]}"
+        )
+        assert set(match[0].payment_ids) == set(payment_ids)
+
+
+def test_a_settlement_group_conserves_money_over_the_whole_group(batch):
+    """
+    The invariant was RESTATED at group level, not relaxed. Each member credit is only
+    part of the payment, so per-credit conservation cannot hold and must not be asked
+    to; the group's total must close exactly.
+    """
+    from recon.engine import fees
+
+    out = match_once(batch.inputs)
+    assert out.groups, "no settlement groups in this batch"
+    by_id = {p.id: p for p in batch.inputs.payments}
+    credit_of = {t.id: t.credit for t in batch.inputs.bank_txns}
+    inv = {i.invoice_no: i for i in batch.inputs.invoices}
+
+    for g in out.groups:
+        assert len(g.bank_txn_ids) >= 2, "a group of one is not a group"
+        total = sum(credit_of[t] for t in g.bank_txn_ids)
+        assert total == g.credit_paise
+        interval = fees.expected_credit_interval(
+            [by_id[pid] for pid in g.payment_ids], inv
+        )
+        assert abs(fees.residual(total, interval)) <= fees.tolerance_for(total)
 
 
 # --------------------------------------------------------------------------
@@ -312,18 +364,63 @@ def test_a_chargeback_carries_the_reference_of_the_credit_it_reverses(batch):
         )
 
 
-def test_no_truth_link_is_invented_for_a_debit(batch):
+def test_a_chargeback_now_carries_a_truth_link_and_the_engine_reverses_it(batch):
     """
-    The engine structurally cannot produce a verdict for a debit, so scoring it against
-    one would be theatre -- it would show up as a permanent miss that no amount of
-    engine work could ever close. The metrics block DISCLOSES the unexamined lines
-    instead, which is the honest form of the same information.
+    This one also used to assert the opposite, and for a reason that was conditional.
+
+    It read: *"the engine structurally cannot produce a verdict for a debit, so scoring
+    it against one would be theatre -- a permanent miss no amount of engine work could
+    ever close."* Correct, while it was true. Layer 2c reads debits and ties each to the
+    settlement it reverses, so `reverse` is a verdict the engine CAN produce, and
+    withholding the label would now hide real work rather than avoid a fake miss.
+
+    The link names the reversed PAYMENT, so a reversal posted against the wrong
+    settlement is scored as an error instead of passing unexamined.
     """
     debit_ids = {t.id for t in batch.inputs.bank_txns if t.debit}
-    linked = {l.bank_txn_id for l in batch.truth if l.bank_txn_id}
-    assert not (debit_ids & linked), (
-        f"ground truth invents a verdict for debit lines: {debit_ids & linked}"
+    reversal_links = {
+        l.bank_txn_id for l in batch.truth if l.expected_verdict == "reverse"
+    }
+    assert reversal_links, "no reversal links in truth"
+    assert reversal_links <= debit_ids, "a reversal link names something that is not a debit"
+    assert all(l.relation == "reversal" for l in batch.truth
+               if l.expected_verdict == "reverse")
+
+    out = match_once(batch.inputs)
+    found = {r.bank_txn_id: set(r.payment_ids) for r in out.reversals}
+    truth = {l.bank_txn_id: set(l.payment_ids) for l in batch.truth
+             if l.expected_verdict == "reverse"}
+    assert found == truth, (
+        f"the reversal ledger disagrees with truth: engine {found}, truth {truth}"
     )
+
+
+def test_a_reversal_does_not_undo_the_assignment_it_reverses(batch):
+    """
+    Both events happened. Erasing the settlement would leave the books describing a
+    batch that never occurred, and would break MR5's accounting besides -- the credit
+    would lose its verdict and the payment its claim.
+    """
+    out = match_once(batch.inputs)
+    assert out.reversals
+    posted = {a.bank_txn_id for a in out.assignments} | set(out.grouped_txn_ids)
+    for r in out.reversals:
+        assert r.settled_by in posted, (
+            "a reversal names a settlement the engine did not post"
+        )
+
+
+def test_a_chargeback_link_carries_only_its_own_defect_label(batch):
+    """
+    A defect label says what makes THIS line hard. The claw-back inherits none of what
+    made the original credit hard: different date, different narration, different
+    question. Inheriting them labelled a debit dated the following Sunday
+    `weekend_bunching`, and the generator's own well-formedness checks then tested a
+    chargeback against the rules for a settlement credit and failed it.
+    """
+    for l in batch.truth:
+        if l.expected_verdict == "reverse":
+            assert l.defect_labels == ("chargeback_debit",), l.defect_labels
 
 
 def test_the_metrics_block_discloses_what_it_did_not_examine(batch):
@@ -341,8 +438,14 @@ def test_the_metrics_block_discloses_what_it_did_not_examine(batch):
         unexamined=(len(debits), sum(t.debit for t in debits)),
     )
     text = render(sc, cfg.SEED_PRIMARY, cfg.TARGET_POOL_SIZE, llm_enabled=False)
+    # The disclosure is still printed -- at zero, which is the point. It used to name
+    # every debit as unexamined; the engine now reaches all of them, and a disclosure
+    # that disappears the moment it reads zero is one nobody can check.
     assert "NOT EXAMINED" in text
-    assert f"{len(debits)} debit line" in text
+    assert "REVERSAL LEDGER" in text
+    assert f"{len(debits)}/{len(debits)}" in text, (
+        "the reversal ledger should account for every chargeback in the batch"
+    )
 
 
 @pytest.mark.parametrize("seed", [20260905, 77771, 44444])

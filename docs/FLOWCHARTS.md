@@ -113,12 +113,20 @@ flowchart TD
     style FINAL fill:#eaf5ee,stroke:#2c6b41,stroke-width:2px
 ```
 
-**Nine distinct ways to refuse and one way to assign.** That asymmetry is deliberate.
+**Ten distinct ways to refuse and two ways to assign.** That asymmetry is deliberate.
 Every refusal names its cause, so an exception says which mechanism objected rather than
 merely that something did.
 
-Two of the nine were added after the diagram was first drawn, and both are worth calling
-out because they are the only places the engine uses evidence that is not an amount:
+**The second way to assign is Layer 2b, and it arrived late.** For most of this project
+there was exactly one: a single credit, decomposed into a subset of payments. A
+part-settlement — one payment arriving as two credits — had no answer to that question
+and both halves were refused. The claim unit is now either a credit or a GROUP of
+credits, the group balances exactly, and `layer2b_group` appears in the assignment
+detail alongside the three tiers.
+
+Three of the ten were added after the diagram was first drawn. Two are the only places
+the engine uses evidence that is not an amount; the third is the group form of the
+uniqueness test it already applies:
 
 - **`narration_count_conflict`.** A settlement narration states how many transactions it
   covers — `RAZORPAY SETTLEMENT setl_... 2 TXNS`. The engine had parsed that count since
@@ -134,6 +142,21 @@ out because they are the only places the engine uses evidence that is not an amo
   were separated by the sort. The round is now propose-then-resolve, and equal evidence
   refuses **both**. A tie is not something to break; it is the same underdetermination
   Layer 2 already refuses on, reaching the engine through a different door.
+- **`ambiguous_grouping`.** Layer 2b's own uniqueness test. A credit that balances inside
+  more than one settlement group has been explained by none of them, and choosing the
+  tightest would be picking — the same doctrine as `multiple_candidates` one level up,
+  applied to groupings rather than to subsets. A group is posted only when no rival
+  grouping also balances, and when the search hits its bound the layer grants nothing at
+  all rather than posting answers whose rivals were never looked for.
+
+**And one path that is not a refusal at all: the reversal ledger.** Debits were outside
+this diagram entirely — the matcher read `is_credit` transactions and nothing else, so a
+chargeback was not matched, not refused and not counted. A debit now reaches a verdict of
+its own: it is tied to the settlement it reverses on amount, carried reference and
+ordering, uniquely or not at all, and anything left over is reported as an unexplained
+debit rather than dropped. It is drawn separately because a debit asks a different
+question — *which settlement is this money leaving against?* — and shares no machinery
+with the subset search above.
 
 ---
 

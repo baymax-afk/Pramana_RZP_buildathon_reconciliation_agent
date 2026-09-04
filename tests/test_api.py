@@ -181,26 +181,51 @@ def test_every_refusal_category_has_a_ui_label_and_a_badge_style():
 # --------------------------------------------------------------------------
 
 @requires_run
-def test_the_payload_discloses_what_the_engine_never_read():
+def test_the_payload_accounts_for_the_money_that_left_the_account():
     """
-    `rupees_at_risk` counts refused CREDITS only. The engine reads `is_credit`
-    transactions and nothing else, so a chargeback, a reversal or a bank fee is
-    invisible to it.
+    `rupees_at_risk` counts refused CREDITS only. A merchant reading "Rs 800 at risk"
+    while Rs 1,66,732 left the account on lines nobody examined is being misled by
+    omission -- and the omission matters more in the payload than in the metrics block,
+    because this is what someone acts on.
 
-    A merchant reading "Rs 800 at risk" while Rs 166,732 left the account on lines
-    nobody examined is being misled by omission -- and the omission matters more in the
-    payload than in the metrics block, because this is what someone acts on.
+    This used to assert only that the debits were DISCLOSED, because the engine read
+    none of them. It now asserts they are accounted for: every debit is either tied to
+    the settlement it reverses or reported unexplained, and the two must sum to the
+    lines on the statement. A disclosure was the right answer while the engine was
+    blind; it is the wrong answer once it can see.
     """
     data = api_main._load()
-    assert "not_examined" in data, "the payload does not disclose unexamined lines"
-    ne = data["not_examined"]
-    assert set(ne) >= {"debit_lines", "rupees", "reason", "lines"}
-    if ne["debit_lines"]:
-        assert ne["rupees"] > 0
-        assert all(
-            {"bank_txn_id", "txn_date", "narration", "rupees"} <= set(l)
-            for l in ne["lines"]
+    assert "debits" in data, "the payload does not account for the debit half"
+    d = data["debits"]
+    assert set(d) >= {
+        "lines", "rupees", "reversals_identified", "unexplained", "reason", "rows"
+    }
+    if d["lines"]:
+        assert d["rupees"] > 0
+        assert d["reversals_identified"] + d["unexplained"] == d["lines"], (
+            "every debit must be either reversed or reported unexplained"
         )
+        assert all(
+            {"bank_txn_id", "txn_date", "narration", "rupees", "status"} <= set(l)
+            for l in d["rows"]
+        )
+        for row in d["rows"]:
+            if row["status"] == "reversal":
+                assert row["reverses"], "a reversal must name what it reverses"
+
+
+@requires_run
+def test_the_payload_still_discloses_anything_that_reached_no_verdict():
+    """
+    Kept, and it reads zero. A disclosure that disappears the moment it has nothing to
+    report is one nobody can check -- and this figure is derived by subtraction from
+    what actually reached a verdict, so it is what would surface the next blind spot
+    without anyone having to suspect one.
+    """
+    data = api_main._load()
+    assert "not_examined" in data
+    ne = data["not_examined"]
+    assert set(ne) >= {"lines", "rupees", "reason"}
 
 
 @requires_run
@@ -210,16 +235,16 @@ def test_the_disclosure_is_served_with_the_summary_not_behind_its_own_route():
 
 
 @requires_run
-def test_unexamined_lines_are_never_mixed_into_the_exception_list():
+def test_debit_lines_are_never_mixed_into_the_exception_list():
     """
-    They are disclosures, not work. An analyst must not be invited to action a line the
-    engine cannot speak about, and the totals must stay decomposable: at-risk counts
-    refused credits, the disclosure counts unread debits, and the two never overlap.
+    The totals must stay decomposable: `rupees_at_risk` counts refused CREDITS, the
+    debit ledger counts money leaving, and the two never overlap. A debit appearing in
+    both would be counted twice in the only figure a merchant reads first.
     """
     data = api_main._load()
-    unexamined = {l["bank_txn_id"] for l in data["not_examined"]["lines"]}
+    debit_ids = {l["bank_txn_id"] for l in data["debits"]["rows"]}
     exceptions = {e["bank_txn_id"] for e in data["exceptions"]}
-    assert not (unexamined & exceptions)
+    assert not (debit_ids & exceptions)
 
 
 def test_the_ui_renders_the_disclosure_when_there_is_something_to_disclose():
@@ -233,10 +258,10 @@ def test_the_ui_renders_the_disclosure_when_there_is_something_to_disclose():
     jsx = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text(
         encoding="utf-8"
     )
-    assert "not_examined" in jsx, "the UI never reads the disclosure from the payload"
-    assert "function NotExamined" in jsx
-    assert "notExamined.debit_lines > 0" in jsx, (
-        "the disclosure must render only when there is something to disclose"
+    assert "run.data.debits" in jsx, "the UI never reads the debit ledger from the payload"
+    assert "function DebitLedger" in jsx
+    assert "debits.lines > 0" in jsx, (
+        "the ledger must render only when there are debits to account for"
     )
 
 
@@ -288,18 +313,25 @@ def test_an_exception_explains_which_layer_objected():
 @requires_run
 def test_a_debit_line_is_a_404_that_says_why():
     """
-    Debit lines are structurally outside the engine's model, so they have no verdict to
-    explain. The 404 must say that rather than implying the id was malformed -- the
-    disclosure already exists at /api/summary and the error should point at it.
+    A debit reaches a verdict now — it is tied to the settlement it reverses, or reported
+    unexplained — but not a decision TRANSCRIPT: there is no candidate pool, no subset
+    search and no Fellegi-Sunter vector behind it, so there is nothing to render. The 404
+    must point at where the verdict actually lives rather than implying the id was
+    malformed.
+
+    **This test was silently SKIPPING**, because it read `not_examined.lines`, a key that
+    stopped carrying rows when the debit ledger replaced the disclosure. A skip is not a
+    pass, and a suite that reports "1 skipped" on a route nobody has exercised since the
+    payload changed is telling you nothing at all.
     """
     summary = client.get("/api/summary").json()
-    lines = summary.get("not_examined", {}).get("lines", [])
-    if not lines:
-        pytest.skip("no debit lines in this run")
+    rows = summary.get("debits", {}).get("rows", [])
+    assert rows, "no debit lines in this run -- the fixture batch should contain six"
 
-    r = client.get(f"/api/explain/{lines[0]['bank_txn_id']}")
+    r = client.get(f"/api/explain/{rows[0]['bank_txn_id']}")
     assert r.status_code == 404
-    assert "not_examined" in r.json()["detail"]
+    detail = r.json()["detail"]
+    assert "reversal ledger" in detail and "debits" in detail
 
 
 @requires_run

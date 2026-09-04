@@ -51,7 +51,7 @@ def test_engine_runs_to_completion_with_the_tier_disabled():
     inputs = load_inputs()
     out = match_once(inputs, llm=NullTier())
     assert out.assignments
-    assert len(out.assignments) + len(out.refusals) + len(out.no_candidate) == len(
+    assert len(out.credit_verdicts) == len(
         [t for t in inputs.bank_txns if t.is_credit]
     )
 

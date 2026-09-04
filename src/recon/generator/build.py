@@ -802,14 +802,26 @@ def generate(
                 balance=original.balance,
             )
         )
+        # Both halves expect ASSIGN, and they did not always. Until Layer 2b existed the
+        # relation was outside the engine's model -- `claimed` is a set, so a payment is
+        # taken once, and no tier could ask a question a half-settlement has an answer
+        # to -- and ground truth said `refuse` because refusing was the only correct
+        # verdict available. That is no longer true: the claim unit is now a GROUP of
+        # credits, the pair balances exactly, and expecting a refusal would score the
+        # engine down for doing the work.
+        #
+        # Each half names the SAME payment set, which is what the relation is. The
+        # scorer credits a split link when the credit was settled inside a group whose
+        # payments match, so the two links agree with one group rather than demanding
+        # two assignments that would double-post the payment.
         labels = tuple(link.defect_labels) + ("split_settlement",)
         truth[truth.index(link)] = TruthLink(
             link.bank_txn_id, link.payment_ids, link.invoice_nos, labels,
-            "split", "refuse",
+            "split", "assign",
         )
         truth.append(
             TruthLink(second_id, link.payment_ids, link.invoice_nos, labels,
-                      "split", "refuse")
+                      "split", "assign")
         )
 
     # ---- chargeback_debit: money leaving, on a line the engine never reads ----
@@ -820,10 +832,18 @@ def generate(
     #
     # The statement contained ZERO debits before this defect existed, which is why the
     # blind spot went unnoticed: the engine had never been shown the half of a bank
-    # statement it ignores. No truth link is created for a debit. Inventing one would
-    # score the engine against a verdict it structurally cannot produce; the metrics
-    # block reports the unexamined lines instead, which is the honest form of the same
-    # information.
+    # statement it ignores.
+    #
+    # **A truth link IS created now, and the reason it was withheld is the reason it can
+    # be created.** The original note read: "Inventing one would score the engine against
+    # a verdict it structurally cannot produce -- a permanent miss that no engine work
+    # could ever close, which is scoring theatre rather than measurement." That argument
+    # was correct and it was conditional. The engine now reads debits and ties each to
+    # the settlement it reverses, so `reverse` is a verdict it CAN produce, and withholding
+    # the label would now hide real work instead of avoiding a fake miss.
+    #
+    # The link carries the reversed payment, so a reversal posted against the wrong
+    # settlement scores as an error rather than passing unexamined.
     for link in list(truth)[:]:
         if link.relation != "one_to_one" or link.expected_verdict != "assign":
             continue
@@ -835,13 +855,31 @@ def generate(
         txn_seq += 1
         cb_date = date.fromisoformat(original.txn_date) + timedelta(days=rng.randint(3, 9))
         balance -= original.credit
+        debit_id = f"bank_txn_{txn_seq:04d}"
         bank_txns.append(
             BankTxn(
-                id=f"bank_txn_{txn_seq:04d}",
+                id=debit_id,
                 txn_date=cb_date.isoformat(), value_date=cb_date.isoformat(),
                 narration=f"CHARGEBACK REV {original.ref_no} DISPUTE",
                 ref_no=original.ref_no, credit=0, debit=original.credit,
                 balance=balance,
+            )
+        )
+        truth.append(
+            TruthLink(
+                bank_txn_id=debit_id,
+                payment_ids=link.payment_ids,
+                invoice_nos=link.invoice_nos,
+                # ONLY `chargeback_debit`, not the settlement's labels. A defect label
+                # says what makes THIS line hard, and the claw-back inherits none of
+                # what made the original credit hard -- it is a different line, on a
+                # different date, carrying a different narration. Inheriting them said
+                # a debit dated the following Sunday was `weekend_bunching`, and the
+                # generator's own well-formedness checks then tested a chargeback
+                # against the rules for a settlement credit and failed it.
+                defect_labels=("chargeback_debit",),
+                relation="reversal",
+                expected_verdict="reverse",
             )
         )
 
@@ -1428,8 +1466,19 @@ def assert_truth_is_satisfiable(batch: GeneratedBatch) -> int:
     checked = 0
     problems: list[str] = []
 
+    # Split links are checked as a GROUP, below, and skipped here. Neither half of a
+    # part-settlement balances against the payment on its own -- that is the whole of
+    # what makes it a split -- so running the per-credit test over one half would report
+    # the relation as unsatisfiable precisely when the generator has built it correctly.
+    split_by_payments: dict[tuple[str, ...], list[str]] = {}
+    for link in batch.truth:
+        if link.relation == "split" and link.expected_verdict == "assign":
+            split_by_payments.setdefault(link.payment_ids, []).append(link.bank_txn_id)
+
     for link in batch.truth:
         if link.expected_verdict != "assign" or not link.bank_txn_id:
+            continue
+        if link.relation == "split":
             continue
         t = txn.get(link.bank_txn_id)
         if t is None:
@@ -1473,6 +1522,42 @@ def assert_truth_is_satisfiable(batch: GeneratedBatch) -> int:
                 f"interval [{interval.lo}, {interval.hi}]p of its {len(group)} "
                 f"payment(s) at tolerance {tol}p (off by {short:+d}p) -- money is "
                 f"unaccounted for, so no tolerance could close this"
+            )
+
+    # ---- split settlements, checked at the level they close at ---------------
+    #
+    # A part-settlement is satisfiable when its credits SUM into the payment set's
+    # settled interval, every credit is a real credit, and at least two of them exist --
+    # a "split" of one is a one-to-one link mislabelled, and would be assigned by the
+    # ordinary matcher while ground truth waited for a group that never comes.
+    for payment_ids, txn_ids in sorted(split_by_payments.items()):
+        checked += 1
+        if len(txn_ids) < 2:
+            problems.append(
+                f"{txn_ids[0]}: ground truth marks this a split settlement but names "
+                f"only one credit for {payment_ids} -- the engine's group resolver needs "
+                f"at least two, and the ordinary matcher will take it as one-to-one"
+            )
+            continue
+        members = [txn.get(t) for t in txn_ids]
+        if any(m is None or not m.is_credit for m in members):
+            problems.append(
+                f"{'+'.join(txn_ids)}: a split settlement names a transaction that is "
+                f"not a credit in this batch"
+            )
+            continue
+        group = [pay[pid] for pid in payment_ids if pid in pay]
+        if not group:
+            continue
+        total = sum(m.credit for m in members if m is not None)
+        interval = engine_fees.expected_credit_interval(group, invoices_by_no)
+        tol = engine_fees.tolerance_for(total)
+        if not (interval.lo - tol <= total <= interval.hi + tol):
+            problems.append(
+                f"{'+'.join(txn_ids)}: the split's credits sum to {total}p, outside the "
+                f"settled interval [{interval.lo}, {interval.hi}]p of its {len(group)} "
+                f"payment(s) at tolerance {tol}p -- money is unaccounted for across the "
+                f"group, so no grouping could close this"
             )
 
     if problems:

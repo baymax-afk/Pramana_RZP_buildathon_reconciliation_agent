@@ -23,8 +23,18 @@ Provenance = Literal["R1", "R2", "S"]
 # a relation the engine cannot represent (see ARCHITECTURE.md, "Two named limitations").
 # It was being constructed without being declared here, so it reached ground_truth.json
 # and the scorer's relation buckets as a value the type does not admit.
-Relation = Literal["one_to_one", "many_to_one", "partial", "split", "unmatched"]
-Verdict = Literal["assign", "refuse"]
+Relation = Literal[
+    "one_to_one", "many_to_one", "partial", "split", "reversal", "unmatched"
+]
+# "reverse" joined "assign" and "refuse" when the engine learned to read debits.
+#
+# It is a THIRD verdict rather than a flavour of "assign" because it answers a different
+# question about a different record: an assignment says which payments account for money
+# arriving, a reversal says which settlement money left against. Folding it into
+# "assign" would have put debits into the credit denominators -- inflating the match rate
+# with lines that are not matches -- and folding it into "refuse" would have scored the
+# engine as declining work it actually did.
+Verdict = Literal["assign", "refuse", "reverse"]
 
 
 @lru_cache(maxsize=None)
@@ -294,6 +304,8 @@ class TruthLink:
 
 
 DEFECT_LABELS = (
+    "split_settlement",
+    "chargeback_debit",
     "mdr_fee",
     "tds_deduction",
     "settlement_drift",

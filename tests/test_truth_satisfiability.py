@@ -41,9 +41,14 @@ def test_the_check_catches_a_payment_moved_out_of_its_credits_window(batch):
     generator happens to be correct, which is not the same as being able to detect
     incorrectness.
     """
+    # NOT a split link. A part-settlement is checked as a group -- neither half
+    # balances against the payment alone, which is what makes it a split -- so breaking
+    # one half exercises the group check, not the per-credit reachability check this
+    # test is about.
     link = next(
         l for l in batch.truth
         if l.expected_verdict == "assign" and l.bank_txn_id and l.payment_ids
+        and l.relation != "split"
     )
     target = link.payment_ids[0]
     moved = tuple(
@@ -61,9 +66,14 @@ def test_the_check_catches_money_hidden_from_a_credit(batch):
     The hidden-money shape -- `refund_netted` and the old `partial_payment` both had it.
     Shrinking a credit while leaving its payments alone must be caught.
     """
+    # NOT a split link. A part-settlement is checked as a group -- neither half
+    # balances against the payment alone, which is what makes it a split -- so breaking
+    # one half exercises the group check, not the per-credit reachability check this
+    # test is about.
     link = next(
         l for l in batch.truth
         if l.expected_verdict == "assign" and l.bank_txn_id and l.payment_ids
+        and l.relation != "split"
     )
     shrunk = tuple(
         replace(t, credit=int(t.credit * 0.5)) if t.id == link.bank_txn_id else t
@@ -324,6 +334,7 @@ def test_a_narration_count_that_contradicts_the_link_is_caught(batch):
     link = next(
         l for l in batch.truth
         if l.expected_verdict == "assign" and l.bank_txn_id and len(l.payment_ids) == 1
+        and l.relation != "split"
     )
     relabelled = tuple(
         replace(t, narration="RAZORPAY SETTLEMENT setl_COUNTCHECK01 4 TXNS")

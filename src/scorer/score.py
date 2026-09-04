@@ -140,8 +140,32 @@ class Scorecard:
     confidence_calibrated: bool = False
     throughput_records_per_s: float | None = None
     # Bank lines the engine structurally never reads. Not a score -- a disclosure.
+    #
+    # This was every debit on the statement until Layer 2c existed. It is now the lines
+    # that remain outside the engine's reach after debits were brought in, and the field
+    # is KEPT rather than deleted: a disclosure that goes to zero is worth reporting as
+    # zero, and re-deriving it every run is what would catch a future blind spot.
     unexamined_lines: int = 0
     unexamined_paise: int = 0
+    # ---- the reversal ledger, reported as its own triple ----
+    #
+    # Deliberately not folded into match_precision. A reversal is a verdict about a
+    # DEBIT; adding debits to the credit denominators would move the headline match rate
+    # by counting lines that are not matches. Kept separate so it can be read on its own
+    # terms, or ignored, without either number contaminating the other.
+    reversals_found: int = 0
+    reversals_expected: int = 0
+    reversals_correct: int = 0
+    reversals_wrong: tuple[str, ...] = ()
+    reversals_missed: tuple[str, ...] = ()
+    unexplained_debits: int = 0
+    unexplained_debit_paise: int = 0
+    reversed_paise: int = 0
+    # ---- settlement groups (Layer 2b) ----
+    settlement_groups: int = 0
+    grouped_credits: int = 0
+    grouped_payments: int = 0
+    grouped_paise: int = 0
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -225,21 +249,66 @@ def score(
     truth_by_txn = {l.bank_txn_id: l for l in links if l.bank_txn_id}
 
     # ---- assignments ----
+    #
+    # Settlement-group members are scored HERE, alongside single-credit assignments, and
+    # each member counts once. A group of two credits settling one payment is two
+    # verdicts about two bank lines -- an operator sees two rows on the statement and
+    # each is either right or wrong -- so counting the group as one assignment would
+    # understate both the numerator and the denominator, and counting the payment twice
+    # would double-count coverage. Ground truth agrees: the generator writes one link
+    # per credit, both naming the same payment set.
     correct: list[str] = []
     wrong: list[str] = []
     precision_by_tier: dict[str, list[int]] = {}
-    for a in out.assignments:
-        link = truth_by_txn.get(a.bank_txn_id)
+
+    scored: list[tuple[str, tuple[str, ...], str]] = [
+        (a.bank_txn_id, a.payment_ids, a.tier) for a in out.assignments
+    ]
+    scored += [
+        (txn_id, g.payment_ids, g.tier)
+        for g in out.groups
+        for txn_id in g.bank_txn_ids
+    ]
+    for txn_id, payment_ids, tier in scored:
+        link = truth_by_txn.get(txn_id)
         ok = bool(
             link
             and link.expected_verdict == "assign"
-            and set(link.payment_ids) == set(a.payment_ids)
+            and set(link.payment_ids) == set(payment_ids)
         )
-        (correct if ok else wrong).append(a.bank_txn_id)
-        slot = precision_by_tier.setdefault(a.tier, [0, 0])
+        (correct if ok else wrong).append(txn_id)
+        slot = precision_by_tier.setdefault(tier, [0, 0])
         slot[1] += 1
         if ok:
             slot[0] += 1
+
+    # ---- reversals: the debit half ----
+    #
+    # Scored separately and never folded into `match_precision`. A reversal is a verdict
+    # about a DEBIT, and putting debits into the credit denominators would move the
+    # headline match rate by adding lines that are not matches. Reported as its own
+    # triple so it can be read, or ignored, on its own terms.
+    reversals_correct = 0
+    reversals_wrong: list[str] = []
+    for r in out.reversals:
+        link = truth_by_txn.get(r.bank_txn_id)
+        if (
+            link
+            and link.expected_verdict == "reverse"
+            and set(link.payment_ids) == set(r.payment_ids)
+        ):
+            reversals_correct += 1
+        else:
+            reversals_wrong.append(r.bank_txn_id)
+    reversals_expected = sum(1 for l in links if l.expected_verdict == "reverse")
+    unexplained_debit_ids = {u.bank_txn_id for u in out.unexplained_debits}
+    reversals_missed = tuple(
+        sorted(
+            l.bank_txn_id
+            for l in links
+            if l.expected_verdict == "reverse" and l.bank_txn_id in unexplained_debit_ids
+        )
+    )
 
     # ---- refusals ----
     # A refusal ground truth AGREES with is correct. A refusal ground truth wanted
@@ -257,8 +326,16 @@ def score(
     # "Credits with candidates" excludes those where nothing plausibly fit. Declining
     # where nothing fits is an empty result, not a refusal, and folding it in would
     # flatter the refusal rate.
-    credits_with_candidates = len(out.assignments) + len(out.refusals)
-    payments_assigned = sum(len(a.payment_ids) for a in out.assignments)
+    credits_with_candidates = (
+        len(out.assignments) + len(out.grouped_txn_ids) + len(out.refusals)
+    )
+    # Payments claimed by a group are counted ONCE, not once per member credit. This is
+    # the coverage numerator, and a split settlement moves one payment however many
+    # lines it arrived on.
+    payments_assigned = len(
+        {pid for a in out.assignments for pid in a.payment_ids}
+        | {pid for g in out.groups for pid in g.payment_ids}
+    )
 
     # ---- exceptions ----
     by_cat: dict[str, int] = {}
@@ -274,14 +351,8 @@ def score(
     # entirely the wrong payments, which inflates the number precisely when the engine
     # is doing the most damage. It happens to agree while precision is 1.0, and would
     # diverge silently the moment it is not.
-    assigned_txns = {
-        a.bank_txn_id
-        for a in out.assignments
-        if (l := truth_by_txn.get(a.bank_txn_id))
-        and l.expected_verdict == "assign"
-        and set(l.payment_ids) == set(a.payment_ids)
-    }
-    any_assigned_txns = {a.bank_txn_id for a in out.assignments}
+    assigned_txns = set(correct)
+    any_assigned_txns = {t for t, _, _ in scored}
     recall: dict[str, list[int]] = {}
     for link in links:
         if not link.bank_txn_id or link.expected_verdict != "assign":
@@ -304,6 +375,14 @@ def score(
     # unmatchable by construction and declining it is the correct output. Collapsing
     # "missed" and "correctly refused" into a single recall figure would score the
     # engine down for being right.
+    reversed_txns = {
+        r.bank_txn_id
+        for r in out.reversals
+        if (l := truth_by_txn.get(r.bank_txn_id))
+        and l.expected_verdict == "reverse"
+        and set(l.payment_ids) == set(r.payment_ids)
+    }
+    any_reversed_txns = {r.bank_txn_id for r in out.reversals}
     per_defect: dict[str, list[int]] = {}
     for link in links:
         if not link.bank_txn_id:
@@ -314,6 +393,17 @@ def score(
             slot = per_defect.setdefault(label, [0, 0, 0, 0])
             if link.expected_verdict == "assign":
                 slot[0 if correctly_assigned else 1] += 1
+            elif link.expected_verdict == "reverse":
+                # Same four columns, read for a debit: handled correctly, handled
+                # wrongly, left unexplained, or -- the fourth, which stays zero unless
+                # something has gone badly wrong -- reversed against a settlement ground
+                # truth does not name.
+                if link.bank_txn_id in reversed_txns:
+                    slot[0] += 1
+                elif link.bank_txn_id in any_reversed_txns:
+                    slot[1] += 1
+                else:
+                    slot[2] += 1
             else:
                 slot[3 if was_assigned else 2] += 1
 
@@ -387,7 +477,9 @@ def score(
     # reason ground truth already records -- it never settled, or it belongs to a
     # relation the engine does not model -- and counting those against the engine scores
     # it for failing to do something nobody claims it can do.
-    assigned_ids = {pid for a in out.assignments for pid in a.payment_ids}
+    assigned_ids = {pid for a in out.assignments for pid in a.payment_ids} | {
+        pid for g in out.groups for pid in g.payment_ids
+    }
     reachable = {
         pid
         for link in links
@@ -433,10 +525,14 @@ def score(
         captured_payments=captured_payments,
         payments_assigned=payments_assigned,
         match_rate=_safe(payments_assigned, captured_payments),
-        total_assignments=len(out.assignments),
+        # `scored` is assignments PLUS group members, one entry per bank line. Using
+        # len(out.assignments) here would leave grouped credits out of the denominator
+        # while `correct` already counted them, quietly reporting a precision above 1.0
+        # the moment a group is right.
+        total_assignments=len(scored),
         correct_assignments=len(correct),
-        match_precision=_safe(len(correct), len(out.assignments)),
-        precision_ci_lower=clopper_pearson_lower(len(correct), len(out.assignments)),
+        match_precision=_safe(len(correct), len(scored)),
+        precision_ci_lower=clopper_pearson_lower(len(correct), len(scored)),
         wrong_assignments=tuple(wrong),
         credits_with_candidates=credits_with_candidates,
         total_refusals=len(out.refusals),
@@ -467,6 +563,18 @@ def score(
         throughput_records_per_s=throughput,
         unexamined_lines=unexamined[0],
         unexamined_paise=unexamined[1],
+        reversals_found=len(out.reversals),
+        reversals_expected=reversals_expected,
+        reversals_correct=reversals_correct,
+        reversals_wrong=tuple(reversals_wrong),
+        reversals_missed=reversals_missed,
+        unexplained_debits=len(out.unexplained_debits),
+        unexplained_debit_paise=sum(u.debit_paise for u in out.unexplained_debits),
+        reversed_paise=out.reversed_paise,
+        settlement_groups=len(out.groups),
+        grouped_credits=len(out.grouped_txn_ids),
+        grouped_payments=len({pid for g in out.groups for pid in g.payment_ids}),
+        grouped_paise=sum(g.credit_paise for g in out.groups),
     )
 
 

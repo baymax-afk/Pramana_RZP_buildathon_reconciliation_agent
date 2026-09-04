@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T14:53:52.547928+00:00",
+  "generated_at": "2026-09-04T16:03:23.186949+00:00",
   "seed": 20260905,
   "density": 6,
   "llm_tier": "disabled",
@@ -232,8 +232,8 @@
     },
     "bank_txn_0003": {
       "bank_txn_id": "bank_txn_0003",
-      "verdict": "refuse",
-      "plain": "Not posted. Every combination of the 4 payments in this settlement window was tested, and none adds up to this Rs 11,287.82 credit. The money is not accounted for by anything the engine can see.",
+      "verdict": "assign",
+      "plain": "This Rs 11,287.82 credit is one part of a settlement that arrived split across 2 bank lines (bank_txn_0004). Neither part accounts for the money on its own - together they come to Rs 24,456.19, which is exactly what 1 payment should have settled for after gateway fees and any TDS. The parts were posted as one group, because posting a half-settlement against a whole payment would be a wrong answer rather than a partial one.",
       "evidence": [
         {
           "kind": "bank_txn",
@@ -243,15 +243,9 @@
         },
         {
           "kind": "payment",
-          "id": "pay_TWekRsHFrjfEBU",
-          "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
-          "href": "#/payment/pay_TWekRsHFrjfEBU"
-        },
-        {
-          "kind": "invoice",
-          "id": "INV-2026-1003",
-          "label": "INV-2026-1003 - Sunrise Textiles Ltd, Rs 9,420.00",
-          "href": "#/invoice/INV-2026-1003"
+          "id": "pay_SYN000057288",
+          "label": "Rs 25,108.00 from +919025773148",
+          "href": "#/payment/pay_SYN000057288"
         }
       ],
       "transcript": [
@@ -313,9 +307,16 @@
         },
         {
           "seq": 7,
+          "stage": "resolve",
+          "headline": "No other credit wanted these payments.",
+          "detail": "The bid was uncontested and was granted in round 3 of the fixpoint loop.",
+          "evidence": []
+        },
+        {
+          "seq": 8,
           "stage": "verdict",
-          "headline": "REFUSED - sent to a human.",
-          "detail": "no subset of the 4 candidates sums to 1128782p within 100p at k<=6; the closest is 1 payment(s) +211234p away, listed below",
+          "headline": "POSTED.",
+          "detail": "settled as part of a group of 2 credits totalling 2445619p",
           "evidence": [
             {
               "kind": "bank_txn",
@@ -325,15 +326,9 @@
             },
             {
               "kind": "payment",
-              "id": "pay_TWekRsHFrjfEBU",
-              "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
-              "href": "#/payment/pay_TWekRsHFrjfEBU"
-            },
-            {
-              "kind": "invoice",
-              "id": "INV-2026-1003",
-              "label": "INV-2026-1003 - Sunrise Textiles Ltd, Rs 9,420.00",
-              "href": "#/invoice/INV-2026-1003"
+              "id": "pay_SYN000057288",
+              "label": "Rs 25,108.00 from +919025773148",
+              "href": "#/payment/pay_SYN000057288"
             }
           ]
         }
@@ -341,8 +336,8 @@
     },
     "bank_txn_0004": {
       "bank_txn_id": "bank_txn_0004",
-      "verdict": "refuse",
-      "plain": "Not posted. Every combination of the 4 payments in this settlement window was tested, and none adds up to this Rs 13,168.37 credit. The money is not accounted for by anything the engine can see.",
+      "verdict": "assign",
+      "plain": "This Rs 13,168.37 credit is one part of a settlement that arrived split across 2 bank lines (bank_txn_0003). Neither part accounts for the money on its own - together they come to Rs 24,456.19, which is exactly what 1 payment should have settled for after gateway fees and any TDS. The parts were posted as one group, because posting a half-settlement against a whole payment would be a wrong answer rather than a partial one.",
       "evidence": [
         {
           "kind": "bank_txn",
@@ -352,27 +347,9 @@
         },
         {
           "kind": "payment",
-          "id": "pay_TWetruAwIULxPh",
-          "label": "Rs 3,180.00 from Sunrise Textiles Ltd for INV-2026-1001",
-          "href": "#/payment/pay_TWetruAwIULxPh"
-        },
-        {
-          "kind": "invoice",
-          "id": "INV-2026-1001",
-          "label": "INV-2026-1001 - Sunrise Textiles Ltd, Rs 3,180.00",
-          "href": "#/invoice/INV-2026-1001"
-        },
-        {
-          "kind": "payment",
-          "id": "pay_TWekRsHFrjfEBU",
-          "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
-          "href": "#/payment/pay_TWekRsHFrjfEBU"
-        },
-        {
-          "kind": "invoice",
-          "id": "INV-2026-1003",
-          "label": "INV-2026-1003 - Sunrise Textiles Ltd, Rs 9,420.00",
-          "href": "#/invoice/INV-2026-1003"
+          "id": "pay_SYN000057288",
+          "label": "Rs 25,108.00 from +919025773148",
+          "href": "#/payment/pay_SYN000057288"
         }
       ],
       "transcript": [
@@ -440,9 +417,16 @@
         },
         {
           "seq": 7,
+          "stage": "resolve",
+          "headline": "No other credit wanted these payments.",
+          "detail": "The bid was uncontested and was granted in round 3 of the fixpoint loop.",
+          "evidence": []
+        },
+        {
+          "seq": 8,
           "stage": "verdict",
-          "headline": "REFUSED - sent to a human.",
-          "detail": "no subset of the 4 candidates sums to 1316837p within 100p at k<=6; the closest is 2 payment(s) +89543p away, listed below",
+          "headline": "POSTED.",
+          "detail": "settled as part of a group of 2 credits totalling 2445619p",
           "evidence": [
             {
               "kind": "bank_txn",
@@ -452,27 +436,9 @@
             },
             {
               "kind": "payment",
-              "id": "pay_TWetruAwIULxPh",
-              "label": "Rs 3,180.00 from Sunrise Textiles Ltd for INV-2026-1001",
-              "href": "#/payment/pay_TWetruAwIULxPh"
-            },
-            {
-              "kind": "invoice",
-              "id": "INV-2026-1001",
-              "label": "INV-2026-1001 - Sunrise Textiles Ltd, Rs 3,180.00",
-              "href": "#/invoice/INV-2026-1001"
-            },
-            {
-              "kind": "payment",
-              "id": "pay_TWekRsHFrjfEBU",
-              "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
-              "href": "#/payment/pay_TWekRsHFrjfEBU"
-            },
-            {
-              "kind": "invoice",
-              "id": "INV-2026-1003",
-              "label": "INV-2026-1003 - Sunrise Textiles Ltd, Rs 9,420.00",
-              "href": "#/invoice/INV-2026-1003"
+              "id": "pay_SYN000057288",
+              "label": "Rs 25,108.00 from +919025773148",
+              "href": "#/payment/pay_SYN000057288"
             }
           ]
         }
@@ -480,14 +446,26 @@
     },
     "bank_txn_0005": {
       "bank_txn_id": "bank_txn_0005",
-      "verdict": "refuse",
-      "plain": "Not posted. Every combination of the 1 payment in this settlement window was tested, and none adds up to this Rs 4,222.40 credit. The money is not accounted for by anything the engine can see.",
+      "verdict": "assign",
+      "plain": "This Rs 4,222.40 credit is one part of a settlement that arrived split across 2 bank lines (bank_txn_0008). Neither part accounts for the money on its own - together they come to Rs 9,175.46, which is exactly what 1 payment from Sunrise Textiles Ltd should have settled for after gateway fees and any TDS. The parts were posted as one group, because posting a half-settlement against a whole payment would be a wrong answer rather than a partial one.",
       "evidence": [
         {
           "kind": "bank_txn",
           "id": "bank_txn_0005",
           "label": "2026-06-08 credit of Rs 4,222.40",
           "href": "#/bank_txn/bank_txn_0005"
+        },
+        {
+          "kind": "payment",
+          "id": "pay_TWekRsHFrjfEBU",
+          "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
+          "href": "#/payment/pay_TWekRsHFrjfEBU"
+        },
+        {
+          "kind": "invoice",
+          "id": "INV-2026-1003",
+          "label": "INV-2026-1003 - Sunrise Textiles Ltd, Rs 9,420.00",
+          "href": "#/invoice/INV-2026-1003"
         }
       ],
       "transcript": [
@@ -537,20 +515,46 @@
           "seq": 6,
           "stage": "tier:tier3_subsetsum",
           "headline": "Combination search refused: no_subset_fits.",
-          "detail": "no subset of the 1 candidates sums to 422240p within 100p at k<=6",
-          "evidence": []
+          "detail": "no subset of the 1 candidates sums to 422240p within 100p at k<=6; the closest is 1 payment(s) -495304p away, listed below",
+          "evidence": [
+            {
+              "kind": "payment",
+              "id": "pay_TWekRsHFrjfEBU",
+              "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
+              "href": "#/payment/pay_TWekRsHFrjfEBU"
+            }
+          ]
         },
         {
           "seq": 7,
+          "stage": "resolve",
+          "headline": "No other credit wanted these payments.",
+          "detail": "The bid was uncontested and was granted in round 3 of the fixpoint loop.",
+          "evidence": []
+        },
+        {
+          "seq": 8,
           "stage": "verdict",
-          "headline": "REFUSED - sent to a human.",
-          "detail": "no subset of the 1 candidates sums to 422240p within 100p at k<=6",
+          "headline": "POSTED.",
+          "detail": "settled as part of a group of 2 credits totalling 917546p",
           "evidence": [
             {
               "kind": "bank_txn",
               "id": "bank_txn_0005",
               "label": "2026-06-08 credit of Rs 4,222.40",
               "href": "#/bank_txn/bank_txn_0005"
+            },
+            {
+              "kind": "payment",
+              "id": "pay_TWekRsHFrjfEBU",
+              "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
+              "href": "#/payment/pay_TWekRsHFrjfEBU"
+            },
+            {
+              "kind": "invoice",
+              "id": "INV-2026-1003",
+              "label": "INV-2026-1003 - Sunrise Textiles Ltd, Rs 9,420.00",
+              "href": "#/invoice/INV-2026-1003"
             }
           ]
         }
@@ -558,14 +562,26 @@
     },
     "bank_txn_0008": {
       "bank_txn_id": "bank_txn_0008",
-      "verdict": "refuse",
-      "plain": "Not posted. Every combination of the 1 payment in this settlement window was tested, and none adds up to this Rs 4,953.06 credit. The money is not accounted for by anything the engine can see.",
+      "verdict": "assign",
+      "plain": "This Rs 4,953.06 credit is one part of a settlement that arrived split across 2 bank lines (bank_txn_0005). Neither part accounts for the money on its own - together they come to Rs 9,175.46, which is exactly what 1 payment from Sunrise Textiles Ltd should have settled for after gateway fees and any TDS. The parts were posted as one group, because posting a half-settlement against a whole payment would be a wrong answer rather than a partial one.",
       "evidence": [
         {
           "kind": "bank_txn",
           "id": "bank_txn_0008",
           "label": "2026-06-08 credit of Rs 4,953.06",
           "href": "#/bank_txn/bank_txn_0008"
+        },
+        {
+          "kind": "payment",
+          "id": "pay_TWekRsHFrjfEBU",
+          "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
+          "href": "#/payment/pay_TWekRsHFrjfEBU"
+        },
+        {
+          "kind": "invoice",
+          "id": "INV-2026-1003",
+          "label": "INV-2026-1003 - Sunrise Textiles Ltd, Rs 9,420.00",
+          "href": "#/invoice/INV-2026-1003"
         }
       ],
       "transcript": [
@@ -615,20 +631,46 @@
           "seq": 6,
           "stage": "tier:tier3_subsetsum",
           "headline": "Combination search refused: no_subset_fits.",
-          "detail": "no subset of the 1 candidates sums to 495306p within 100p at k<=6",
-          "evidence": []
+          "detail": "no subset of the 1 candidates sums to 495306p within 100p at k<=6; the closest is 1 payment(s) -422238p away, listed below",
+          "evidence": [
+            {
+              "kind": "payment",
+              "id": "pay_TWekRsHFrjfEBU",
+              "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
+              "href": "#/payment/pay_TWekRsHFrjfEBU"
+            }
+          ]
         },
         {
           "seq": 7,
+          "stage": "resolve",
+          "headline": "No other credit wanted these payments.",
+          "detail": "The bid was uncontested and was granted in round 3 of the fixpoint loop.",
+          "evidence": []
+        },
+        {
+          "seq": 8,
           "stage": "verdict",
-          "headline": "REFUSED - sent to a human.",
-          "detail": "no subset of the 1 candidates sums to 495306p within 100p at k<=6",
+          "headline": "POSTED.",
+          "detail": "settled as part of a group of 2 credits totalling 917546p",
           "evidence": [
             {
               "kind": "bank_txn",
               "id": "bank_txn_0008",
               "label": "2026-06-08 credit of Rs 4,953.06",
               "href": "#/bank_txn/bank_txn_0008"
+            },
+            {
+              "kind": "payment",
+              "id": "pay_TWekRsHFrjfEBU",
+              "label": "Rs 9,420.00 from Sunrise Textiles Ltd for INV-2026-1003",
+              "href": "#/payment/pay_TWekRsHFrjfEBU"
+            },
+            {
+              "kind": "invoice",
+              "id": "INV-2026-1003",
+              "label": "INV-2026-1003 - Sunrise Textiles Ltd, Rs 9,420.00",
+              "href": "#/invoice/INV-2026-1003"
             }
           ]
         }
@@ -5706,6 +5748,18 @@
           "id": "bank_txn_0050",
           "label": "2026-07-06 credit of Rs 45,673.58",
           "href": "#/bank_txn/bank_txn_0050"
+        },
+        {
+          "kind": "payment",
+          "id": "pay_SYN000618480",
+          "label": "Rs 46,896.00 from Orchid Foods Pvt Ltd for INV-2026-1058",
+          "href": "#/payment/pay_SYN000618480"
+        },
+        {
+          "kind": "invoice",
+          "id": "INV-2026-1058",
+          "label": "INV-2026-1058 - Orchid Foods Pvt Ltd, Rs 46,896.00",
+          "href": "#/invoice/INV-2026-1058"
         }
       ],
       "transcript": [
@@ -5755,20 +5809,39 @@
           "seq": 6,
           "stage": "tier:tier3_subsetsum",
           "headline": "Combination search refused: no_subset_fits.",
-          "detail": "no subset of the 1 candidates sums to 4567358p within 100p at k<=6",
-          "evidence": []
+          "detail": "no subset of the 1 candidates sums to 4567358p within 100p at k<=6; the closest is 1 payment(s) -498p away, listed below",
+          "evidence": [
+            {
+              "kind": "payment",
+              "id": "pay_SYN000618480",
+              "label": "Rs 46,896.00 from Orchid Foods Pvt Ltd for INV-2026-1058",
+              "href": "#/payment/pay_SYN000618480"
+            }
+          ]
         },
         {
           "seq": 7,
           "stage": "verdict",
           "headline": "REFUSED - sent to a human.",
-          "detail": "no subset of the 1 candidates sums to 4567358p within 100p at k<=6",
+          "detail": "no subset of the 1 candidates sums to 4567358p within 100p at k<=6; the closest is 1 payment(s) -498p away, listed below",
           "evidence": [
             {
               "kind": "bank_txn",
               "id": "bank_txn_0050",
               "label": "2026-07-06 credit of Rs 45,673.58",
               "href": "#/bank_txn/bank_txn_0050"
+            },
+            {
+              "kind": "payment",
+              "id": "pay_SYN000618480",
+              "label": "Rs 46,896.00 from Orchid Foods Pvt Ltd for INV-2026-1058",
+              "href": "#/payment/pay_SYN000618480"
+            },
+            {
+              "kind": "invoice",
+              "id": "INV-2026-1058",
+              "label": "INV-2026-1058 - Orchid Foods Pvt Ltd, Rs 46,896.00",
+              "href": "#/invoice/INV-2026-1058"
             }
           ]
         }
@@ -10392,6 +10465,18 @@
           "id": "bank_txn_0089",
           "label": "2026-08-05 credit of Rs 21,044.99",
           "href": "#/bank_txn/bank_txn_0089"
+        },
+        {
+          "kind": "payment",
+          "id": "pay_SYN001195579",
+          "label": "Rs 21,618.00 from GREENFIELD ORGANIC for INV-2026-1120",
+          "href": "#/payment/pay_SYN001195579"
+        },
+        {
+          "kind": "invoice",
+          "id": "INV-2026-1120",
+          "label": "INV-2026-1120 - GREENFIELD ORGANIC, Rs 21,618.00",
+          "href": "#/invoice/INV-2026-1120"
         }
       ],
       "transcript": [
@@ -10441,20 +10526,39 @@
           "seq": 6,
           "stage": "tier:tier3_subsetsum",
           "headline": "Combination search refused: no_subset_fits.",
-          "detail": "no subset of the 2 candidates sums to 2104499p within 100p at k<=6",
-          "evidence": []
+          "detail": "no subset of the 2 candidates sums to 2104499p within 100p at k<=6; the closest is 1 payment(s) -1178p away, listed below",
+          "evidence": [
+            {
+              "kind": "payment",
+              "id": "pay_SYN001195579",
+              "label": "Rs 21,618.00 from GREENFIELD ORGANIC for INV-2026-1120",
+              "href": "#/payment/pay_SYN001195579"
+            }
+          ]
         },
         {
           "seq": 7,
           "stage": "verdict",
           "headline": "REFUSED - sent to a human.",
-          "detail": "no subset of the 2 candidates sums to 2104499p within 100p at k<=6",
+          "detail": "no subset of the 2 candidates sums to 2104499p within 100p at k<=6; the closest is 1 payment(s) -1178p away, listed below",
           "evidence": [
             {
               "kind": "bank_txn",
               "id": "bank_txn_0089",
               "label": "2026-08-05 credit of Rs 21,044.99",
               "href": "#/bank_txn/bank_txn_0089"
+            },
+            {
+              "kind": "payment",
+              "id": "pay_SYN001195579",
+              "label": "Rs 21,618.00 from GREENFIELD ORGANIC for INV-2026-1120",
+              "href": "#/payment/pay_SYN001195579"
+            },
+            {
+              "kind": "invoice",
+              "id": "INV-2026-1120",
+              "label": "INV-2026-1120 - GREENFIELD ORGANIC, Rs 21,618.00",
+              "href": "#/invoice/INV-2026-1120"
             }
           ]
         }
@@ -17286,59 +17390,134 @@
     "bank_credits": 141,
     "invoices": 187,
     "assigned": 126,
-    "refused": 15,
+    "refused": 11,
     "no_candidate": 0,
-    "rupees_at_risk": 301909.22
+    "rupees_at_risk": 268277.57
   },
-  "not_examined": {
-    "debit_lines": 6,
+  "debits": {
+    "lines": 6,
     "rupees": 166732.77,
-    "reason": "The engine reads credit transactions only. Money leaving the account -- chargebacks, reversals, bank fees -- is outside its model and is neither matched nor refused.",
-    "lines": [
+    "reversals_identified": 6,
+    "rupees_reversed": 166732.77,
+    "unexplained": 0,
+    "rupees_unexplained": 0.0,
+    "reason": "Money leaving the account. Each debit is tied to the settlement it reverses -- same amount, carrying that settlement's reference, dated after it, and uniquely so -- or reported as unexplained. A reversal does not undo the settlement it reverses: both events happened, so the reconciled total is reported gross and net.",
+    "rows": [
       {
         "bank_txn_id": "bank_txn_0044",
         "txn_date": "2026-07-05",
         "narration": "CHARGEBACK REV ICICR20389267501 DISPUTE",
         "ref_no": "ICICR20389267501",
-        "rupees": 41102.54
+        "rupees": 41102.54,
+        "reverses": "bank_txn_0035",
+        "payment_ids": [
+          "pay_SYN000519528"
+        ],
+        "status": "reversal",
+        "detail": "reverses bank_txn_0035: same amount (4110254p), carries its reference ICICR20389267501, and is dated 2026-07-05 against the settlement's 2026-06-29"
       },
       {
         "bank_txn_id": "bank_txn_0057",
         "txn_date": "2026-07-10",
         "narration": "CHARGEBACK REV PUNBR94445115394 DISPUTE",
         "ref_no": "PUNBR94445115394",
-        "rupees": 39881.09
+        "rupees": 39881.09,
+        "reverses": "bank_txn_0048",
+        "payment_ids": [
+          "pay_SYN000654634"
+        ],
+        "status": "reversal",
+        "detail": "reverses bank_txn_0048: same amount (3988109p), carries its reference PUNBR94445115394, and is dated 2026-07-10 against the settlement's 2026-07-06"
       },
       {
         "bank_txn_id": "bank_txn_0145",
         "txn_date": "2026-09-11",
         "narration": "CHARGEBACK REV HDFCN41860995025 DISPUTE",
         "ref_no": "HDFCN41860995025",
-        "rupees": 28876.88
+        "rupees": 28876.88,
+        "reverses": "bank_txn_0140",
+        "payment_ids": [
+          "pay_SYN001929727"
+        ],
+        "status": "reversal",
+        "detail": "reverses bank_txn_0140: same amount (2887688p), carries its reference HDFCN41860995025, and is dated 2026-09-11 against the settlement's 2026-09-08"
       },
       {
         "bank_txn_id": "bank_txn_0146",
         "txn_date": "2026-09-13",
         "narration": "CHARGEBACK REV UTIBP08760386266 DISPUTE",
         "ref_no": "UTIBP08760386266",
-        "rupees": 20261.98
+        "rupees": 20261.98,
+        "reverses": "bank_txn_0136",
+        "payment_ids": [
+          "pay_SYN001815161"
+        ],
+        "status": "reversal",
+        "detail": "reverses bank_txn_0136: same amount (2026198p), carries its reference UTIBP08760386266, and is dated 2026-09-13 against the settlement's 2026-09-07"
       },
       {
         "bank_txn_id": "bank_txn_0070",
         "txn_date": "2026-07-16",
         "narration": "CHARGEBACK REV UTIBP73259920214 DISPUTE",
         "ref_no": "UTIBP73259920214",
-        "rupees": 18360.66
+        "rupees": 18360.66,
+        "reverses": "bank_txn_0062",
+        "payment_ids": [
+          "pay_SYN000803240"
+        ],
+        "status": "reversal",
+        "detail": "reverses bank_txn_0062: same amount (1836066p), carries its reference UTIBP73259920214, and is dated 2026-07-16 against the settlement's 2026-07-13"
       },
       {
         "bank_txn_id": "bank_txn_0056",
         "txn_date": "2026-07-10",
         "narration": "CHARGEBACK REV KKBKH78913095583 DISPUTE",
         "ref_no": "KKBKH78913095583",
-        "rupees": 18249.62
+        "rupees": 18249.62,
+        "reverses": "bank_txn_0046",
+        "payment_ids": [
+          "pay_SYN000664524"
+        ],
+        "status": "reversal",
+        "detail": "reverses bank_txn_0046: same amount (1824962p), carries its reference KKBKH78913095583, and is dated 2026-07-10 against the settlement's 2026-07-06"
       }
     ]
   },
+  "not_examined": {
+    "lines": 0,
+    "rupees": 0.0,
+    "reason": "Bank lines that reached no verdict of any kind. Derived by subtraction from what was actually decided, so a future blind spot appears here without anyone having to suspect one."
+  },
+  "settlement_groups": [
+    {
+      "bank_txn_ids": [
+        "bank_txn_0003",
+        "bank_txn_0004"
+      ],
+      "payment_ids": [
+        "pay_SYN000057288"
+      ],
+      "invoice_nos": [],
+      "rupees": 24456.19,
+      "residual_paise": 0,
+      "permutation_stability": 1.0
+    },
+    {
+      "bank_txn_ids": [
+        "bank_txn_0005",
+        "bank_txn_0008"
+      ],
+      "payment_ids": [
+        "pay_TWekRsHFrjfEBU"
+      ],
+      "invoice_nos": [
+        "INV-2026-1003"
+      ],
+      "rupees": 9175.46,
+      "residual_paise": 0,
+      "permutation_stability": 1.0
+    }
+  ],
   "tolerances": {
     "tol_abs_paise": 100,
     "tol_rel_bps": 0,
@@ -17354,7 +17533,8 @@
   "tier_counts": {
     "tier1_reference": 37,
     "tier2_amount_date": 69,
-    "tier3_subsetsum": 20
+    "tier3_subsetsum": 20,
+    "layer2b_group": 2
   },
   "exceptions": [
     {
@@ -17386,7 +17566,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T02:53:52+00:00",
+        "due_at": "2026-09-05T04:03:23+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17400,8 +17580,19 @@
       "reference": "KKBKH50259179672",
       "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
       "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
-      "engine_reason": "no subset of the 1 candidates sums to 4567358p within 100p at k<=6",
-      "candidates": [],
+      "engine_reason": "no subset of the 1 candidates sums to 4567358p within 100p at k<=6; the closest is 1 payment(s) -498p away, listed below",
+      "candidates": [
+        {
+          "payment_ids": [
+            "pay_SYN000618480"
+          ],
+          "rupees": 45678.58,
+          "residual_paise": -498,
+          "customers": [
+            "Orchid Foods Pvt Ltd"
+          ]
+        }
+      ],
       "confidence": null,
       "routing": {
         "queue": "investigations",
@@ -17409,7 +17600,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T14:53:52+00:00",
+        "due_at": "2026-09-05T16:03:23+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17443,7 +17634,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T02:53:52+00:00",
+        "due_at": "2026-09-05T04:03:23+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17477,7 +17668,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T02:53:52+00:00",
+        "due_at": "2026-09-05T04:03:23+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17511,7 +17702,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T14:53:52+00:00",
+        "due_at": "2026-09-05T16:03:23+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17525,41 +17716,16 @@
       "reference": "AXISP62419861700",
       "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
       "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
-      "engine_reason": "no subset of the 2 candidates sums to 2104499p within 100p at k<=6",
-      "candidates": [],
-      "confidence": null,
-      "routing": {
-        "queue": "investigations",
-        "queue_label": "Investigations \u2014 money not accounted for",
-        "owner": "Reconciliation lead",
-        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
-        "sla_hours": 24,
-        "due_at": "2026-09-05T14:53:52+00:00",
-        "material": true,
-        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
-      }
-    },
-    {
-      "bank_txn_id": "bank_txn_0004",
-      "category": "no_subset_fits",
-      "rupees_at_risk": 13168.37,
-      "txn_date": "2026-06-06",
-      "narration": "RAZORPAY SETTLEMENT setl_KqPpowfwOFbJhV PART 2 OF 2",
-      "reference": "UTIBP91060626569",
-      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
-      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
-      "engine_reason": "no subset of the 4 candidates sums to 1316837p within 100p at k<=6; the closest is 2 payment(s) +89543p away, listed below",
+      "engine_reason": "no subset of the 2 candidates sums to 2104499p within 100p at k<=6; the closest is 1 payment(s) -1178p away, listed below",
       "candidates": [
         {
           "payment_ids": [
-            "pay_TWetruAwIULxPh",
-            "pay_TWekRsHFrjfEBU"
+            "pay_SYN001195579"
           ],
-          "rupees": 12272.9,
-          "residual_paise": 89543,
+          "rupees": 21056.79,
+          "residual_paise": -1178,
           "customers": [
-            "Sunrise Textile Limited",
-            "Sunrise Textiles Ltd"
+            "Greenfield Organics Pvt Ltd"
           ]
         }
       ],
@@ -17570,41 +17736,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T14:53:52+00:00",
-        "material": true,
-        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
-      }
-    },
-    {
-      "bank_txn_id": "bank_txn_0003",
-      "category": "no_subset_fits",
-      "rupees_at_risk": 11287.82,
-      "txn_date": "2026-06-06",
-      "narration": "RAZORPAY SETTLEMENT setl_KqPpowfwOFbJhV PART 1 OF 2",
-      "reference": "UTIBP88628414531",
-      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
-      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
-      "engine_reason": "no subset of the 4 candidates sums to 1128782p within 100p at k<=6; the closest is 1 payment(s) +211234p away, listed below",
-      "candidates": [
-        {
-          "payment_ids": [
-            "pay_TWekRsHFrjfEBU"
-          ],
-          "rupees": 9175.46,
-          "residual_paise": 211234,
-          "customers": [
-            "Sunrise Textiles Ltd"
-          ]
-        }
-      ],
-      "confidence": null,
-      "routing": {
-        "queue": "investigations",
-        "queue_label": "Investigations \u2014 money not accounted for",
-        "owner": "Reconciliation lead",
-        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
-        "sla_hours": 24,
-        "due_at": "2026-09-05T14:53:52+00:00",
+        "due_at": "2026-09-05T16:03:23+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17638,7 +17770,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T02:53:52+00:00",
+        "due_at": "2026-09-05T04:03:23+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17672,7 +17804,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T02:53:52+00:00",
+        "due_at": "2026-09-05T04:03:23+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17706,54 +17838,8 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T14:53:52+00:00",
+        "due_at": "2026-09-05T16:03:23+00:00",
         "material": true,
-        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
-      }
-    },
-    {
-      "bank_txn_id": "bank_txn_0008",
-      "category": "no_subset_fits",
-      "rupees_at_risk": 4953.06,
-      "txn_date": "2026-06-08",
-      "narration": "RAZORPAY SETTLEMENT setl_g3m4bPmmj6FV86 PART 2 OF 2",
-      "reference": "HDFCN11335953218",
-      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
-      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
-      "engine_reason": "no subset of the 1 candidates sums to 495306p within 100p at k<=6",
-      "candidates": [],
-      "confidence": null,
-      "routing": {
-        "queue": "investigations",
-        "queue_label": "Investigations \u2014 money not accounted for",
-        "owner": "Reconciliation lead",
-        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
-        "sla_hours": 48,
-        "due_at": "2026-09-06T14:53:52+00:00",
-        "material": false,
-        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
-      }
-    },
-    {
-      "bank_txn_id": "bank_txn_0005",
-      "category": "no_subset_fits",
-      "rupees_at_risk": 4222.4,
-      "txn_date": "2026-06-08",
-      "narration": "RAZORPAY SETTLEMENT setl_g3m4bPmmj6FV86 PART 1 OF 2",
-      "reference": "KKBKH30180936761",
-      "why": "Every combination of payments in this settlement window was tested and none of them adds up to this credit. The money is not accounted for by anything the engine can see.",
-      "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
-      "engine_reason": "no subset of the 1 candidates sums to 422240p within 100p at k<=6",
-      "candidates": [],
-      "confidence": null,
-      "routing": {
-        "queue": "investigations",
-        "queue_label": "Investigations \u2014 money not accounted for",
-        "owner": "Reconciliation lead",
-        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
-        "sla_hours": 48,
-        "due_at": "2026-09-06T14:53:52+00:00",
-        "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
     },
@@ -17786,7 +17872,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T14:53:52+00:00",
+        "due_at": "2026-09-06T16:03:23+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17832,7 +17918,7 @@
         "owner": "Treasury analyst",
         "action": "Obtain the remittance advice and confirm which payments this credit covers.",
         "sla_hours": 8,
-        "due_at": "2026-09-04T22:53:52+00:00",
+        "due_at": "2026-09-05T00:03:23+00:00",
         "material": false,
         "rationale": "The engine found more than one arithmetically valid answer and refused to choose. A remittance advice settles it in one lookup, so this is the fastest queue on the board."
       }
@@ -17898,9 +17984,9 @@
         "sla_hours": 48,
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing.",
-        "count": 9,
-        "material_count": 6,
-        "rupees_at_risk": 150107.61,
+        "count": 5,
+        "material_count": 4,
+        "rupees_at_risk": 116475.96,
         "categories": [
           "no_subset_fits",
           "unexplained_residual"
@@ -17909,11 +17995,7 @@
           "bank_txn_0050",
           "bank_txn_0135",
           "bank_txn_0089",
-          "bank_txn_0004",
-          "bank_txn_0003",
           "bank_txn_0038",
-          "bank_txn_0008",
-          "bank_txn_0005",
           "bank_txn_0064"
         ]
       },
@@ -17931,8 +18013,8 @@
         "bank_txn_ids": []
       }
     ],
-    "total_exceptions": 15,
-    "total_rupees_at_risk": 301909.22,
+    "total_exceptions": 11,
+    "total_rupees_at_risk": 268277.57,
     "note": "Category, exposure and candidates are MEASURED by the engine. Queue, owner and SLA are configured defaults -- nothing here fits or validates them against an org chart. Materiality (PCAOB AS 2315) halves the clock and is the one input that is not a choice."
   },
   "reconciled": {
@@ -17941,20 +18023,31 @@
       "payments": 200,
       "bank_credits": 141,
       "invoices": 187,
-      "bank_debits_not_examined": 6
+      "bank_debits": 6
     },
-    "credits_reconciled": 126,
+    "credits_reconciled": 130,
     "credits_total": 141,
-    "payments_reconciled": 172,
+    "payments_reconciled": 174,
     "payments_capturable": 194,
-    "invoices_reconciled": 161,
+    "invoices_reconciled": 162,
     "invoices_total": 187,
-    "paise_reconciled": 363718279,
-    "rupees_reconciled": 3637182.79,
+    "paise_reconciled": 367081444,
+    "rupees_reconciled": 3670814.44,
     "settlements_merged": 20,
     "payments_inside_merged_settlements": 66,
-    "verified_stable": 126,
-    "exceptions": 15
+    "verified_stable": 130,
+    "exceptions": 11,
+    "settlement_groups": 2,
+    "credits_in_groups": 4,
+    "payments_in_groups": 2,
+    "paise_in_groups": 3363165,
+    "reversals": 6,
+    "paise_reversed": 16673277,
+    "rupees_reversed": 166732.77,
+    "paise_reconciled_net": 350408167,
+    "rupees_reconciled_net": 3504081.67,
+    "unexplained_debits": 0,
+    "paise_unexplained_debits": 0
   },
   "assignments": [
     {
@@ -20305,7 +20398,7 @@
         "name": "MR1",
         "kind": "metamorphic",
         "statement": "shuffling input order must not change any assignment",
-        "checked": 126,
+        "checked": 130,
         "violations": 0,
         "passed": true
       },
@@ -20321,23 +20414,23 @@
         "name": "MR3",
         "kind": "metamorphic",
         "statement": "adding a constructively unmatchable record must not change any existing match",
-        "checked": 126,
+        "checked": 130,
         "violations": 0,
         "passed": true
       },
       {
         "name": "MR4",
         "kind": "invariant",
-        "statement": "assigned payments + MDR + TDS must equal the bank credit within tolerance",
-        "checked": 126,
+        "statement": "assigned payments + MDR + TDS must equal the bank credit within tolerance, per credit and per settlement group",
+        "checked": 128,
         "violations": 0,
         "passed": true
       },
       {
         "name": "MR5",
         "kind": "invariant",
-        "statement": "every credit and every captured payment is accounted for exactly once",
-        "checked": 335,
+        "statement": "every credit, every debit and every captured payment is accounted for exactly once",
+        "checked": 341,
         "violations": 0,
         "passed": true
       },
@@ -20352,7 +20445,7 @@
     ],
     "permutation_gate": {
       "passes": 8,
-      "txns_observed": 126,
+      "txns_observed": 130,
       "unstable": 0,
       "min_stability": 1.0,
       "mean_stability": 1.0
@@ -20360,5 +20453,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 920
+  "throughput_records_per_s": 801
 }

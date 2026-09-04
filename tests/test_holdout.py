@@ -217,4 +217,27 @@ def test_the_holdout_lives_outside_the_reported_batch():
 
 # Content hash of the frozen holdout. Deliberately a literal: a digest computed at
 # runtime would pass no matter what the set contained.
-FROZEN_DIGEST = "71e61d1a4ff70b97285b9d5926e1fcfc4c27e4d4244e59a32c429fb9d9a3e7ce"
+#
+# CHANGED ONCE, 2026-09-04, for O8 -- the settlement-group model. Recorded here rather
+# than only in a commit message, because this is the line a reader checks.
+#
+# What changed: **the labels only**. `split_settlement` links used to say
+# `expected_verdict="refuse"` because a part-settlement was outside the engine's model
+# and refusing was the only correct verdict available. Layer 2b makes the relation
+# expressible, so a refusal is no longer the right answer and a holdout still asserting
+# it would have scored the engine down for doing the work -- it did, at 0.9630 precision
+# on four "wrong" assignments that were all correct.
+#
+# What did NOT change: every input the engine reads. `payments.json`,
+# `bank_statement.csv`, `invoices.csv` and `payer_directory.csv` are byte-identical
+# before and after, which `git diff` on the rebuild commit shows directly. Keeping them
+# so took a deliberate fix -- newly-assignable split links had entered the drift
+# sampler's population and re-sorted the statement (see `holdout.shift`). The stress
+# applied to this set is exactly the stress it was frozen with.
+#
+# Why this is not the thing the freeze forbids: the freeze exists to stop a set being
+# rebuilt in response to a NUMBER. This rebuild is in response to a MODEL change, it was
+# decided before the holdout was scored, and it makes the engine's job no easier -- the
+# same four credits must now be grouped correctly to earn the same credit they used to
+# earn by being refused.
+FROZEN_DIGEST = "5f4e3f8593f0d3b8263ff3df88701a267231cff4dda9e8924e7db39b71a10571"

@@ -1996,3 +1996,149 @@ is fine"* had been written while the loader was broken. **A performance claim ca
 against broken input is broken too.** Capped at `BENCHREC_SAMPLE = 40_000`, with the cap
 named in the module rather than hidden in a default, so anyone reading the ECE knows what
 it was computed over.
+
+---
+
+## 2026-09-04-09 — two model limitations lifted, and two defects they had been hiding
+
+**Timestamp:** 2026-09-04, working O8 — the entry in `OUTSTANDING_TASKS` that had been
+sitting there as *"recorded not scheduled"*.
+
+**What was found.** O8 named two relations as outside the engine's model:
+`split_settlement` (one payment arriving as several bank credits) and `chargeback_debit`
+(the engine read `is_credit` transactions and nothing else). `ARCHITECTURE.md` argued
+that lifting either would require a different engine. **One of those arguments was
+wrong on its own terms, and the other was right about the shape and wrong about the
+work.**
+
+For split settlements the document predicted the claim unit would have to become
+`(payment, fraction)` and Layer 2's uniqueness test would have to enumerate over
+partitions rather than subsets. The diagnosis was right — the claim unit was the problem
+— and the prescription was not. A part-settlement is a **group** relation, and the group
+balances exactly:
+
+    credit_1 + credit_2  ==  net(payment)      to the paisa, within fee tolerance
+
+Fractions are only needed to post *half a payment*, which the same document already
+argued is a wrong answer rather than a partial one. Raising the unit from one credit to a
+group of credits expresses the relation with integer arithmetic and asks the uniqueness
+question Layer 2 already answers. **The simpler model had been available the whole time,
+behind an assumption nobody had tested.**
+
+For chargebacks the document said the engine would have to *un-post* a match it had
+already made, and that conservation would have to balance across time rather than within
+a batch. The first half is false: the settlement happened and the claw-back happened,
+both are facts, and erasing the first would leave the books describing a batch that never
+occurred. The assignment stands, the reversal is a later entry against the same credit,
+MR5's accounting is untouched, and the batch reports reconciled **gross and net**.
+Conservation across time by addition, not by deletion.
+
+**What it moved.** Primary batch: match rate 88.66% → 89.69%, exceptions 15 → 11,
+assignments 126 → 130, reachable ceiling 91.24% → 92.27%. Holdout: 84.54% → 85.57%,
+exceptions 23 → 19, assignments 104 → 108. **Precision 1.0000 on both, before and after,
+zero wrong assignments.** The agent's contribution did not move — still 3 closed on the
+reported batch and 1 on the holdout, same rupees — because it closes name conflicts and
+this was an arithmetic relation.
+
+---
+
+### The first defect this uncovered: the largest exception was empty-handed again
+
+`tests/test_tier3_subsetsum.py::test_a_no_subset_fits_refusal_now_carries_what_it_declined`
+started failing. It asserts the fix from `REVIEW.md` P1-3 — a refusal saying "nothing
+accounts for this credit" must name the closest subset it declined, because the count
+alone is something an operator can do nothing with.
+
+**The test had been passing on the split settlements.** They were `no_subset_fits`
+refusals that did carry candidates, and they supplied the entire population the assertion
+looked at. Resolving them as groups left the two refusals that never had candidates, and
+one of them is the largest credit in the batch.
+
+Diagnosed by tracing the search. There are two prunes, and only one of them recorded
+before pruning:
+
+* **Overshoot** — records a near miss first, but only within `2 * tol`. On the failing
+  credit the remaining payment overshot by **498 paise on a ₹45,673 credit**. Four rupees
+  ninety-eight, which is a bank charge in all but name, suppressed for being outside
+  twice a 100-paise tolerance.
+* **Unreachable** — recorded nothing at all before breaking.
+
+**Fixed with a second tracker, deliberately not by widening the threshold.** `best_miss`
+is EVIDENCE: it feeds `uniqueness_margin`, so it is narrow on purpose, and widening it
+would have tightened margins on assignments that are not in fact contested — potentially
+turning correct assignments into refusals to make an exception message better. The new
+`nearest_ids` / `nearest_residual` are REPORTING only, recorded by both prunes at any
+distance, read by nothing but the exception text. Verified: every uniqueness margin in
+the batch is unchanged (`{0.82, 1.0}` before and after).
+
+A second bug fell out while fixing it: `SearchResult` was being constructed
+**positionally**, so inserting a field in the middle of the dataclass silently reassigned
+`pool_size`, `capped` and `nodes`. All ints and bools, so nothing complained; the
+refusal would have reported `capped` as a residual. Switched to keyword arguments.
+
+---
+
+### The second: the auditor failed its own engine's correct output
+
+`verify-foreign`'s self-audit — the credibility check for verification-as-a-service —
+started reporting **four `double_posted` and two `conservation_fails` findings against
+the engine's own correct groups**. Survival fell to 0.9692 on a run with nothing wrong
+in it.
+
+Both findings were the auditor faithfully applying a model in which a payment belongs to
+exactly one credit. Two credits naming the same payment *is* a double-post under that
+model, and each credit *is* only half the payment. The claimant had outgrown the model
+the auditor could express.
+
+**An auditor that cannot express the relation a claimant is making does not audit it; it
+rejects it for not being something else.** So `ForeignClaim` gained `group_with` — the
+other credits settling the same payment set — and the checks are stated over the group:
+double-posting is judged across groups rather than across credits, conservation over the
+group's total, and the candidate pool is the union of the members' windows rather than
+one member's.
+
+**The way both call sites had built claims is the part worth keeping.** Each did
+`ForeignClaim(t, p) for t, p in out.assignment_map.items()` — the obvious construction,
+which silently drops the grouping. The fix is `foreign.claims_from(out)`, one helper, so
+the self-audit and its test fixture cannot drift apart. The test whose entire job is to
+catch the auditor rejecting good claims was itself building the claims wrongly.
+
+Recall against the naive matcher is still **1.0000** — 65 wrong claims caught, 0 missed.
+
+---
+
+### What the rebuild cost, and how it was kept honest
+
+**The holdout had to be relabelled**, because a set still asserting `refuse` for a
+relation the engine can now settle scored four correct assignments as wrong — 0.9630
+precision on a run with no errors in it. `tests/test_holdout.py` pins the set's content
+hash precisely so this cannot happen quietly.
+
+The first rebuild changed the holdout's **bank statement**, which would have made it a
+different evaluation set — indistinguishable, from the outside, from one rebuilt after a
+disappointing number. Cause: split links became `expected_verdict="assign"`, which put
+four new entries into the population `rng.sample` draws from when choosing which credits
+to drift past the lookback, which changed the dates, which re-sorted the file.
+
+Fixed by excluding split settlements from the drift sampler — defensible on the merits
+(drifting one half of a part-settlement tests the group resolver's date span, a compound
+stress the holdout does not declare) and it restores the frozen inputs byte-identically.
+`FROZEN_DIGEST` was updated in the same commit with the full reason written beside it:
+**labels changed, inputs did not**, and the engine's job got harder rather than easier —
+the same four credits must now be grouped correctly to earn the credit they used to earn
+by being refused.
+
+**Cost.** About five hours, most of it in the blast radius rather than the two new
+modules: 26 tests failed on the first full run after the engine change, of which 5 were
+real defects and the rest were assertions encoding a model that had just been superseded.
+
+**The lesson, and it is the argument for having written O8 down at all.** Both relations
+were places where the engine *refused correctly* — the metrics said it declined, ground
+truth said declining was right, and nothing anywhere said it could not have done
+otherwise. That is the easiest possible place for an unmodelled relation to hide. Naming
+them in `ARCHITECTURE.md` as limitations rather than letting the refusals look like
+success is what made them findable a month later, and the reasoning recorded there is
+what made the wrong half of the argument visible enough to overturn. **A limitation
+written down with its reasoning is a to-do item; a correct-looking refusal is nothing at
+all.** Two new ones are named in its place: a settlement split more than three ways, and
+a partial chargeback.

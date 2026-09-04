@@ -165,16 +165,24 @@ Details, including the four name-matching bugs found by reading its output, in
 derived from ground truth rather than carried as a constant.
 
 ```
-match rate            88.66%     172/194 captured payments assigned
-reachable ceiling     91.24%     177/194 payments ground truth says CAN be matched
+match rate            89.69%     174/194 captured payments assigned
+reachable ceiling     92.27%     179/194 payments ground truth says CAN be matched
 short of the ceiling       5     payments the engine could have matched and did not
 ```
 
-**100% is not on offer, and saying so is not a hedge.** Of the 22 captured payments left
-unmatched, **17 are unreachable by construction** — six never settled, so no bank credit
-exists to match them, and the rest belong to relations the engine does not model
-(`split_settlement`, `bank_charge`), where refusing is the correct output. Counting those
-against the engine scores it for failing to do something nobody claims it can do.
+**100% is not on offer, and saying so is not a hedge.** Of the 20 captured payments left
+unmatched, **15 are unreachable by construction** — six never settled, so no bank credit
+exists to match them, five carry a `bank_charge` outside tolerance, and four are the
+hand-placed ambiguity case where refusing is the designed answer. Counting those against
+the engine scores it for failing to do something nobody claims it can do.
+
+**`split_settlement` used to be on that list and no longer is.** One payment arriving as
+two bank credits was outside the model — `claimed` is a set, so a payment is taken once,
+and no tier could ask a question a half-settlement has an answer to. Layer 2b raises the
+claim unit from one credit to a *group* of credits; the two halves balance exactly, and
+both the match rate and the ceiling moved because of it. The ceiling moving with it is
+the honest direction: the engine gets no free credit, it has to do the work to keep the
+same distance from a target that just got harder.
 
 **The engine is 5 payments from the maximum this data permits, and all 5 share one
 cause** — `third_party_payer`, every one at residual `+0p` with a Fellegi–Sunter field
@@ -182,7 +190,7 @@ weight of `-3.26`. The amount channel is exact; the name channel disagrees becau
 parent company settled a subsidiary's invoice. `run.py agent` closes 3 of them by
 supplying the authorised-payer relationship as evidence and re-running the engine.
 
-On the shifted holdout the ceiling is **92.27%** and the engine reaches 84.54% — 15
+On the shifted holdout the ceiling is **93.30%** and the engine reaches 85.57% — 15
 short, which is what a distribution it was not built against costs.
 
 ---
@@ -200,10 +208,11 @@ rather than relabelled.
 
 | | primary | shifted holdout |
 |---|---:|---:|
-| match rate | 88.66% | **84.54%** |
+| match rate | 89.69% | **85.57%** |
 | match precision | **1.0000** | **1.0000** |
-| refusal rate | 10.64% | **18.11%** |
-| refusal correctness | 66.67% | 39.13% |
+| assignments behind it | 130 | **108** |
+| 95% CI lower bound | 97.20% | **96.64%** |
+| refusal rate | 7.80% | **14.96%** |
 
 **Coverage falls, correctness does not.** Under a distribution it was not built against
 the engine declines more work rather than getting more of it wrong. That is the whole
@@ -277,10 +286,12 @@ No real card, account, or credential was used at any point.
 
 ### Injected defects
 
-**Sixteen categories.** Fifteen carry a ground-truth label; `chargeback_debit`
-deliberately carries none, because the engine structurally cannot produce a verdict for a
-debit and inventing one would score it against a permanent, unclosable miss. It is
-disclosed instead — see *not examined*, below.
+**Sixteen categories**, all carrying a ground-truth label. `chargeback_debit`
+deliberately carried none until 2026-09-04, because the engine structurally could not
+produce a verdict for a debit and inventing one would have scored it against a permanent,
+unclosable miss. Layer 2c reads debits and ties each to the settlement it reverses, so
+`reverse` is a verdict it can now produce and withholding the label would hide real work
+instead of avoiding a fake miss.
 
 The original nine: MDR/gateway fee deduction · TDS deduction · T+1 and T+2 settlement
 date drift · one bank credit covering N payments · partial payment · duplicate UTR ·
@@ -310,12 +321,15 @@ Both are labelled `refuse`, and in both cases refusing is correct — posting a
 part-settlement against a whole payment would be a wrong answer, not a partial one. But
 the coverage they cost is real, so they are named as
 [limitations](docs/ARCHITECTURE.md#two-named-limitations-of-the-model) rather than left
-to hide behind a correct-looking refusal. Ground truth creates **no link for a debit**:
-scoring the engine against a verdict it structurally cannot produce is theatre, so the
-metrics block discloses the unexamined lines and their value instead.
+to hide behind a correct-looking refusal.
 
 The statement contained **zero debits** until `chargeback_debit` existed, which is
-exactly why that blind spot went unnoticed.
+exactly why that blind spot went unnoticed — the engine had never been shown the half of
+a bank statement it ignored by construction. It reads them now: **6 of 6** chargebacks on
+the reported batch are tied to the settlement they reverse, on amount, carried reference
+and ordering, uniquely or not at all. A reversal does not undo the settlement it reverses
+— both events happened — so the batch reports reconciled **gross and net** rather than
+silently as one number.
 
 **On `third_party_payer`, a claim was made and then withdrawn.** An earlier version of
 this README said the payments that reconcile are the ones quoting an invoice reference.
@@ -505,11 +519,16 @@ shape of this feature:
 
 | | reported | shifted holdout |
 |---|--:|--:|
-| `amount_name_conflict` exceptions | 5 | 10 |
-| closed by the register | **3** (60%) | **1** (10%) |
-| match rate | 88.66% → 90.21% | 84.54% → 85.05% |
+| exceptions in the baseline | 11 | 19 |
+| closed by the register | **3** | **1** |
+| match rate | 89.69% → 91.24% | 85.57% → 86.08% |
 | released | ₹66,357.55 | ₹872.74 |
 | precision | 1.0000 → 1.0000 | 1.0000 → 1.0000 |
+| wrong assignments | 0 → 0 | 0 → 0 |
+
+*(Reproduce with `run.py agent --dataset <batch> --offline --no-llm`. Both flags matter:
+without `--no-llm` the engine picks up a live model when a key is in the environment and
+reports a baseline nobody else can reproduce.)*
 
 Same code, same investigator, one-sixth the effectiveness — and 7 of the holdout's 10
 declines are *"no register entry"*. **The agent's value is mostly a property of how
@@ -528,13 +547,18 @@ The UI is a single page: exceptions ranked by rupees at risk, each expanding to 
 why the engine declined, what to do next, and — for ambiguous credits — every candidate
 it refused to choose between.
 
-Directly under the totals it qualifies sits a **"not examined" disclosure**. The at-risk
-figure counts refused *credits*, and the engine reads credits only — so chargebacks,
-reversals and bank fees are invisible to it. Showing the exception list without saying so
-would be misleading by omission, and the omission matters more here than in the metrics
-block, because this page is what someone acts on. The lines are listed but never mixed
-into the worklist: they are not items to work, they are items the engine cannot speak
-about. The API is **read-only by design**: there is no accept /
+Directly under the totals it qualifies sits a **"money out" panel**. The at-risk figure
+counts refused *credits*, so a merchant reading "₹800 at risk" while ₹1,66,732 left the
+account on lines nobody examined is being misled by omission — and the omission matters
+more here than in the metrics block, because this page is what someone acts on.
+
+That panel began life as a bare disclosure, back when the engine read credits only. The
+right end state for a disclosure of that kind is that the engine goes and reads the lines,
+and it does: every row now names the settlement it reverses, or says plainly that it
+cannot be tied to one. It stays in the same place so an operator who learned to look
+there still finds the same money, and debit lines are still never mixed into the worklist
+— they are a separate ledger, not items to work. The API is **read-only by design**:
+there is no accept /
 reject endpoint, because a feedback loop is out of scope and a button that did nothing
 would be worse than none.
 
@@ -542,7 +566,7 @@ would be worse than none.
 pytest tests/
 ```
 
-516 tests, including the end-to-end isolation test — which deletes the ground-truth
+526 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,

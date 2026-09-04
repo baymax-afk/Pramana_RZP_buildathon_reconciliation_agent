@@ -30,9 +30,10 @@
    "bank_charge": 5,
    "refund_netted": 3,
    "overpayment": 9,
-   "duplicate_utr": 1
+   "duplicate_utr": 1,
+   "chargeback_debit": 6
   },
-  "refusals_expected": 16,
+  "refusals_expected": 12,
   "payer_directory": {
    "relationships_created": 7,
    "on_the_register": 4,
@@ -53,7 +54,7 @@
     "split_settlement"
    ],
    "relation": "split",
-   "expected_verdict": "refuse"
+   "expected_verdict": "assign"
   },
   {
    "bank_txn_id": "",
@@ -83,7 +84,7 @@
     "split_settlement"
    ],
    "relation": "split",
-   "expected_verdict": "refuse"
+   "expected_verdict": "assign"
   },
   {
    "bank_txn_id": "bank_txn_0001",
@@ -2389,7 +2390,7 @@
     "split_settlement"
    ],
    "relation": "split",
-   "expected_verdict": "refuse"
+   "expected_verdict": "assign"
   },
   {
    "bank_txn_id": "bank_txn_0008",
@@ -2407,7 +2408,91 @@
     "split_settlement"
    ],
    "relation": "split",
-   "expected_verdict": "refuse"
+   "expected_verdict": "assign"
+  },
+  {
+   "bank_txn_id": "bank_txn_0044",
+   "payment_ids": [
+    "pay_SYN000519528"
+   ],
+   "invoice_nos": [
+    "INV-2026-1048"
+   ],
+   "defect_labels": [
+    "chargeback_debit"
+   ],
+   "relation": "reversal",
+   "expected_verdict": "reverse"
+  },
+  {
+   "bank_txn_id": "bank_txn_0056",
+   "payment_ids": [
+    "pay_SYN000664524"
+   ],
+   "invoice_nos": [
+    "INV-2026-1063"
+   ],
+   "defect_labels": [
+    "chargeback_debit"
+   ],
+   "relation": "reversal",
+   "expected_verdict": "reverse"
+  },
+  {
+   "bank_txn_id": "bank_txn_0057",
+   "payment_ids": [
+    "pay_SYN000654634"
+   ],
+   "invoice_nos": [
+    "INV-2026-1062"
+   ],
+   "defect_labels": [
+    "chargeback_debit"
+   ],
+   "relation": "reversal",
+   "expected_verdict": "reverse"
+  },
+  {
+   "bank_txn_id": "bank_txn_0070",
+   "payment_ids": [
+    "pay_SYN000803240"
+   ],
+   "invoice_nos": [
+    "INV-2026-1077"
+   ],
+   "defect_labels": [
+    "chargeback_debit"
+   ],
+   "relation": "reversal",
+   "expected_verdict": "reverse"
+  },
+  {
+   "bank_txn_id": "bank_txn_0146",
+   "payment_ids": [
+    "pay_SYN001815161"
+   ],
+   "invoice_nos": [
+    "INV-2026-1176"
+   ],
+   "defect_labels": [
+    "chargeback_debit"
+   ],
+   "relation": "reversal",
+   "expected_verdict": "reverse"
+  },
+  {
+   "bank_txn_id": "bank_txn_0145",
+   "payment_ids": [
+    "pay_SYN001929727"
+   ],
+   "invoice_nos": [
+    "INV-2026-1185"
+   ],
+   "defect_labels": [
+    "chargeback_debit"
+   ],
+   "relation": "reversal",
+   "expected_verdict": "reverse"
   }
  ]
 }

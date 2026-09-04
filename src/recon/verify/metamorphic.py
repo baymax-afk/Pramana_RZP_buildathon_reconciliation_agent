@@ -327,10 +327,76 @@ def mr4_conservation(inputs: ReconInputs, out=None) -> RelationResult:
                     a.bank_txn_id,
                 )
             )
+
+    # ---- the same invariant, restated over settlement groups -----------------
+    #
+    # A part-settlement breaks conservation as stated PER CREDIT -- half a payment's net
+    # arrives on each of two lines, so neither line balances against the payment and
+    # both would be violations. The invariant was not relaxed to accommodate that; it
+    # was restated at the level where the money actually closes. The group's total
+    # credit must equal the group's total settled interval, recomputed from the raw
+    # records exactly as above, and the group's own membership must be well-formed:
+    # at least two distinct credits, all of them real credits in this batch.
+    #
+    # Weakening MR4 instead -- widening the tolerance until a half-settlement passed --
+    # would have destroyed the one check that catches money appearing or vanishing.
+    for g in out.groups:
+        gp = [by_id[pid] for pid in g.payment_ids if pid in by_id]
+        if len(gp) != len(g.payment_ids):
+            violations.append(
+                Violation("MR4", f"group {'+'.join(g.bank_txn_ids)} references payments "
+                                 f"not in the batch", g.bank_txn_ids[0])
+            )
+            continue
+        if len(set(g.bank_txn_ids)) < 2:
+            violations.append(
+                Violation("MR4", f"group {'+'.join(g.bank_txn_ids)} has fewer than two "
+                                 f"distinct credits, so it is not a group",
+                          g.bank_txn_ids[0])
+            )
+            continue
+        members = [credit_by_id.get(t) for t in g.bank_txn_ids]
+        if any(c is None for c in members):
+            violations.append(
+                Violation("MR4", f"group {'+'.join(g.bank_txn_ids)} names a transaction "
+                                 f"that is not a credit in this batch", g.bank_txn_ids[0])
+            )
+            continue
+        total = sum(c for c in members if c is not None)
+        if total != g.credit_paise:
+            violations.append(
+                Violation("MR4", f"group {'+'.join(g.bank_txn_ids)} stores total "
+                                 f"{g.credit_paise}p but its credits sum to {total}p",
+                          g.bank_txn_ids[0])
+            )
+            continue
+        interval = fees.expected_credit_interval(gp, inv_by_no)
+        recomputed = fees.residual(total, interval)
+        if abs(recomputed) > fees.tolerance_for(total):
+            violations.append(
+                Violation(
+                    "MR4",
+                    f"group conservation fails on recomputation: {total}p across "
+                    f"{len(members)} credits vs expected {interval.lo}..{interval.hi}p "
+                    f"(residual {recomputed:+d}p)",
+                    g.bank_txn_ids[0],
+                )
+            )
+        elif recomputed != g.residual_paise:
+            violations.append(
+                Violation(
+                    "MR4",
+                    f"group stored residual {g.residual_paise:+d}p disagrees with "
+                    f"recomputation {recomputed:+d}p",
+                    g.bank_txn_ids[0],
+                )
+            )
+
     return RelationResult(
         "MR4", "invariant",
-        "assigned payments + MDR + TDS must equal the bank credit within tolerance",
-        tuple(violations), len(out.assignments),
+        "assigned payments + MDR + TDS must equal the bank credit within tolerance, "
+        "per credit and per settlement group",
+        tuple(violations), len(out.assignments) + len(out.groups),
     )
 
 
@@ -353,7 +419,13 @@ def mr5_residual_closure(inputs: ReconInputs, out=None) -> RelationResult:
     credits = {t.id for t in inputs.bank_txns if t.is_credit}
     assigned = [a.bank_txn_id for a in out.assignments]
     refused = [r.bank_txn_id for r in out.refusals]
-    verdicts = assigned + refused + list(out.no_candidate)
+    # A credit taken into a settlement group has been accounted for, and this is where
+    # that has to be said. Leaving grouped credits out would report them as having
+    # received no verdict; counting them twice -- as both grouped and refused -- is the
+    # double-verdict failure this relation exists to catch, so `match_once` drops the
+    # refusal a credit was carrying when a group takes it.
+    grouped = [t for g in out.groups for t in g.bank_txn_ids]
+    verdicts = assigned + refused + list(out.no_candidate) + grouped
 
     for txn_id, n in _counts(verdicts).items():
         if n > 1:
@@ -370,12 +442,12 @@ def mr5_residual_closure(inputs: ReconInputs, out=None) -> RelationResult:
             Violation("MR5", f"verdicts issued for non-credits: {sorted(extra)[:5]}")
         )
 
-    assigned_payments = [pid for a in out.assignments for pid in a.payment_ids]
+    assigned_payments = list(out.claimed_payment_ids)
     for pid, n in _counts(assigned_payments).items():
         if n > 1:
             violations.append(
-                Violation("MR5", f"payment {pid} assigned to {n} credits -- double-posted",
-                          pid)
+                Violation("MR5", f"payment {pid} assigned to {n} credits or groups "
+                                 f"-- double-posted", pid)
             )
 
     captured = {p.id for p in inputs.payments if p.captured}
@@ -386,10 +458,51 @@ def mr5_residual_closure(inputs: ReconInputs, out=None) -> RelationResult:
             Violation("MR5", f"{len(lost)} captured payments neither assigned nor "
                              f"listed unassigned: {sorted(lost)[:5]}")
         )
+    # ---- the debit half of the statement -----------------------------------
+    #
+    # Added when the engine learned to read debits at all. Before that, every debit was
+    # outside the accounting entirely -- not matched, not refused, not counted -- and
+    # this relation asserted that every record was accounted for while silently meaning
+    # every CREDIT. The invariant was true of what it examined and false of the
+    # statement, which is the more dangerous of the two.
+    debits = {t.id for t in inputs.bank_txns if not t.is_credit and t.debit > 0}
+    debit_verdicts = [r.bank_txn_id for r in out.reversals] + [
+        u.bank_txn_id for u in out.unexplained_debits
+    ]
+    for txn_id, n in _counts(debit_verdicts).items():
+        if n > 1:
+            violations.append(
+                Violation("MR5", f"debit {txn_id} received {n} verdicts", txn_id)
+            )
+    missing_debits = debits - set(debit_verdicts)
+    if missing_debits:
+        violations.append(
+            Violation("MR5", f"{len(missing_debits)} debits received no verdict: "
+                             f"{sorted(missing_debits)[:5]}")
+        )
+    extra_debits = set(debit_verdicts) - debits
+    if extra_debits:
+        violations.append(
+            Violation("MR5", f"debit verdicts issued for non-debits: "
+                             f"{sorted(extra_debits)[:5]}")
+        )
+    # A reversal must claw back against a credit the engine actually posted. One naming
+    # a refused credit would mean the engine had used the claw-back to retroactively
+    # justify a match it declined to make.
+    posted = set(assigned) | set(grouped)
+    for r in out.reversals:
+        if r.settled_by not in posted:
+            violations.append(
+                Violation("MR5", f"reversal {r.bank_txn_id} claims to reverse "
+                                 f"{r.settled_by}, which was never posted",
+                          r.bank_txn_id)
+            )
+
     return RelationResult(
         "MR5", "invariant",
-        "every credit and every captured payment is accounted for exactly once",
-        tuple(violations), len(credits) + len(captured),
+        "every credit, every debit and every captured payment is accounted for "
+        "exactly once",
+        tuple(violations), len(credits) + len(debits) + len(captured),
     )
 
 

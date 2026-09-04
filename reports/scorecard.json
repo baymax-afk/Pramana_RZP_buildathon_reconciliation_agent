@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T14:53:52+00:00",
+  "generated_at": "2026-09-04T16:03:23+00:00",
   "dataset": "primary",
   "seed": 20260905,
   "provenance": "Scored against ground truth the engine never received. The engine's own output is in run_output.json and contains none of this; ground-truth isolation is enforced by an audit hook over the recon package, not by convention.",
   "coverage": {
     "captured_payments": 194,
-    "payments_assigned": 172,
-    "match_rate": 0.8865979381443299,
-    "reachable_payments": 177,
-    "ceiling": 0.9123711340206185,
+    "payments_assigned": 174,
+    "match_rate": 0.8969072164948454,
+    "reachable_payments": 179,
+    "ceiling": 0.9226804123711341,
     "short_of_ceiling": 5,
-    "unreachable_payments": 17,
+    "unreachable_payments": 15,
     "shortfall_by_defect": {
       "mdr_fee": 5,
       "third_party_payer": 5,
@@ -22,19 +22,19 @@
     }
   },
   "precision": {
-    "total_assignments": 126,
-    "correct_assignments": 126,
+    "total_assignments": 130,
+    "correct_assignments": 130,
     "match_precision": 1.0,
-    "precision_ci_lower": 0.971148,
-    "precision_ci_note": "exact two-sided 95% Clopper-Pearson lower bound on 126/126. A proportion of 1.0 has no normal-approximate interval, and this many observations cannot support a stronger claim however clean they are.",
+    "precision_ci_lower": 0.972023,
+    "precision_ci_note": "exact two-sided 95% Clopper-Pearson lower bound on 130/130. A proportion of 1.0 has no normal-approximate interval, and this many observations cannot support a stronger claim however clean they are.",
     "wrong_assignments": []
   },
   "refusals": {
-    "total": 15,
-    "rate": 0.10638297872340426,
-    "correct": 10,
+    "total": 11,
+    "rate": 0.07801418439716312,
+    "correct": 6,
     "conservative": 5,
-    "correctness": 0.6666666666666666
+    "correctness": 0.5454545454545454
   },
   "short_of_ceiling_txns": [
     {

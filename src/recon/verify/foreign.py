@@ -45,10 +45,33 @@ from ..schemas import BankTxn, Payment, ReconInputs
 
 @dataclass(frozen=True, slots=True)
 class ForeignClaim:
-    """One assignment somebody else made: this credit is these payments."""
+    """
+    One assignment somebody else made: this credit is these payments.
+
+    `group_with` names the OTHER credits that settle the same payment set -- a
+    part-settlement, where one payment's net arrived on several bank lines. It is empty
+    for the ordinary one-credit claim, which is the overwhelming majority.
+
+    **It has to exist, and the reason is a finding about this auditor.** When this
+    engine learned to settle split settlements, its own output stopped surviving its own
+    audit: four correct claims were reported as `double_posted`, because two credits
+    named the same payment, and as `conservation_fails`, because each credit is only
+    half of it. Both findings were the auditor faithfully applying a model in which a
+    payment belongs to exactly one credit -- a model the claimant had outgrown.
+
+    An auditor that cannot express the relation a claimant is making does not audit it;
+    it rejects it for not being something else. So the claim type carries the grouping,
+    and the checks below are stated over the group.
+    """
 
     bank_txn_id: str
     payment_ids: tuple[str, ...]
+    group_with: tuple[str, ...] = ()
+
+    @property
+    def group(self) -> frozenset[str]:
+        """Every credit settling this payment set, this one included."""
+        return frozenset({self.bank_txn_id} | set(self.group_with))
 
 
 # Each finding names the check that objected, in the same spirit as `RefusalCategory`:
@@ -197,6 +220,32 @@ def _first_per_txn(findings: list[Finding]) -> list[Finding]:
     return out
 
 
+def claims_from(out) -> tuple[ForeignClaim, ...]:
+    """
+    Turn this engine's own output into claims, grouping included.
+
+    It exists so the self-audit and the test fixture cannot drift apart, and because
+    the obvious construction -- one claim per entry of `assignment_map` -- silently
+    drops the grouping and hands the auditor four claims that look like double-posts.
+    Both call sites did exactly that, and the audit duly failed the engine's own
+    correct output.
+    """
+    claims = [
+        ForeignClaim(bank_txn_id=a.bank_txn_id, payment_ids=tuple(sorted(a.payment_ids)))
+        for a in out.assignments
+    ]
+    for g in out.groups:
+        for txn_id in g.bank_txn_ids:
+            claims.append(
+                ForeignClaim(
+                    bank_txn_id=txn_id,
+                    payment_ids=tuple(sorted(g.payment_ids)),
+                    group_with=tuple(t for t in g.bank_txn_ids if t != txn_id),
+                )
+            )
+    return tuple(sorted(claims, key=lambda c: c.bank_txn_id))
+
+
 def audit(
     inputs: ReconInputs,
     claims: tuple[ForeignClaim, ...],
@@ -218,11 +267,17 @@ def audit(
     a = ForeignAudit(claimant=claimant, claims=len(claims), credits_in_batch=len(credits))
 
     # ---- claim-set level: the same payment claimed twice -------------------
-    owners: dict[str, list[str]] = {}
+    # Keyed by GROUP, not by credit. Two credits of one part-settlement naming the same
+    # payment is the relation, not a double-post; two DIFFERENT settlements naming it is.
+    owners: dict[str, list[frozenset[str]]] = {}
     for c in claims:
         for pid in c.payment_ids:
-            owners.setdefault(pid, []).append(c.bank_txn_id)
-    doubled = {pid: ids for pid, ids in owners.items() if len(set(ids)) > 1}
+            owners.setdefault(pid, []).append(c.group)
+    doubled = {
+        pid: sorted({t for g in gs for t in g})
+        for pid, gs in owners.items()
+        if len(set(gs)) > 1
+    }
 
     u = fs.estimate_u(inputs.payments, inputs.bank_txns)
     failed: set[str] = set()
@@ -243,7 +298,20 @@ def audit(
             continue
 
         claimed = [payments[pid] for pid in claim.payment_ids]
-        credit = txn.credit
+        # The group's total, which is the amount the claim actually asserts balances.
+        # For an ordinary claim this is just `txn.credit`.
+        credit = sum(txns[t].credit for t in sorted(claim.group) if t in txns)
+        missing_siblings = [t for t in sorted(claim.group) if t not in txns]
+        if missing_siblings:
+            a.findings.append(
+                Finding(
+                    claim.bank_txn_id, UNKNOWN_ID,
+                    f"the claim groups this credit with {missing_siblings}, which "
+                    f"is not in this batch", txn.credit,
+                )
+            )
+            failed.add(claim.bank_txn_id)
+            continue
 
         for pid in claim.payment_ids:
             if pid in doubled:
@@ -252,8 +320,8 @@ def audit(
                         claim.bank_txn_id,
                         DOUBLE_POSTED,
                         f"payment {pid} is also claimed by "
-                        f"{sorted(set(doubled[pid]) - {claim.bank_txn_id})}",
-                        credit,
+                        f"{sorted(set(doubled[pid]) - claim.group)}",
+                        txn.credit,
                         (pid,),
                     )
                 )
@@ -269,7 +337,7 @@ def audit(
                     CONSERVATION,
                     f"credit {credit}p vs expected {interval.lo}..{interval.hi}p "
                     f"(residual {resid:+d}p, tolerance +/-{fees.tolerance_for(credit)}p)",
-                    credit,
+                    txn.credit,
                     claim.payment_ids,
                 )
             )
@@ -294,13 +362,24 @@ def audit(
         taken_elsewhere = {
             pid
             for other in claims
-            if other.bank_txn_id != claim.bank_txn_id
+            if other.bank_txn_id not in claim.group
             for pid in other.payment_ids
         } - set(claim.payment_ids)
-        raw_pool = tier2_amount_date.candidate_pool(txn, inputs.payments, claimed=set())
-        pool = tier2_amount_date.candidate_pool(
-            txn, inputs.payments, claimed=taken_elsewhere
-        )
+        # Pooled over the whole GROUP: a settlement split across two days has members
+        # whose lookback windows differ, and judging the claim against one member's
+        # window alone would call a payment out-of-window that the other member could
+        # plainly reach. Union, deduplicated by id, ordered so the search sees a set.
+        def _pool(claimed_ids: set[str]) -> list:
+            seen: dict[str, object] = {}
+            for tid in sorted(claim.group):
+                for pay in tier2_amount_date.candidate_pool(
+                    txns[tid], inputs.payments, claimed=claimed_ids
+                ):
+                    seen[pay.id] = pay
+            return [seen[k] for k in sorted(seen)]
+
+        raw_pool = _pool(set())
+        pool = _pool(taken_elsewhere)
         pool_ids = {p.id for p in raw_pool}
         outside = [pid for pid in claim.payment_ids if pid not in pool_ids]
         if outside:
@@ -310,7 +389,7 @@ def audit(
                     OUT_OF_WINDOW,
                     f"payment(s) {outside} fall outside the "
                     f"{cfg.LOOKBACK_DAYS}-day settlement window for this credit",
-                    credit,
+                    txn.credit,
                     tuple(outside),
                 )
             )
@@ -332,7 +411,7 @@ def audit(
                     UNDERDETERMINED,
                     f"{len(others)} other subset(s) of this window also fit, "
                     f"e.g. {sorted(others[0].payment_ids)}",
-                    credit,
+                    txn.credit,
                     claim.payment_ids,
                 )
             )
@@ -347,7 +426,7 @@ def audit(
                         f"unique once the {len(taken_elsewhere & {p.id for p in raw_pool})} "
                         f"payment(s) taken by other credits are removed; "
                         f"{len(raw_rivals)} rival subset(s) exist in the raw window",
-                        credit,
+                        txn.credit,
                         claim.payment_ids,
                     )
                 )

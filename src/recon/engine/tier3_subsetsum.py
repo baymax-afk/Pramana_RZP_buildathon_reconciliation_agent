@@ -74,6 +74,23 @@ class SearchResult:
     # "these three payments come to Rs 37.00 less than this credit", which is a bank
     # charge or a short-payment to go and look for. See REVIEW.md P1-3.
     best_miss_ids: tuple[str, ...] = ()
+    # The closest subset the search could REACH, recorded whatever the distance.
+    #
+    # Separate from `best_miss` on purpose, and the separation is the whole point.
+    # `best_miss` is EVIDENCE: it feeds `uniqueness_margin`, so it is deliberately
+    # narrow -- only subsets near enough to count as rivals, within 2x tolerance. Widening
+    # it to make refusals more informative would have tightened margins on assignments
+    # that are not in fact contested, and could have turned correct assignments into
+    # refusals. This field is REPORTING only: nothing reads it but the exception text.
+    #
+    # It exists because a `no_subset_fits` refusal was landing on the largest credit in
+    # the batch carrying nothing at all. The remaining payment overshot by 498p on a
+    # Rs 45,673 credit -- 4.98 rupees, a bank charge in all but name -- and the near-miss
+    # guard suppressed it for being outside 2x a 100p tolerance. "Nothing accounts for
+    # this credit" is not something an operator can act on; "this one payment is Rs 4.98
+    # too big for it" is.
+    nearest_ids: tuple[str, ...] = ()
+    nearest_residual: int | None = None
     pool_size: int = 0
     capped: bool = False
     nodes: int = 0
@@ -98,6 +115,12 @@ def _effective_intervals(
     # the set of candidates rather than the order they were handed to us.
     out.sort(key=lambda t: (t[1], t[0]))
     return out
+
+
+def _gap(credit: int, payment_ids, pool, invoices_by_no) -> int:
+    """The residual between a credit and a named subset, recomputed from the records."""
+    chosen = [p for p in pool if p.id in set(payment_ids)]
+    return fees.residual(credit, fees.expected_credit_interval(chosen, invoices_by_no))
 
 
 def search(
@@ -148,6 +171,16 @@ def search(
             # happened to finish rather than where it was closest.
             best_miss_ids = tuple(items[i][0] for i in chosen)
 
+    nearest: int | None = None
+    nearest_ids: tuple[str, ...] = ()
+
+    def record_reach(resid: int, chosen: list[int]) -> None:
+        """Reporting only -- never feeds `best_miss`, so no margin can move."""
+        nonlocal nearest, nearest_ids
+        if chosen and (nearest is None or abs(resid) < abs(nearest)):
+            nearest = resid
+            nearest_ids = tuple(items[i][0] for i in chosen)
+
     def dfs(start: int, chosen: list[int], lo: int, hi: int, certain: bool) -> None:
         nonlocal nodes, capped
         if capped:
@@ -194,8 +227,31 @@ def search(
                 # evidence about anything.
                 if nlo - target <= 2 * tol:
                     record_miss(target - nlo, chosen + [i])
+                record_reach(target - nlo, chosen + [i])
                 break
             if hi + suffix_hi[i] < target - tol:
+                # Record the SHORTFALL before pruning, for the same reason the overshoot
+                # branch above records before breaking -- and this half was missing.
+                #
+                # The prune is correct: nothing at or after `i` can reach the target. But
+                # "nothing accounts for this credit", carrying nothing, is a fact an
+                # operator can do nothing with, and it was landing on the largest
+                # exception in the batch. What they need is the shortfall: "everything
+                # left in this window comes to Rs X, which is Rs Y short" is a bank
+                # charge or a missing settlement to go and find.
+                #
+                # The subset recorded is the most reachable one within the k budget --
+                # `chosen` plus the largest remaining items, taken from the tail because
+                # `items` is sorted ascending. It can only FILL IN a `best_miss` that
+                # was None: `record_miss` keeps the tightest residual, and a shortfall
+                # this large never displaces a nearer miss, so no uniqueness margin
+                # moves. Verified: every assignment and every margin in the batch is
+                # byte-identical with and without this branch.
+                room = kmax - len(chosen)
+                if room > 0:
+                    tail = list(range(max(i, n - room), n))
+                    reach = hi + sum(items[j][2] for j in tail)
+                    record_reach(target - reach, chosen + tail)
                 break
             chosen.append(i)
             dfs(i + 1, chosen, nlo, hi + ihi, certain and icert)
@@ -204,8 +260,19 @@ def search(
                 return
 
     dfs(0, [], 0, 0, True)
+    # Keyword arguments, not positional. The positional form silently mis-assigned
+    # `pool_size`, `capped` and `nodes` the moment a field was inserted in the middle of
+    # the dataclass -- a shift the type checker cannot see because they are all ints and
+    # bools, and one that would have reported `capped` as a residual.
     return SearchResult(
-        tuple(solutions), best_miss, best_miss_ids, n, capped, nodes
+        solutions=tuple(solutions),
+        best_miss=best_miss,
+        best_miss_ids=best_miss_ids,
+        nearest_ids=nearest_ids,
+        nearest_residual=nearest,
+        pool_size=n,
+        capped=capped,
+        nodes=nodes,
     )
 
 
@@ -303,13 +370,18 @@ def _decompose(
         # is the difference between an exception a person can work and one they can only
         # escalate. Six of fifteen refusals carried nothing at all before this, including
         # the largest at Rs 45,673. See REVIEW.md P1-3.
+        # `best_miss_ids` when the search found a genuine near-rival, and otherwise the
+        # closest subset it could reach at all. The fallback is what stops the largest
+        # exception in the batch from arriving empty-handed: see SearchResult.nearest_ids
+        # for why the two are tracked separately rather than by widening one threshold.
         near = []
-        if result.best_miss_ids:
-            payments = [p for p in pool if p.id in set(result.best_miss_ids)]
+        shown = result.best_miss_ids or result.nearest_ids
+        if shown:
+            payments = [p for p in pool if p.id in set(shown)]
             interval = fees.expected_credit_interval(payments, invoices_by_no)
             near.append(
                 Candidate(
-                    payment_ids=tuple(result.best_miss_ids),
+                    payment_ids=tuple(shown),
                     residual_paise=fees.residual(txn.credit, interval),
                     tier=TIER,
                     interval_lo=interval.lo,
@@ -323,9 +395,13 @@ def _decompose(
             f"no subset of the {result.pool_size} candidates sums to {txn.credit}p "
             f"within {tol}p at k<={cfg.MAX_SUBSET_K}"
             + (
-                f"; the closest is {len(result.best_miss_ids)} payment(s) "
-                f"{result.best_miss:+d}p away, listed below"
-                if result.best_miss is not None and result.best_miss_ids
+                # Whatever is being SHOWN gets described, so the sentence and the row
+                # below it cannot disagree. The previous version described `best_miss`
+                # only, and once the candidate could come from `nearest_ids` instead,
+                # the refusal listed a subset the reason never mentioned.
+                f"; the closest is {len(shown)} payment(s) "
+                f"{_gap(txn.credit, shown, pool, invoices_by_no):+d}p away, listed below"
+                if shown
                 else (
                     f" (closest miss {result.best_miss:+d}p)"
                     if result.best_miss is not None

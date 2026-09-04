@@ -40,9 +40,23 @@ def test_every_summary_figure_is_derived_from_the_engines_own_output(payload):
     r = p["reconciled"]
     a = p["assignments"]
 
-    assert r["credits_reconciled"] == len(a)
-    assert r["payments_reconciled"] == sum(len(x["payment_ids"]) for x in a)
-    assert r["invoices_reconciled"] == len({i for x in a for i in x["invoice_nos"]})
+    # Settlement groups count too, and each MEMBER credit is a reconciled credit -- an
+    # operator sees two rows on the statement and both are now explained. Their payments
+    # count once, because a part-settlement moves one payment however many lines it
+    # arrived on; summing per credit here would report more payments reconciled than the
+    # batch contains.
+    g = p["settlement_groups"]
+    grouped_credits = {t for x in g for t in x["bank_txn_ids"]}
+    assert r["credits_reconciled"] == len(a) + len(grouped_credits)
+    assert r["payments_reconciled"] == len(
+        {pid for x in a for pid in x["payment_ids"]}
+        | {pid for x in g for pid in x["payment_ids"]}
+    )
+    assert r["invoices_reconciled"] == len(
+        {i for x in a for i in x["invoice_nos"]} | {i for x in g for i in x["invoice_nos"]}
+    )
+    assert r["settlement_groups"] == len(g)
+    assert r["credits_in_groups"] == len(grouped_credits)
     assert r["settlements_merged"] == sum(1 for x in a if len(x["payment_ids"]) > 1)
     assert r["payments_inside_merged_settlements"] == sum(
         len(x["payment_ids"]) for x in a if len(x["payment_ids"]) > 1
@@ -50,18 +64,35 @@ def test_every_summary_figure_is_derived_from_the_engines_own_output(payload):
     assert r["exceptions"] == len(p["exceptions"])
 
 
-def test_the_records_processed_count_includes_what_was_read_but_not_matched(payload):
+def test_the_records_processed_count_includes_the_debit_half(payload):
     """
-    Debit lines are read, counted and deliberately never matched. Leaving them out of
-    "records processed" would understate the throughput by exactly the rows the engine
-    discloses it does not act on.
+    Debit lines were read, counted and deliberately never matched; leaving them out of
+    "records processed" would have understated the throughput by exactly the rows the
+    engine disclosed it did not act on. They are now matched too -- each tied to the
+    settlement it reverses -- and the count is the same count, which is the point: the
+    denominator never depended on whether the engine could explain them.
     """
     inputs, p = payload
     b = p["reconciled"]["records_breakdown"]
     assert p["reconciled"]["records_processed"] == sum(b.values())
-    assert b["bank_debits_not_examined"] == p["not_examined"]["debit_lines"]
+    assert b["bank_debits"] == p["debits"]["lines"]
     assert b["payments"] == len(inputs.payments)
     assert b["invoices"] == len(inputs.invoices)
+
+
+def test_the_reconciled_total_is_reported_gross_and_net(payload):
+    """
+    A reversal does not undo the settlement it reverses, so there are two true numbers
+    and the payload must carry both. Collapsing them would quietly net clawed-back money
+    out of the headline; omitting the net one would overstate what the merchant kept.
+    """
+    _, p = payload
+    r = p["reconciled"]
+    assert r["paise_reconciled_net"] == r["paise_reconciled"] - r["paise_reversed"]
+    assert r["reversals"] == p["debits"]["reversals_identified"]
+    if r["reversals"]:
+        assert r["paise_reversed"] > 0
+        assert r["paise_reconciled_net"] < r["paise_reconciled"]
 
 
 def test_the_reconciled_amount_is_the_sum_of_the_credits_actually_settled(payload):
@@ -186,10 +217,13 @@ def test_every_outcome_state_is_named_on_the_page():
     """
     assert "const OUTCOME" in JSX
     outcomes = JSX.split("const OUTCOME", 1)[1].split("\nfunction ", 1)[0]
-    for state in ("Reconciled", "Merged", "Verified", "Unresolved", "Refused"):
+    # `Split` joined the five when Layer 2b landed: one payment across several bank
+    # lines, the mirror of `Merged`, and a state a reader cannot infer from the others.
+    states = ("Reconciled", "Merged", "Split", "Verified", "Unresolved", "Refused")
+    for state in states:
         assert state in outcomes, f"the outcome model does not name {state!r}"
     # Each must carry help text; a badge nobody can interpret is decoration.
-    assert outcomes.count("help:") == 5
+    assert outcomes.count("help:") == len(states)
 
 
 def test_an_empty_outcome_state_is_shown_at_zero_rather_than_omitted(payload):
@@ -244,3 +278,79 @@ def test_the_footer_values_still_come_from_the_run():
     for key in ("tol_abs_paise", "mdr_rate_band", "lookback_days", "max_pool",
                 "materiality_rupees"):
         assert key in footer, f"the footer hardcodes a value instead of reading {key!r}"
+
+
+# --------------------------------------------------------------------------
+# Settlement groups reach the page they are counted on
+# --------------------------------------------------------------------------
+def test_a_grouped_credit_gets_an_explanation_that_says_it_was_grouped():
+    """
+    The defect this pins was visible on screen and said the opposite of the truth.
+
+    A group member has NO winning tier attempt by construction -- neither half of a
+    part-settlement balances against the payment on its own -- so the renderer's "did any
+    attempt win?" test was False and it fell through to *"Nothing in the 5-day settlement
+    window could account for this credit, so no match was even proposed."* On a row the
+    same page was listing as reconciled, two inches higher.
+    """
+    from loaders import load_inputs
+    from recon.engine.match import match_once
+    from recon.explain.render import Explainer
+    from recon.explain.trace import Recorder
+
+    inputs = load_inputs()
+    rec = Recorder()
+    out = match_once(inputs, recorder=rec)
+    assert out.groups, "no settlement groups in this batch"
+
+    explainer = Explainer(inputs)
+    for g in out.groups:
+        for txn_id in g.bank_txn_ids:
+            ex = explainer.explain(rec.get(txn_id))
+            assert ex.verdict == "assign", f"{txn_id} explained as {ex.verdict}"
+            assert "no match was even proposed" not in ex.plain
+            assert "split across" in ex.plain, ex.plain
+            # It must name the sibling, or the reader cannot find the other half.
+            for other in g.bank_txn_ids:
+                if other != txn_id:
+                    assert other in ex.plain
+
+
+def test_the_reconciled_list_in_the_ui_includes_settlement_groups():
+    """
+    Pinned at the source level, same coupling as the category labels.
+
+    The summary said "130 of 141 bank credits settled" while the Reconciled tab listed
+    126 rows, and the four missing ones were exactly the split settlements — the thing
+    the release is about. A summary a reader cannot reconcile against the list beneath it
+    is worse than no summary.
+    """
+    from pathlib import Path
+
+    jsx = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text(
+        encoding="utf-8"
+    )
+    assert "run.data.settlement_groups" in jsx, (
+        "the UI never reads settlement groups from the payload"
+    )
+    assert "reconciledRows" in jsx
+    assert 'split: { label: "Split"' in jsx, "no badge distinguishes a split settlement"
+    # A group is ONE row: two rows for one payment reads as a double-post to exactly the
+    # person trained to look for one.
+    assert "bank_txn_id: g.bank_txn_ids[0]" in jsx
+
+
+def test_the_hero_reports_reconciled_net_of_chargebacks():
+    """
+    The hero leads with money reconciled, and that figure is GROSS. A chargeback claws
+    money back out of a correctly-matched settlement: the match stands, and the merchant
+    still does not have the money. Leading with gross alone commits the same omission the
+    debit panel exists to fix, in the one place a reader looks first.
+    """
+    from pathlib import Path
+
+    jsx = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text(
+        encoding="utf-8"
+    )
+    assert "rupees_reconciled_net" in jsx
+    assert "hero-line net" in jsx

@@ -276,10 +276,12 @@ def cmd_match(args: argparse.Namespace) -> int:
         throughput=records / elapsed if elapsed else None,
         credits_by_id={x.id: x.credit for x in inputs.bank_txns},
         seed=seed,
-        unexamined=(
-            sum(1 for x in inputs.bank_txns if x.debit),
-            sum(x.debit for x in inputs.bank_txns if x.debit),
-        ),
+        # What the engine STILL does not read, re-derived every run rather than
+        # asserted. This was every debit on the statement until Layer 2c; it is now the
+        # lines that reach no verdict at all, and the arithmetic is deliberately
+        # "everything minus what got a verdict" so that a future blind spot shows up
+        # here by itself instead of needing someone to notice it.
+        unexamined=_unexamined(inputs, out),
     )
     # The UI payload is built from the ENGINE's output only -- no ground truth, no
     # scoring. What a merchant sees is exactly what the engine could justify without
@@ -905,16 +907,13 @@ def cmd_verify_foreign(args) -> int:
         # Auditing our own output is the control arm and the credibility check, not a
         # party trick: an auditor that flags the matcher it ships with has a bug in one
         # of the two, and you cannot tell which from the outside.
-        from recon.verify.foreign import ForeignClaim
+        from recon.verify.foreign import claims_from
 
         # The deterministic arm deliberately: the self-audit is a claim about THIS
         # engine, and auditing a run whose tier varies between invocations would make
         # the control arm vary with it.
         out = match_once(inputs)
-        claims = tuple(
-            ForeignClaim(bank_txn_id=t, payment_ids=tuple(sorted(p)))
-            for t, p in sorted(out.assignment_map.items())
-        )
+        claims = claims_from(out)
         claimant = args.claimant or "pramana (self-audit)"
 
     a = audit(inputs, claims, claimant=claimant)
@@ -1151,3 +1150,26 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def _unexamined(inputs, out) -> tuple[int, int]:
+    """
+    Bank lines that received no verdict of any kind, with their value.
+
+    A disclosure, and one computed by subtraction on purpose. The previous version
+    counted debits, which was correct exactly while the engine read none of them --
+    the moment it started reading debits the same expression would have gone on
+    reporting all six as unexamined while six reversals sat in the output. Deriving it
+    from what actually reached a verdict means the number is right whatever the engine
+    learns to read next, and it is what would catch the next omission.
+    """
+    seen = (
+        {a.bank_txn_id for a in out.assignments}
+        | set(out.grouped_txn_ids)
+        | {r.bank_txn_id for r in out.refusals}
+        | set(out.no_candidate)
+        | {r.bank_txn_id for r in out.reversals}
+        | {u.bank_txn_id for u in out.unexplained_debits}
+    )
+    missed = [t for t in inputs.bank_txns if t.id not in seen]
+    return len(missed), sum(abs(t.amount) for t in missed)

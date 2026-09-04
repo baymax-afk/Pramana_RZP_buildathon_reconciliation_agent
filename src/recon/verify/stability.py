@@ -34,13 +34,14 @@ import pickle
 import random
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
 import config as cfg
 
+from ..engine import reversals
 from ..engine.match import match_once
 from ..engine.results import MatchOutput, Refusal, RefusalCategory
-from ..schemas import ReconInputs
+from ..schemas import BankTxn, Payment, ReconInputs
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +84,12 @@ class Ensemble:
     seed: int
     per_txn: dict[str, TxnStability]
     base: MatchOutput
+    # The batch's raw records, carried so `apply_gate` can recompute the reversal ledger
+    # against what actually survived the gate. Defaulted because tests construct an
+    # Ensemble directly to exercise the gate's logic; when absent, the gate keeps the
+    # base run's reversals rather than silently reporting none.
+    bank_txns: tuple[BankTxn, ...] = ()
+    payments_by_id: dict[str, Payment] = field(default_factory=dict)
 
     def unstable(self) -> tuple[TxnStability, ...]:
         return tuple(
@@ -219,7 +226,11 @@ def run_with_permutations(
         )
         for txn_id, counter in counts.items()
     }
-    return Ensemble(passes=passes, seed=base_seed, per_txn=per_txn, base=base)
+    return Ensemble(
+        passes=passes, seed=base_seed, per_txn=per_txn, base=base,
+        bank_txns=inputs.bank_txns,
+        payments_by_id={p.id: p for p in inputs.payments},
+    )
 
 
 def apply_gate(ensemble: Ensemble, credits_by_id: dict[str, int]) -> MatchOutput:
@@ -299,6 +310,82 @@ def apply_gate(ensemble: Ensemble, credits_by_id: dict[str, int]) -> MatchOutput
             )
         )
 
+    # ---- settlement groups go through the same gate -------------------------
+    #
+    # They must, and the reason is a defect this project has already shipped once: the
+    # gate rebuilds a MatchOutput field by field, so anything added to that type and not
+    # added here is silently dropped from the REPORTED run while continuing to look
+    # correct in `match_once`. A group left out would be exempt from the permutation
+    # gate -- posted without ever having been tested for order-dependence -- which is
+    # the one property the gate exists to guarantee.
+    #
+    # A group is stable only if EVERY member credit is stable. A grouping that holds
+    # under some input orderings and not others was decided by traversal, and the
+    # correct verdict is the same as for a single credit: refuse the whole group, and
+    # say so per credit, because that is the unit an operator sees on the statement.
+    kept_groups = []
+    for g in base.groups:
+        stats = [ensemble.per_txn.get(t) for t in g.bank_txn_ids]
+        unstable = [
+            (t, st) for t, st in zip(g.bank_txn_ids, stats)
+            if st is not None and not st.is_stable
+        ]
+        if not unstable:
+            observed = [st.stability for st in stats if st is not None]
+            kept_groups.append(
+                replace(g, permutation_stability=min(observed) if observed else 1.0)
+            )
+            continue
+        for txn_id, st in unstable:
+            new_refusals.append(
+                Refusal(
+                    bank_txn_id=txn_id,
+                    category=RefusalCategory.ORDER_DEPENDENT,
+                    reason=(
+                        f"settled as part of the group "
+                        f"{'+'.join(g.bank_txn_ids)} under some input orderings and not "
+                        f"others ({st.modal_count}/{st.passes} passes) -- the grouping "
+                        f"was decided by iteration order, not by the data"
+                    ),
+                    paise_at_risk=credits_by_id.get(txn_id, 0),
+                    candidates=(),
+                )
+            )
+        # The stable members of a dropped group are not assignments either: the group
+        # was the claim, and half a group is not a smaller claim.
+        for txn_id, st in zip(g.bank_txn_ids, stats):
+            if (txn_id, st) in unstable:
+                continue
+            new_refusals.append(
+                Refusal(
+                    bank_txn_id=txn_id,
+                    category=RefusalCategory.ORDER_DEPENDENT,
+                    reason=(
+                        f"its settlement group {'+'.join(g.bank_txn_ids)} did not "
+                        f"survive the permutation gate, and a part of a group is not a "
+                        f"smaller claim -- the whole grouping is withdrawn"
+                    ),
+                    paise_at_risk=credits_by_id.get(txn_id, 0),
+                    candidates=(),
+                )
+            )
+
+    dropped_group_payments = {
+        pid for g in base.groups if g not in kept_groups for pid in g.payment_ids
+    }
+
+    # Reversals are recomputed against what SURVIVED the gate, not carried over. A
+    # reversal is a claw-back against a posted settlement; if the gate withdrew that
+    # settlement, the debit is no longer explained by it and saying otherwise would
+    # have the books reversing a match the engine no longer makes.
+    if ensemble.bank_txns:
+        gated_reversals, gated_unexplained = reversals.resolve(
+            ensemble.bank_txns, tuple(kept), tuple(kept_groups), ensemble.payments_by_id
+        )
+    else:
+        gated_reversals = list(base.reversals)
+        gated_unexplained = list(base.unexplained_debits)
+
     return MatchOutput(
         assignments=tuple(kept),
         refusals=tuple(new_refusals),
@@ -312,9 +399,14 @@ def apply_gate(ensemble: Ensemble, credits_by_id: dict[str, int]) -> MatchOutput
                     if a not in kept
                     for pid in a.payment_ids
                 }
+                | dropped_group_payments
             )
         ),
         tier_counts=base.tier_counts,
+        groups=tuple(kept_groups),
+        reversals=tuple(gated_reversals),
+        unexplained_debits=tuple(gated_unexplained),
+        group_search_truncated=base.group_search_truncated,
     )
 
 

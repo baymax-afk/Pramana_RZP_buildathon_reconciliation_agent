@@ -118,16 +118,19 @@ def test_readme_states_the_real_number_of_defect_categories(batch):
     labels = {lab for l in batch.truth for lab in l.defect_labels}
     # `unsettled` is a truth relation rather than an injected defect.
     labels.discard("unsettled")
-    # `chargeback_debit` is real and deliberately carries NO truth label, because the
-    # engine cannot produce a verdict for a debit. It is counted in the README's total
-    # and cannot appear here, which is the distinction this assertion has to respect.
-    unlabelled = 1 if any(t.debit for t in batch.inputs.bank_txns) else 0
-
+    # There used to be a `+1` here, compensating for `chargeback_debit` carrying no
+    # truth label: the engine could not produce a verdict for a debit, so labelling one
+    # would have scored it against a verdict it structurally could not reach. Layer 2c
+    # reads debits and the label now exists, so the compensation would double-count it.
+    #
+    # Left as a comment rather than deleted, because a bare count with no explanation is
+    # how the compensation came to be stale in the first place: every adjustment to a
+    # published number needs the condition it depends on written next to it.
     stated = re.search(r"\*\*([A-Za-z]+) categories\.?\*\*", README)
     assert stated, "README no longer states how many defect categories there are"
-    assert stated.group(1).lower() == _WORDS[len(labels) + unlabelled], (
+    assert stated.group(1).lower() == _WORDS[len(labels)], (
         f"README says {stated.group(1)!r} categories; the generator injects "
-        f"{len(labels)} labelled ({sorted(labels)}) plus {unlabelled} unlabelled"
+        f"{len(labels)}: {sorted(labels)}"
     )
 
 

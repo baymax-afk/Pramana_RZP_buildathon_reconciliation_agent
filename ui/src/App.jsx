@@ -29,6 +29,7 @@ const TIER_LABEL = {
   tier1_reference: "reference",
   tier2_amount_date: "amount + date",
   tier3_subsetsum: "combination",
+  layer2b_group: "grouped credits",
 };
 
 const CATEGORY_LABEL = {
@@ -41,33 +42,41 @@ const CATEGORY_LABEL = {
   narration_count_conflict: "Statement says a different count",
   contested_payment: "Two credits, one payment",
   unexplained_residual: "Unexplained shortfall",
+  ambiguous_grouping: "Split settlement — several groupings fit",
   no_candidate: "Nothing accounts for it",
 };
 
 /*
- * What the engine did not look at.
+ * The debit half of the statement.
  *
- * The header leads with "at risk", and that figure counts refused CREDITS only. The
- * engine reads `is_credit` transactions and nothing else, so a chargeback, a reversal
- * or a bank fee is invisible to it -- not matched, not refused, not counted.
+ * This component used to be called `NotExamined`, and it existed because the header's
+ * "at risk" total counts refused CREDITS only -- a merchant reading "Rs 800 at risk"
+ * while Rs 1,66,732 left the account on lines nobody looked at is being misled by
+ * omission, and the omission matters more here than in the metrics block because this
+ * page is what someone acts on.
  *
- * Showing the exception list without this is misleading by omission, and the omission
- * matters more here than in the metrics block: the metrics block is read by whoever
- * builds the engine, and this page is read by whoever acts on it. So it sits directly
- * under the totals it qualifies, not behind a tab, and it is styled as a disclosure
- * rather than as an exception -- these are not items to work, they are items the engine
- * cannot speak about.
+ * The disclosure did its job, and the right end state for a disclosure of this kind is
+ * that the engine goes and reads the lines. It does now: each debit is tied to the
+ * settlement it reverses, or reported as unexplained. The panel stays in the same place
+ * so an operator who learned to look here still finds the same money -- what changed is
+ * that every row now says what it was.
  */
-function NotExamined({ data }) {
+function DebitLedger({ data }) {
   const [open, setOpen] = useState(false);
+  const unexplained = data.unexplained ?? 0;
   return (
     <section className="disclosure">
       <button className="disclosure-head" onClick={() => setOpen((v) => !v)}>
-        <span className="disclosure-mark">Not examined</span>
+        <span className="disclosure-mark">Money out</span>
         <span>
-          {data.debit_lines} debit line{data.debit_lines === 1 ? "" : "s"} ·{" "}
-          <strong>{RUPEES.format(data.rupees)}</strong> left the account on lines the
-          engine does not read
+          {data.lines} debit line{data.lines === 1 ? "" : "s"} ·{" "}
+          <strong>{RUPEES.format(data.rupees)}</strong> left the account ·{" "}
+          {data.reversals_identified} tied to a settlement
+          {unexplained > 0 ? (
+            <>
+              {" "}· <strong>{unexplained} unexplained</strong>
+            </>
+          ) : null}
         </span>
         <span className="chev">{open ? "\u2212" : "+"}</span>
       </button>
@@ -79,24 +88,33 @@ function NotExamined({ data }) {
               <tr>
                 <th>Date</th>
                 <th>Narration</th>
+                <th>Reverses</th>
                 <th className="num">Amount</th>
               </tr>
             </thead>
             <tbody>
-              {(data.lines ?? []).map((l) => (
+              {(data.rows ?? []).map((l) => (
                 <tr key={l.bank_txn_id}>
                   <td>{l.txn_date}</td>
                   <td className="mono">{l.narration}</td>
+                  <td className="mono">
+                    {l.reverses ? (
+                      l.reverses
+                    ) : (
+                      <span className="muted">unexplained</span>
+                    )}
+                  </td>
                   <td className="num">{RUPEES.format(l.rupees)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="muted">
-            These are not scored either way. Scoring them against a verdict the engine
-            structurally cannot produce would be theatre — a permanent miss no amount of
-            engine work could close. They are disclosed so this list is not mistaken for
-            a complete account of the statement.
+            A reversal does not undo the settlement it reverses — both events happened —
+            so the reconciled total is reported gross and net rather than silently as one
+            number. A debit the engine cannot tie to a settlement it posted is reported
+            as unexplained rather than dropped: "money left the account and this engine
+            cannot say against what" is a finding you can act on; silence is not.
           </p>
         </div>
       )}
@@ -572,6 +590,8 @@ const OUTCOME = {
     help: "A bank credit matched to one or more payments, and posted." },
   merged: { label: "Merged", tone: "ok",
     help: "One bank credit covering several payments at once — the engine worked out which combination it was." },
+  split: { label: "Split", tone: "ok",
+    help: "The mirror of Merged: ONE payment that arrived across several bank lines, because the settlement was split. Neither line accounts for the money on its own, so they were posted together as a group — posting half a payment would be a wrong answer, not a partial one." },
   verified: { label: "Verified", tone: "ok",
     help: "The match came out the same on every pass with the records in a different order, so it was not decided by reading order." },
   unresolved: { label: "Unresolved", tone: "warn",
@@ -590,15 +610,26 @@ function OutcomeBadge({ kind }) {
   );
 }
 
-function OutcomeLegend({ assignments, exceptions }) {
+function OutcomeLegend({ assignments, groups = [], exceptions }) {
   const merged = assignments.filter((a) => a.payment_ids.length > 1).length;
-  const verified = assignments.filter((a) => a.permutation_stability === 1).length;
+  const verified =
+    assignments.filter((a) => a.permutation_stability === 1).length +
+    groups.filter((g) => g.permutation_stability === 1).length;
+  const groupedCredits = groups.reduce((s, g) => s + g.bank_txn_ids.length, 0);
   const unresolved = exceptions.filter((e) => e.category === "no_candidate").length;
   const refused = exceptions.length - unresolved;
   const rows = [
-    ["reconciled", assignments.length, `${assignments.length - merged} single + ${merged} merged`],
+    [
+      "reconciled",
+      assignments.length + groups.length,
+      `${assignments.length - merged} single + ${merged} merged` +
+        (groups.length ? ` + ${groups.length} split (${groupedCredits} credits)` : ""),
+    ],
     ["merged", merged, `covering ${assignments.filter((a) => a.payment_ids.length > 1).reduce((s, a) => s + a.payment_ids.length, 0)} payments`],
-    ["verified", verified, `of ${assignments.length} postings`],
+    ...(groups.length
+      ? [["split", groups.length, `one payment across ${groupedCredits} bank lines`]]
+      : []),
+    ["verified", verified, `of ${assignments.length + groups.length} postings`],
     ["unresolved", unresolved, unresolved === 0 ? "none on this batch" : "no candidate at all"],
     ["refused", refused, "evidence did not single one out"],
   ];
@@ -626,12 +657,19 @@ function MatchCard({ row, rank }) {
         <span className="rank">{rank}</span>
         <span className="amount">{RUPEES.format(row.rupees)}</span>
         <span className="ids">
-          {row.payment_ids.length === 1
+          {row.split
+            ? `${row.bank_txn_ids.length} bank lines → ${
+                row.payment_ids.length === 1
+                  ? "1 payment"
+                  : `${row.payment_ids.length} payments`
+              }`
+            : row.payment_ids.length === 1
             ? row.payment_ids[0]
             : `${row.payment_ids.length} payments`}
         </span>
         <span className="badges">
-          {row.payment_ids.length > 1 && <OutcomeBadge kind="merged" />}
+          {row.split && <OutcomeBadge kind="split" />}
+          {!row.split && row.payment_ids.length > 1 && <OutcomeBadge kind="merged" />}
           {row.permutation_stability === 1 && <OutcomeBadge kind="verified" />}
         </span>
         <span className={`tier tier-${row.tier}`}>{TIER_LABEL[row.tier] ?? row.tier}</span>
@@ -1051,10 +1089,36 @@ function ReconciliationSummary({ reconciled: r, totals }) {
         <p className="hero-line">
           <strong>{r.credits_reconciled} of the {r.credits_total} bank credits</strong>{" "}
           ({pct(pctCredits)}) settled automatically.{" "}
+          {r.settlement_groups > 0 && (
+            <>
+              <strong>{r.credits_in_groups}</strong> of them arrived as{" "}
+              {r.settlement_groups} split settlement
+              {r.settlement_groups === 1 ? "" : "s"} — one payment across several bank
+              lines — and were matched as a group.{" "}
+            </>
+          )}
           The remaining <strong>{r.exceptions}</strong> were{" "}
           <em>refused rather than guessed</em> — they are listed below with the reason for
           each.
         </p>
+        {/*
+          The net line, and it is not optional.
+
+          The hero leads with money reconciled, and that figure is GROSS. A chargeback
+          claws money back out of a settlement that was correctly matched -- the match is
+          still right, and the merchant still does not have the money. Leading with the
+          gross number alone is the same omission the debit panel below exists to fix,
+          committed in the one place a reader looks first.
+        */}
+        {r.reversals > 0 && (
+          <p className="hero-line net">
+            <strong>{RUPEES.format(r.rupees_reconciled_net)} net</strong> of{" "}
+            {r.reversals} chargeback{r.reversals === 1 ? "" : "s"} totalling{" "}
+            {RUPEES.format(r.rupees_reversed)}, which were clawed back after settling.
+            The matches stand — both events happened — so the figure above is what
+            reconciled and this is what stayed.
+          </p>
+        )}
       </div>
 
       <dl className="summary-grid">
@@ -1065,7 +1129,7 @@ function ReconciliationSummary({ reconciled: r, totals }) {
             <span className="muted">
               {r.records_breakdown.payments} payments · {r.records_breakdown.bank_credits}{" "}
               bank credits · {r.records_breakdown.invoices} invoices ·{" "}
-              {r.records_breakdown.bank_debits_not_examined} debits not examined
+              {r.records_breakdown.bank_debits} bank debits
             </span>
           </dd>
         </div>
@@ -1450,7 +1514,40 @@ export default function App() {
 
   const { totals, tolerances, verification, seed, density } = run.data;
   const generatedAt = run.data.generated_at;
-  const notExamined = run.data.not_examined ?? {};
+  const debits = run.data.debits ?? {};
+  /*
+   * The reconciled list, groups included.
+   *
+   * The hero said "130 of 141 bank credits settled" while this tab listed 126 rows, and
+   * the four missing ones were exactly the split settlements — the thing the release is
+   * about. A summary a reader cannot reconcile against the list under it is worse than
+   * no summary.
+   *
+   * A group is ONE row, not two: the money moved once, and showing two rows for one
+   * payment reads as a double-post to precisely the person trained to look for one. The
+   * row carries every member credit so the count still adds up, and it is keyed on the
+   * first member so the transcript lookup resolves.
+   */
+  //
+  // Computed plainly, NOT with useMemo, and that is not an oversight. This line sits
+  // after the loading and error early-returns above, so a hook here is called on some
+  // renders and not others -- React's Rules of Hooks -- and the first version of it
+  // crashed the whole page with "Rendered more hooks than during the previous render."
+  // It is ~130 rows sorted once per render, which costs nothing worth a hook.
+  const reconciledRows = [
+    ...run.data.assignments,
+    ...(run.data.settlement_groups ?? []).map((g) => ({
+      bank_txn_id: g.bank_txn_ids[0],
+      bank_txn_ids: g.bank_txn_ids,
+      payment_ids: g.payment_ids,
+      invoice_nos: g.invoice_nos,
+      rupees: g.rupees,
+      residual_paise: g.residual_paise,
+      permutation_stability: g.permutation_stability,
+      tier: "layer2b_group",
+      split: true,
+    })),
+  ].sort((a, b) => b.rupees - a.rupees);
   const shownRupees = shown.reduce((s, e) => s + e.rupees_at_risk, 0);
 
   return (
@@ -1479,11 +1576,11 @@ export default function App() {
 
       <ReconciliationSummary reconciled={run.data.reconciled} totals={totals} />
 
-      {notExamined.debit_lines > 0 && <NotExamined data={notExamined} />}
+      {debits.lines > 0 && <DebitLedger data={debits} />}
 
       <nav className="tabs">
         <button className={tab === "reconciled" ? "on" : ""} onClick={() => setTab("reconciled")}>
-          Reconciled <span className="n">{run.data.assignments.length}</span>
+          Reconciled <span className="n">{reconciledRows.length}</span>
         </button>
         <button className={tab === "exceptions" ? "on" : ""} onClick={() => setTab("exceptions")}>
           Exceptions <span className="n">{run.data.exceptions.length}</span>
@@ -1519,18 +1616,18 @@ export default function App() {
         <>
           <OutcomeLegend
             assignments={run.data.assignments}
+            groups={run.data.settlement_groups ?? []}
             exceptions={run.data.exceptions}
           />
           <p className="showing">
-            {run.data.assignments.length} bank credits reconciled, largest first. Open one
-            to see the records before and after.
+            {reconciledRows.length} settlements reconciled across{" "}
+            {run.data.reconciled?.credits_reconciled ?? run.data.assignments.length} bank
+            credits, largest first. Open one to see the records before and after.
           </p>
           <ol className="matches">
-            {[...run.data.assignments]
-              .sort((a, b) => b.rupees - a.rupees)
-              .map((row, i) => (
-                <MatchCard key={row.bank_txn_id} row={row} rank={i + 1} />
-              ))}
+            {reconciledRows.map((row, i) => (
+              <MatchCard key={row.bank_txn_id} row={row} rank={i + 1} />
+            ))}
           </ol>
           <Ceiling />
           <Verification block={verification} />

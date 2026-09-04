@@ -26,6 +26,8 @@ from . import (
     confidence as conf,
     fees,
     fellegi_sunter as fs,
+    groups,
+    reversals,
     tier1_reference,
     tier2_amount_date,
     tier3_subsetsum,
@@ -541,6 +543,52 @@ def match_once(
         if not granted:
             break
 
+    # ---- Layer 2b: settlement groups, on the residue only ------------------
+    #
+    # Runs after the fixpoint, never during it. A credit reaches group resolution only
+    # once the single-credit model has failed on it, so a group can never pre-empt a
+    # simpler explanation -- and the search space is the handful of credits nothing
+    # accounted for rather than the whole statement. See `engine/groups.py` for why the
+    # claim unit is a group of credits and not the (payment, fraction) pair
+    # ARCHITECTURE.md predicted.
+    residue = [t for t in credits if t.id not in settled]
+    group_list, group_refusals, group_truncated = groups.resolve(
+        residue, payments, claimed, invoices_by_no, by_id
+    )
+    for g in group_list:
+        claimed.update(g.payment_ids)
+        settled.update(g.bank_txn_ids)
+        tier_counts[g.tier] = tier_counts.get(g.tier, 0) + 1
+        if recorder is not None:
+            for txn_id in g.bank_txn_ids:
+                if (r := recorder.get(txn_id)) is not None:
+                    r.granted = True
+                    r.verdict = "assign"
+                    r.final_payment_ids = tuple(g.payment_ids)
+                    r.group_txn_ids = tuple(g.bank_txn_ids)
+                    r.group_credit_paise = g.credit_paise
+                    r.final_reason = (
+                        f"settled as part of a group of {g.size} credits totalling "
+                        f"{g.credit_paise}p"
+                    )
+
+    # A credit taken into a group must lose the refusal it was carrying, or MR5 sees it
+    # receive two verdicts. Group refusals replace the old ones for the same reason.
+    grouped = {t for g in group_list for t in g.bank_txn_ids}
+    group_refused = {r.bank_txn_id for r in group_refusals}
+    refusals = [
+        r for r in refusals if r.bank_txn_id not in grouped
+        and r.bank_txn_id not in group_refused
+    ] + group_refusals
+    no_candidate = [
+        t for t in no_candidate if t not in grouped and t not in group_refused
+    ]
+
+    # ---- Reversals: the debit half of the statement ------------------------
+    reversal_list, unexplained = reversals.resolve(
+        inputs.bank_txns, tuple(assignments), tuple(group_list), by_id
+    )
+
     unassigned = tuple(
         sorted(p.id for p in payments if p.captured and p.id not in claimed)
     )
@@ -550,4 +598,8 @@ def match_once(
         no_candidate=tuple(no_candidate),
         unassigned_payment_ids=unassigned,
         tier_counts=tier_counts,
+        groups=tuple(group_list),
+        reversals=tuple(reversal_list),
+        unexplained_debits=tuple(unexplained),
+        group_search_truncated=group_truncated,
     )

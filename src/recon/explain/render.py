@@ -163,6 +163,27 @@ class Explainer:
         amount = rupees(rec.credit_paise)
         won = next((a for a in rec.attempts if a.outcome == "assign"), None)
 
+        # Layer 2b first: a group member has no winning tier attempt by construction --
+        # neither half of a part-settlement balances against the payment on its own --
+        # so the `won is not None` test below is False and this credit used to fall all
+        # the way through to "nothing could account for it", on a row the page was
+        # listing as reconciled two inches higher.
+        if rec.verdict == "assign" and rec.group_txn_ids:
+            others = [t for t in rec.group_txn_ids if t != rec.bank_txn_id]
+            n = len(rec.final_payment_ids)
+            who = self._payer_of(rec.final_payment_ids)
+            src = f" from {who}" if who else ""
+            return (
+                f"This {amount} credit is one part of a settlement that arrived split "
+                f"across {plural(len(rec.group_txn_ids), 'bank line')} "
+                f"({', '.join(others)}). Neither part accounts for the money on its own "
+                f"- together they come to {rupees(rec.group_credit_paise)}, which is "
+                f"exactly what {plural(n, 'payment')}{src} should have settled for after "
+                f"gateway fees and any TDS. The parts were posted as one group, because "
+                f"posting a half-settlement against a whole payment would be a wrong "
+                f"answer rather than a partial one."
+            )
+
         if rec.verdict == "assign" and won is not None:
             n = len(rec.final_payment_ids)
             who = self._payer_of(rec.final_payment_ids)

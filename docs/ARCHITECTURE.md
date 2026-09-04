@@ -335,53 +335,146 @@ Both candidates are emitted, ranked by FS weight, and a human picks.
 
 ---
 
-## Two named limitations of the model
+## Two named limitations of the model — both lifted, 2026-09-04
 
-Both are places where the engine **refuses correctly** and the refusal nonetheless costs
-real coverage. They are recorded here because a correct-looking refusal is the easiest
+**This section used to argue that neither could be lifted without a different engine.**
+It is kept in that shape, with the original reasoning quoted, because the reasoning was
+careful and half of it was still wrong — and a design document that silently replaces a
+rejected conclusion with the opposite one teaches nobody anything.
+
+Both were places where the engine **refused correctly** and the refusal nonetheless cost
+real coverage. They were recorded here because a correct-looking refusal is the easiest
 possible place for an unmodelled relation to hide: the metrics say the engine declined,
 ground truth says declining was right, and nothing anywhere says the engine *could not
-have done otherwise*.
+have done otherwise*. Writing them down is what made them findable.
 
-### One payment, many credits — `split_settlement`
+### One payment, many credits — `split_settlement`  →  Layer 2b, settlement groups
 
 Razorpay splits a settlement for on-demand payouts and when a batch crosses a limit, so
 one payment's net arrives as two separate bank credits.
 
-**The engine cannot represent this.** `claimed` is a set, so a payment is taken exactly
-once, and every tier asks the same question — *which subset of payments sums to this
-credit?* There is no way to express half a payment on either side of that question.
+**What this document said, verbatim:** *"The engine cannot represent this. `claimed` is a
+set, so a payment is taken exactly once, and every tier asks the same question — which
+subset of payments sums to this credit? There is no way to express half a payment on
+either side of that question. … the claim unit would have to become (payment, fraction)
+rather than payment, and Layer 2's uniqueness test would have to enumerate over
+partitions rather than subsets — which is a strictly larger search whose uniqueness
+question is harder again. That is a different engine, not a patch."*
 
-Refusing is genuinely the right output: posting a part-settlement against a whole
-payment is a wrong answer, not a partial one. But the relation is outside the model, not
-merely hard, and no amount of tuning reaches it.
+**The diagnosis was right and the prescription was wrong.** The claim unit did have to
+change. It did not have to become `(payment, fraction)`. A part-settlement is a **group**
+relation, and the group balances exactly:
 
-*What it would take:* the claim unit would have to become (payment, fraction) rather than
-payment, and Layer 2's uniqueness test would have to enumerate over partitions rather
-than subsets — which is a strictly larger search whose uniqueness question is harder
-again. That is a different engine, not a patch, which is why it is documented rather
-than attempted.
+```
+credit_1 + credit_2  ==  net(payment)      — to the paisa, within fee tolerance
+```
 
-### The engine reads credits only — `chargeback_debit`
+Fractions are only needed to post *half a payment*, and this document already argued —
+correctly — that posting a part-settlement against a whole payment is a wrong answer
+rather than a partial one. Nobody wants the fraction. Raising the claim unit from one
+credit to a **group of up to `MAX_GROUP_CREDITS` credits** expresses the relation exactly,
+keeps every amount an integer, and turns the "harder again" uniqueness question back into
+the one Layer 2 already answers: enumerate every grouping that balances, and refuse
+unless exactly one does.
 
-`match_once` iterates `t for t in inputs.bank_txns if t.is_credit`. Every debit on the
-statement — a chargeback, a reversal, a bank fee, a payout — is invisible to it: not
+`engine/groups.py` runs on the **residue**, after the matcher reaches its fixpoint, so a
+group can never pre-empt a simpler explanation. Three tests, and they are the whole layer:
+
+1. **Balance.** The summed credit falls inside the summed settled interval of the payment
+   set, within the tolerance for the summed credit.
+2. **Irreducibility.** No proper sub-group of the credits balances against a proper subset
+   of the payments. A "group" that decomposes into two smaller balancing halves is two
+   ordinary assignments, and accepting it would let one arbitrary carve-up of a larger
+   coincidence be posted as a settlement.
+3. **Uniqueness.** Each credit and each payment appears in exactly one candidate group.
+   A credit fitting two groupings has been explained by neither — `ambiguous_grouping`.
+
+A search that hits its bound **grants nothing**: uniqueness cannot be established over a
+partial enumeration, and posting the groups found before the bound was reached would post
+exactly the answers whose rivals had not been looked for yet.
+
+**The invariants were restated, not relaxed.** MR4 checks conservation over the group's
+total against the group's total settled interval; MR5 counts each credit and each payment
+once, with a group as one claim. Weakening either — widening the tolerance until a
+half-settlement passed, or exempting groups from the double-post check — would have
+destroyed the checks that make every other number meaningful. `results.SettlementGroup`
+is a separate type from `Assignment` for exactly this reason.
+
+**Measured:** 2 groups over 4 credits on the reported batch, match rate 88.66% → 89.69%,
+precision 1.0000 unchanged, exceptions 15 → 11, reachable ceiling 91.24% → 92.27%.
+
+### The engine reads credits only — `chargeback_debit`  →  Layer 2c, the reversal ledger
+
+`match_once` iterated `t for t in inputs.bank_txns if t.is_credit`. Every debit on the
+statement — a chargeback, a reversal, a bank fee, a payout — was invisible to it: not
 matched, not refused, not counted.
 
 This went unnoticed for the life of the project for a simple reason: **the generated
 statement contained no debits at all.** The engine had never been shown the half of a
 bank statement it ignores by construction, so nothing could reveal the gap.
 
-Ground truth deliberately creates **no link for a debit**. Inventing one would score the
-engine against a verdict it structurally cannot produce — a permanent miss that no
-engine work could ever close, which is scoring theatre rather than measurement. The
-metrics block reports the unexamined lines and their value instead, under `NOT EXAMINED`,
-so the exception list is not mistaken for a complete account of the statement.
+**What this document said, verbatim:** *"A debit is not a credit with a sign flipped. It
+reverses a prior assignment, which means the engine would need to un-post a match it has
+already made and the conservation relations (MR4, MR5) would need to balance across time
+rather than within one batch. Also a different engine."*
 
-*What it would take:* a debit is not a credit with a sign flipped. It reverses a prior
-assignment, which means the engine would need to un-post a match it has already made and
-the conservation relations (MR4, MR5) would need to balance across time rather than
-within one batch. Also a different engine.
+**The first sentence was right and load-bearing; the second contained a false step.** A
+debit does ask a different question — *which settlement is this money leaving against?* —
+which is why `engine/reversals.py` shares no machinery with the subset search and is a
+separate module rather than a widened loop. But **the engine does not need to un-post
+anything.** The settlement happened and the claw-back happened. Both are facts, and
+erasing the first would leave the books describing a batch that never occurred. So the
+assignment keeps its single verdict, the payment keeps its single claim, MR5 is untouched,
+and the reversal is recorded as a later entry against the same credit. What changes is the
+**net** position — which is why the batch now reports reconciled **gross and net** rather
+than silently as one number. That is conservation across time, done by addition rather
+than by deletion.
+
+What identifies a reversal: the debit equals the credit it reverses to the paisa; the
+reversed credit's reference appears in the debit's own reference or narration (a
+chargeback carries the ARN/RRN of the settlement it claws back); the debit is dated on or
+after the credit; and **exactly one** posted credit satisfies all three. Anything else is
+an `UnexplainedDebit`, reported with its candidates.
+
+**No vocabulary test.** The obvious rule — look for CHARGEBACK, REVERSAL, RETURN in the
+narration — was rejected for the same reason token lists keep being rejected in this
+project: it is a dictionary fitted to the statements in front of us, it would not survive
+the next bank's wording, and it invites the reader to believe the engine understands what
+it is only pattern-matching. Reference plus amount plus ordering is a structural argument
+that holds whatever the line is called, and a bank fee does not carry the settlement's
+UTR.
+
+**On ground truth.** This document previously argued that no truth link should be created
+for a debit, because *"inventing one would score the engine against a verdict it
+structurally cannot produce — a permanent miss that no engine work could ever close,
+which is scoring theatre rather than measurement."* That argument was correct **and
+conditional**. `reverse` is now a verdict the engine can produce, so withholding the label
+would hide real work instead of avoiding a fake miss. The generator emits a `reversal`
+link naming the reversed payment, and a reversal posted against the wrong settlement
+scores as an error.
+
+**Measured:** 6 of 6 chargebacks identified on the reported batch, 3 of 3 on the holdout,
+zero unexplained debits, ₹1,66,732.77 correctly attributed. The metrics block's
+`NOT EXAMINED` disclosure now reads **zero lines** — and is still printed, because it is
+derived by subtraction from what actually reached a verdict and is therefore what would
+surface the next blind spot without anyone having to suspect one.
+
+### What this cost, and what remains outside the model
+
+The lift is bounded, and the bounds are honest rather than incidental:
+
+| | bound | what happens past it |
+|---|---|---|
+| credits per settlement group | `MAX_GROUP_CREDITS = 3` | refused, visibly |
+| days a group may span | `GROUP_SPAN_DAYS = 2` | not grouped |
+| unsettled credits before the search declines | `MAX_GROUP_RESIDUE = 40` | grants nothing, discloses |
+| partial chargebacks | not modelled | reported as an unexplained debit |
+| a claw-back against a settlement in an earlier batch | not modelled | reported as an unexplained debit |
+
+A four-way split, or a chargeback for part of a settlement, is refused — correctly and
+visibly — rather than searched for at a cost this engine cannot justify. Those are the
+next two named limitations, and they are named here for the same reason the last two
+were.
 
 ---
 

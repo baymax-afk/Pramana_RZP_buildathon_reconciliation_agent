@@ -95,6 +95,17 @@ class CreditRecord:
     final_category: str = ""
     final_reason: str = ""
 
+    # Layer 2b: the other credits this one was settled alongside, empty for the ordinary
+    # single-credit assignment.
+    #
+    # The explain layer needs this and cannot infer it. A group member has NO successful
+    # tier attempt -- no subset of payments sums to half a settlement, which is the whole
+    # reason grouping exists -- so the renderer's "did any attempt win?" test fails and
+    # it fell through to *"nothing in the settlement window could account for this
+    # credit"*. On a credit the page was simultaneously listing as reconciled.
+    group_txn_ids: tuple[str, ...] = ()
+    group_credit_paise: int = 0
+
 
 class Recorder:
     """

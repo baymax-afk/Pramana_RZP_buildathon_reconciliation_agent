@@ -141,6 +141,25 @@ def build(
     txn = {t.id: t for t in inputs.bank_txns}
     pay = {p.id: p for p in inputs.payments}
     debits = [t for t in inputs.bank_txns if t.debit]
+    _reversal_by_txn = {
+        r.bank_txn_id: {
+            "settled_by": r.settled_by,
+            "payment_ids": list(r.payment_ids),
+            "reason": r.reason,
+        }
+        for r in out.reversals
+    }
+    _unexplained_by_txn = {u.bank_txn_id: u.reason for u in out.unexplained_debits}
+    # Lines that reached no verdict at all, by subtraction. See the `not_examined` block.
+    _seen = (
+        {a.bank_txn_id for a in out.assignments}
+        | set(out.grouped_txn_ids)
+        | {r.bank_txn_id for r in out.refusals}
+        | set(out.no_candidate)
+        | set(_reversal_by_txn)
+        | set(_unexplained_by_txn)
+    )
+    _unverdicted = [t for t in inputs.bank_txns if t.id not in _seen]
 
     exceptions: list[ExceptionRow] = []
     for r in out.refusals:
@@ -249,34 +268,75 @@ def build(
             "no_candidate": len(out.no_candidate),
             "rupees_at_risk": round(sum(e.rupees_at_risk for e in exceptions), 2),
         },
-        # Bank lines the engine structurally never reads, carried into the payload so
-        # the operator-facing view can disclose them.
+        # The debit half of the statement, and what the engine made of it.
         #
-        # `rupees_at_risk` above is the total the UI leads with, and it counts refused
-        # CREDITS only. A merchant reading "Rs 800 at risk" while Rs 166,732 left the
-        # account on debit lines nobody examined is being misled by omission -- and the
-        # omission is worse in the UI than in the metrics block, because the UI is what
-        # someone acts on. The engine's model has not changed; what changed is that it
-        # now says out loud what it did not look at.
-        "not_examined": {
-            "debit_lines": len(debits),
+        # This block used to be called `not_examined`, and it existed because
+        # `rupees_at_risk` counts refused CREDITS only: a merchant reading "Rs 800 at
+        # risk" while Rs 1,66,732 left the account on lines nobody looked at is being
+        # misled by omission. That disclosure did its job -- and the right end state for
+        # a disclosure of this kind is that the engine goes and reads them, which is
+        # what Layer 2c does. The key is kept so an operator who learned to look here
+        # still finds the same money; what changed is that each line now says what it
+        # was, and `not_examined` counts only what remains genuinely unexplained.
+        "debits": {
+            "lines": len(debits),
             "rupees": round(sum(t.debit for t in debits) / 100, 2),
-            "reason": (
-                "The engine reads credit transactions only. Money leaving the account "
-                "-- chargebacks, reversals, bank fees -- is outside its model and is "
-                "neither matched nor refused."
+            "reversals_identified": len(out.reversals),
+            "rupees_reversed": round(out.reversed_paise / 100, 2),
+            "unexplained": len(out.unexplained_debits),
+            "rupees_unexplained": round(
+                sum(u.debit_paise for u in out.unexplained_debits) / 100, 2
             ),
-            "lines": [
+            "reason": (
+                "Money leaving the account. Each debit is tied to the settlement it "
+                "reverses -- same amount, carrying that settlement's reference, dated "
+                "after it, and uniquely so -- or reported as unexplained. A reversal "
+                "does not undo the settlement it reverses: both events happened, so "
+                "the reconciled total is reported gross and net."
+            ),
+            "rows": [
                 {
                     "bank_txn_id": t.id,
                     "txn_date": t.txn_date,
                     "narration": t.narration,
                     "ref_no": t.ref_no,
                     "rupees": round(t.debit / 100, 2),
+                    "reverses": _reversal_by_txn.get(t.id, {}).get("settled_by"),
+                    "payment_ids": _reversal_by_txn.get(t.id, {}).get("payment_ids", []),
+                    "status": (
+                        "reversal" if t.id in _reversal_by_txn else "unexplained"
+                    ),
+                    "detail": (
+                        _reversal_by_txn.get(t.id, {}).get("reason")
+                        or _unexplained_by_txn.get(t.id, "")
+                    ),
                 }
                 for t in sorted(debits, key=lambda x: -x.debit)[:50]
             ],
         },
+        # Kept, and now almost always zero: bank lines that reached no verdict at all.
+        # A disclosure that vanishes when it reads zero is one nobody can check.
+        "not_examined": {
+            "lines": len(_unverdicted),
+            "rupees": round(sum(abs(t.amount) for t in _unverdicted) / 100, 2),
+            "reason": (
+                "Bank lines that reached no verdict of any kind. Derived by subtraction "
+                "from what was actually decided, so a future blind spot appears here "
+                "without anyone having to suspect one."
+            ),
+        },
+        # ---- settlement groups, for the operator-facing view ----
+        "settlement_groups": [
+            {
+                "bank_txn_ids": list(g.bank_txn_ids),
+                "payment_ids": list(g.payment_ids),
+                "invoice_nos": list(g.invoice_nos),
+                "rupees": round(g.credit_paise / 100, 2),
+                "residual_paise": g.residual_paise,
+                "permutation_stability": g.permutation_stability,
+            }
+            for g in out.groups
+        ],
         "tolerances": {
             "tol_abs_paise": cfg.TOL_ABS_PAISE,
             "tol_rel_bps": cfg.TOL_REL_BPS,
@@ -405,9 +465,17 @@ def _reconciled(inputs: ReconInputs, out: MatchOutput, debit_lines: int) -> dict
     is worth surfacing; it is not an edit to anybody's ledger.
     """
     assignments = out.assignments
-    invoices_reconciled = {no for a in assignments for no in a.invoice_nos}
+    invoices_reconciled = {no for a in assignments for no in a.invoice_nos} | {
+        no for g in out.groups for no in g.invoice_nos
+    }
     multi = [a for a in assignments if len(a.payment_ids) > 1]
-    payments_reconciled = sum(len(a.payment_ids) for a in assignments)
+    # Counted ONCE per payment, groups included. A part-settlement moves one payment
+    # however many bank lines it arrived on, and summing per credit would report the
+    # engine reconciling more payments than the batch contains.
+    payments_reconciled = len(
+        {pid for a in assignments for pid in a.payment_ids}
+        | {pid for g in out.groups for pid in g.payment_ids}
+    )
     captured = sum(1 for p in inputs.payments if p.captured)
     credits = [t for t in inputs.bank_txns if t.is_credit]
     paise = sum(t.credit for t in credits if t.id in out.assignment_map)
@@ -422,9 +490,12 @@ def _reconciled(inputs: ReconInputs, out: MatchOutput, debit_lines: int) -> dict
             "payments": len(inputs.payments),
             "bank_credits": len(credits),
             "invoices": len(inputs.invoices),
-            "bank_debits_not_examined": debit_lines,
+            # Renamed from `bank_debits_not_examined`, and the rename is the change.
+            # The engine reads them now: each is either tied to the settlement it
+            # reverses or reported as an unexplained debit.
+            "bank_debits": debit_lines,
         },
-        "credits_reconciled": len(assignments),
+        "credits_reconciled": len(assignments) + len(out.grouped_txn_ids),
         "credits_total": len(credits),
         "payments_reconciled": payments_reconciled,
         "payments_capturable": captured,
@@ -440,8 +511,30 @@ def _reconciled(inputs: ReconInputs, out: MatchOutput, debit_lines: int) -> dict
         # refused before it reached this list.
         "verified_stable": sum(
             1 for a in assignments if (a.permutation_stability or 0) >= 1.0
+        ) + sum(
+            len(g.bank_txn_ids)
+            for g in out.groups
+            if (g.permutation_stability or 0) >= 1.0
         ),
         "exceptions": len(out.refusals) + len(out.no_candidate),
+        # ---- Layer 2b: one payment set settled across several credits ----
+        "settlement_groups": len(out.groups),
+        "credits_in_groups": len(out.grouped_txn_ids),
+        "payments_in_groups": len({pid for g in out.groups for pid in g.payment_ids}),
+        "paise_in_groups": sum(g.credit_paise for g in out.groups),
+        # ---- Layer 2c: the debit half ----
+        #
+        # Reported next to the reconciled totals rather than inside them. A reversal does
+        # not undo the settlement it reverses -- both events happened -- so the batch has
+        # a gross figure and a net one, and collapsing them into a single "reconciled"
+        # number would quietly net Rs 1,66,732 of clawed-back money out of the headline.
+        "reversals": len(out.reversals),
+        "paise_reversed": out.reversed_paise,
+        "rupees_reversed": round(out.reversed_paise / 100, 2),
+        "paise_reconciled_net": paise - out.reversed_paise,
+        "rupees_reconciled_net": round((paise - out.reversed_paise) / 100, 2),
+        "unexplained_debits": len(out.unexplained_debits),
+        "paise_unexplained_debits": sum(u.debit_paise for u in out.unexplained_debits),
     }
 
 

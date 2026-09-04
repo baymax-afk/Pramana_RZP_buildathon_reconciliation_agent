@@ -181,13 +181,28 @@ def test_every_credit_gets_exactly_one_verdict(written):
     _, inputs, _ = written
     out = match_once(inputs)
     credits = {t.id for t in inputs.bank_txns if t.is_credit}
-    verdicts = (
-        {a.bank_txn_id for a in out.assignments}
-        | {r.bank_txn_id for r in out.refusals}
-        | set(out.no_candidate)
-    )
-    assert verdicts == credits
-    assert len(out.assignments) + len(out.refusals) + len(out.no_candidate) == len(credits)
+    # FOUR outcomes, not three: a credit settled inside a settlement group is accounted
+    # for too. This assertion was written against the three-way split and went on
+    # passing right up until groups existed, at which point it reported four correctly
+    # settled credits as having received no verdict. `credit_verdicts` is now the one
+    # place that sentence is written.
+    assert set(out.credit_verdicts) == credits
+    assert len(out.credit_verdicts) == len(credits), "a credit received two verdicts"
+
+
+def test_every_debit_gets_exactly_one_verdict(written):
+    """
+    The other half of the statement, which had no verdicts at all until Layer 2c.
+
+    The relation above was true of what it examined and false of the statement, which is
+    the more dangerous of the two: it asserted that every record was accounted for while
+    silently meaning every CREDIT.
+    """
+    _, inputs, _ = written
+    out = match_once(inputs)
+    debits = {t.id for t in inputs.bank_txns if not t.is_credit and t.debit > 0}
+    assert set(out.debit_verdicts) == debits
+    assert len(out.debit_verdicts) == len(debits), "a debit received two verdicts"
 
 
 def test_precision_is_perfect_on_what_tiers_1_and_2_choose_to_assign(written):

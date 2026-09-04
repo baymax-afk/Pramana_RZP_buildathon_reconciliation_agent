@@ -84,11 +84,17 @@ h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
   font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase;
   padding: 2px 8px; border-radius: 5px; background: #eef1f5; color: #3d4a5c;
 }
+/* Ambiguity, in amber: several answers fit and a human picks. `ambiguous_grouping` is
+   the Layer 2b form of exactly that, so it takes the same colour rather than a new one --
+   the palette encodes what the operator has to DO, not which layer objected. */
 .cat-multiple_candidates, .cat-solution_cap_reached,
-.cat-contested_payment { background: #fdf1e3; color: #8a5300; }
+.cat-contested_payment, .cat-ambiguous_grouping { background: #fdf1e3; color: #8a5300; }
 .cat-order_dependent_assignment { background: #f4ecfa; color: #6a3e93; }
 .cat-unexplained_residual, .cat-amount_name_conflict,
 .cat-narration_count_conflict { background: #fdeceb; color: #94322c; }
+/* Neutral grey: the engine declined to look, or looked and found nothing. Neither is a
+   finding about the money, and colouring them like a conflict would send an operator
+   chasing an invoice that is not missing. */
 .cat-no_candidate, .cat-pool_exceeded, .cat-no_subset_fits { background: #eef1f5; color: #45505f; }
 /* Layer 3 bands: evidence is weak or absent rather than contradictory, so they read
    cooler than the conflict categories above. */
@@ -703,3 +709,16 @@ h1 .wordmark { font-weight: 400; color: var(--muted); font-size: 0.62em; }
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* The net-of-chargebacks line under the hero. Muted relative to the headline figure --
+   it qualifies that number rather than competing with it -- but not so faint that it
+   reads as a footnote, because it is the amount the merchant actually kept. */
+.hero-line.net {
+  margin-top: .35rem;
+  color: #5a4a2a;
+  background: #fdf8ee;
+  border-left: 3px solid #d9a441;
+  padding: .5rem .7rem;
+  border-radius: 0 4px 4px 0;
+}
+.hero-line.net strong { color: #7a5a12; }

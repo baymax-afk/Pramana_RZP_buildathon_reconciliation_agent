@@ -47,7 +47,7 @@ excluded from the numerator and included in the denominator.
 
 **The denominator is CAPTURED payments, not all of them, and the distinction is worth
 stating because it moves the headline.** At the reported seed there are 200 payments of
-which 194 are captured, so 172 assigned reads 88.66% rather than 86.0%. An uncaptured
+which 194 are captured, so 174 assigned reads 89.69% rather than 87.0%. An uncaptured
 payment — one that failed at the gateway, or an order never completed — has no money
 behind it and can never appear on a bank statement; counting it against the engine would
 score it for failing to match something that does not exist.
@@ -64,9 +64,9 @@ reachable ceiling = ────────────────────
                                   CAPTURED payments in the batch
 ```
 
-**88.66% against 100% is the wrong comparison, and it is the one a reader makes without
-being told otherwise.** 100% is not available on this batch. Of the 22 captured payments
-the engine does not assign, **17 are unreachable by construction, and ground truth marks
+**89.69% against 100% is the wrong comparison, and it is the one a reader makes without
+being told otherwise.** 100% is not available on this batch. Of the 20 captured payments
+the engine does not assign, **15 are unreachable by construction, and ground truth marks
 every one of them `refuse`**:
 
 | n | why it cannot be matched |
@@ -74,19 +74,30 @@ every one of them `refuse`**:
 | 6 | `unsettled` — the payment never settled, so **no bank credit exists** to match it |
 | 5 | `bank_charge` — the receiving bank took ₹5–50 on top of MDR, outside the ±₹1 tolerance. Refusing is the correct output |
 | 4 | the hand-placed `many_to_one` ambiguity case — two subsets fit the same credit, and refusing is the designed answer |
-| 2 | `split_settlement` — one payment arriving as two credits. The model cannot represent it: `claimed` is a set of payment ids and there is nowhere to put half a payment |
 
-Scoring the engine for those is scoring it for failing to do something nobody claims it
-can do. (Counted per distinct payment: a split payment appears in two truth links, so
-counting link rows instead gives 19 and is wrong.)
+**This table used to have a fourth row, and losing it is the O8 result.** It read:
+*"2 — `split_settlement`, one payment arriving as two credits. The model cannot
+represent it: `claimed` is a set of payment ids and there is nowhere to put half a
+payment."* True when written, and no longer: Layer 2b raised the claim unit from one
+credit to a GROUP of credits, the two halves balance against the payment exactly, and
+those payments are now reachable and matched. The ceiling rose 91.24% → 92.27% because
+of it, which is the honest way for a ceiling to move — the denominator of what is
+*possible* grew, so the engine gets no free credit from it.
+
+Scoring the engine for the remaining 15 is scoring it for failing to do something nobody
+claims it can do.
 
 | | primary | shifted holdout |
 |---|---:|---:|
-| match rate | 88.66% | 84.54% |
-| reachable ceiling | **91.24%** | **92.27%** |
+| match rate | 89.69% | 85.57% |
+| reachable ceiling | **92.27%** | **93.30%** |
 | short of the ceiling | **5** payments | **15** payments |
-| unreachable by construction | 17 | 15 |
+| unreachable by construction | 15 | 13 |
 | match precision | 1.0000 | 1.0000 |
+| assignments behind that precision | 130 | 108 |
+| 95% Clopper–Pearson lower bound | 97.20% | 96.64% |
+| settlement groups resolved | 2 | 2 |
+| reversals identified | 6 of 6 | 3 of 3 |
 
 The ceiling is derived from each batch's own truth links, not asserted — which is why
 the two columns differ, and `tests/test_ceiling.py` asserts that they must. A hardcoded
@@ -122,13 +133,17 @@ or superset is wrong, not partially right.
 Refusals are **not** in either term. They are scored separately, below.
 
 **And the bound on it, because 1.0000 is not self-explanatory.** A precision of 1.0000 on
-126 assignments and one on 126,000 are the same figure and not the same claim. The exact
+130 assignments and one on 130,000 are the same figure and not the same claim. The exact
 two-sided 95% Clopper–Pearson lower bound is what the sample actually supports:
 
 | assignments | precision | 95% CI lower bound |
 |---|--:|--:|
-| 126/126 (reported batch) | 1.0000 | **97.11%** |
-| 104/104 (shifted holdout) | 1.0000 | **96.52%** |
+| 130/130 (reported batch) | 1.0000 | **97.20%** |
+| 108/108 (shifted holdout) | 1.0000 | **96.64%** |
+
+*(Both counts rose by four when Layer 2b landed — a settlement group is scored one entry
+per bank line, because an operator sees two rows on the statement and each is either right
+or wrong. The bound moved with the sample size, which is the only way it should move.)*
 
 `ARCHITECTURE.md` cites the industry standard of **99.9%** precision for fully automated
 matching. **This batch cannot reach it**, however clean the result, and the report prints
@@ -284,10 +299,16 @@ Mean over five held-out seeds, disjoint from both reported runs:
 
 | payments/window | realised pool | match rate | match precision | refusal rate |
 |---|---|---|---|---|
-| 3 | 8.8 | 87.0% | **1.0000** | 9.0% |
-| 6 | 15.0 | 88.9% | **1.0000** | 10.1% |
-| 12 | 27.8 | 89.0% | **1.0000** | 9.2% |
-| 24 | 52.8 | 76.6% | **1.0000** | 13.8% |
+| 3 | 8.8 | 87.0% | **1.0000** | 6.6% |
+| 6 | 15.0 | 88.9% | **1.0000** | 7.4% |
+| 12 | 27.8 | 89.0% | **1.0000** | 6.4% |
+| 24 | 52.8 | 76.6% | **1.0000** | 12.4% |
+
+Every refusal rate in this table fell by roughly 2.5pp when Layer 2b landed, and match
+rate did not move: part-settlements were being refused at every density, and resolving
+them converts a refusal into an assignment without adding a payment the sweep counts
+(the two halves settle one payment that the previous row already counted as unassigned).
+The shape of the curve is unchanged, which is the claim.
 
 As the candidate pool grows six-fold, **refusal rate rises while precision stays flat**
 and coverage is what degrades. That is the behaviour the architecture was built to
@@ -435,6 +456,14 @@ the build environment; one was supplied on 2026-09-03 and
 | match rate | 88.66% | **89.18%** |
 | match precision | **1.0000** | **1.0000** |
 | assignments | 126 | 127 |
+
+> **Measured 2026-09-03, against the engine as it then was, and NOT re-run after O8.**
+> The baselines in this table are the pre-Layer-2b ones — the deterministic arm now reads
+> 89.69% over 130 assignments. The table is left at its measured values rather than
+> rewritten, because the quantity it reports is a *delta between two arms of one run*
+> (+0.52pp, one extra verdict), and that delta is what the section is about. Re-running
+> it costs live API calls and would answer the same question; what it must not do is
+> pretend the 88.66% column is today's baseline. It is not.
 
 Of 141 credit narrations, **13** are unreadable by the regex tier. The live model fills
 **8**, all merchant references and no payer names — the regex tier already reads a name

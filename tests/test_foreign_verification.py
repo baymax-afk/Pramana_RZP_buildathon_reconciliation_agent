@@ -34,6 +34,7 @@ from recon.verify.foreign import (
     UNKNOWN_ID,
     ForeignClaim,
     audit,
+    claims_from,
 )
 
 
@@ -41,10 +42,10 @@ from recon.verify.foreign import (
 def batch():
     inputs = load_inputs()
     out = match_once(inputs)
-    own = tuple(
-        ForeignClaim(bank_txn_id=t, payment_ids=tuple(sorted(p)))
-        for t, p in sorted(out.assignment_map.items())
-    )
+    # Built by the shared helper, not by hand. Hand-building this dropped the
+    # settlement grouping and made the auditor report the engine's own correct output as
+    # four double-posts -- in the fixture of the test whose whole job is to catch that.
+    own = claims_from(out)
     return inputs, out, own
 
 
