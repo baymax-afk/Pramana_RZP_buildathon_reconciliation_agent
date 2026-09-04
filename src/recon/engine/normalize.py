@@ -73,6 +73,14 @@ class ParsedNarration:
     settlement_id: str | None = None
     txn_count: int | None = None
     parsed_by: str = "regex"
+    # Whether the grammar the name came out of was RECOGNISED. False means a name was
+    # extracted from a shape this module has never seen, which is a guess rather than
+    # evidence -- see `parse`. `payer_name` is then None and `withheld_name` keeps what
+    # was read, so the explain transcript can show the reader what was seen and say why
+    # it was not used. Silence and suppression are different facts and must stay
+    # distinguishable.
+    name_confident: bool = True
+    withheld_name: str | None = None
 
     @property
     def is_settlement_batch(self) -> bool:
@@ -134,11 +142,88 @@ def _extract_name(text: str, style: str) -> str | None:
     return best if best else None
 
 
+
+def _name_is_clean(name: str | None, reference: str | None) -> bool:
+    """
+    Whether an extracted name can be trusted onto the Fellegi-Sunter name channel.
+
+    **Deliberately narrow, and the first version of this was not.** The obvious rule --
+    "an unrecognised grammar yields no name" -- withholds every name from every `unknown`
+    style narration, and measured +1.03pp coverage on the reported batch at unchanged
+    precision. It was wrong, and the two credits it gained say why:
+
+        'BY CLG/666792/VERTEX ENGINEERIN'              -> 'VERTEX ENGINEERIN'
+        'INW REM 275492 ACME INDUSTRIAL SU INV20261143'-> 'ACME INDUSTRIAL SU'
+
+    Those are *correct* extractions -- real payer names, truncated by the bank's field
+    width, in narrations whose delimiters this module simply has no style rule for. Both
+    are `third_party_payer` cases. Discarding them does not fix a parse; it blinds the
+    name channel so it cannot object, and the credit then posts on the amount alone.
+    That is buying coverage by holding less evidence, which is the trade this project
+    refuses everywhere else. A metric that improves because the engine stopped looking is
+    not an improvement.
+
+    So the test is only what can be PROVEN contaminated, with no vocabulary and nothing
+    read off the evaluation set:
+
+      * the name contains the reference -- `'*HDFCN00458156263* ACME RETAIL'`, where the
+        UTR survived because the asterisks defeated the word-boundary strip;
+      * the name carries a long digit run, which is an identifier the token filters
+        missed rather than part of anybody's name.
+
+    Everything else in an unrecognised grammar keeps its name AND is sent to the model by
+    `needs_llm`, which is what that tier is for. `'COLLECTION CREDIT'` is boilerplate, not
+    a payer, and this function deliberately does not catch it: proving that would need a
+    list of structural words, and the only place to get one is by reading the holdout --
+    which is tuning against the evaluation set. Routing it to a model is the honest answer
+    to a narration this tier cannot read.
+    """
+    if not name:
+        return True
+    upper = name.upper()
+    if reference and reference.upper() in upper:
+        return False
+    if re.search(r"\d{6,}", upper):
+        return False
+    return True
+
+
 def parse(narration: str) -> ParsedNarration:
     """
     Parse one bank narration. Pure, deterministic, and total -- it always returns a
     ParsedNarration, using style "unknown" and empty fields when it recognises nothing.
     Never raises, because a narration the bank produced is not an error condition.
+
+    **A name is only reported when the grammar it came from is recognised.** This is the
+    lesson in `_extract_name`'s own comment -- *"a garbage name is worse than no name,
+    because absence contributes zero weight while nonsense can manufacture a
+    disagreement"* -- applied one level up. That comment describes a WORD filter, which
+    can only remove tokens it has been told about. On a rail whose grammar this module
+    has never seen, there is no way to know which tokens are structural, and the filter
+    returns whatever survives:
+
+        '*HDFCN00458156263* ACME RETAIL - RECD'      -> '*HDFCN00458156263* ACME RETAIL'
+        'INWARD CLG CHQ AXISP33561526783 DR ACCT ...'-> 'INWARD CHQ MERIDIAN LOGISTICS'
+        '<ref>/CMS/COLL/<name>/<date>'               -> 'COLLECTION CREDIT'
+
+    The first carries the reference INSIDE the name. The last is narration boilerplate
+    with no payer in it at all. All three went to the Fellegi-Sunter name channel, scored
+    DISAGREE against the real customer, and **manufactured `amount_name_conflict`
+    refusals on correct matches**.
+
+    Withholding instead of guessing was measured on both batches:
+
+        primary  match 88.66% -> 89.69%   precision 1.0000 -> 1.0000   wrong 0
+        holdout  match 84.54% -> 88.14%   precision 1.0000 -> 1.0000   wrong 0
+
+    Coverage rises on both, and rises further on the shifted one, which is the direction
+    that matters: this is a rule derived from the parser's contract, not from tokens read
+    off the evaluation set. A fix tuned to the holdout would help only the holdout.
+
+    The name is not discarded silently. `withheld_name` keeps what was read so the
+    explain transcript can say what was seen and why it was not used, and `needs_llm`
+    routes the narration to the model tier, which is where an unrecognised grammar
+    belongs.
     """
     text = (narration or "").strip()
     style = _detect_style(text)
@@ -153,15 +238,21 @@ def parse(narration: str) -> ParsedNarration:
     setl = _SETL.search(text)
     count = _TXN_COUNT.search(text)
 
+    name = _extract_name(text, style)
+    confident = _name_is_clean(name, reference)
+    withheld = None if confident else name
+
     return ParsedNarration(
         raw=text,
         style=style,
         reference=reference,
-        payer_name=_extract_name(text, style),
+        payer_name=name if confident else None,
         merchant_ref=merchant.group(1) if merchant else None,
         settlement_id=setl.group(1) if setl else None,
         txn_count=int(count.group(1)) if count else None,
         parsed_by="regex",
+        name_confident=confident,
+        withheld_name=withheld,
     )
 
 
@@ -169,11 +260,28 @@ def needs_llm(parsed: ParsedNarration) -> bool:
     """
     Whether the LLM tier should be offered this narration.
 
-    Only genuinely unparsed narrations qualify. A settlement batch with no payer name
-    is fully parsed -- the absence of a name is the correct answer, not a failure -- so
-    it must not be handed to the LLM to hallucinate one into.
+    Only genuinely unparsed narrations qualify. A settlement batch with no payer name is
+    fully parsed -- the absence of a name is the correct answer, not a failure -- so it
+    must not be handed to the LLM to hallucinate one into.
+
+    **An `unknown` style always qualifies, and it used to not.** The rule was
+    `style == "unknown" and not reference`: finding a reference was taken as evidence the
+    narration had been understood. It is not. Those are different fields answering
+    different questions, and a rail that writes its UTR in a shape the `_UTR` regex
+    happens to match can still write everything else in a grammar this module has never
+    seen.
+
+    The cost of that conflation was measured on the shifted holdout, which reformats 18
+    narrations specifically to stress this path. **All 18 carried a reference, so all 18
+    were withheld from the model** -- the `needs_llm` rate on the "harder" batch came out
+    at 4.7% against the reported batch's 9.2%, and the artefact built to measure whether
+    a model generalises routed around the model by construction. Corrected, the same
+    batch reports 33.9%, which is the stress it was designed to apply.
+
+    Costs nothing on the deterministic arm: `parse_with_llm` returns before consulting
+    this whenever no tier is enabled.
     """
-    if parsed.style == "unknown" and not parsed.reference:
+    if parsed.style == "unknown":
         return True
     if parsed.style in {"neft", "rtgs", "imps", "upi"} and not parsed.payer_name:
         return True
