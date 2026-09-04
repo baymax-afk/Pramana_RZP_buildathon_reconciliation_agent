@@ -309,6 +309,47 @@ it.
 
 ---
 
+## The audit's ship list, 2026-09-03 — closed, with one item deliberately not built
+
+`REVIEW.md` §8 ranked nine things to ship in 1–3 days. Eight are done. The ninth was
+declined after measuring, and that is recorded here rather than left looking forgotten.
+
+| | Item | Outcome |
+|---|---|---|
+| 1 | regenerate `run_output.json` with `--verify` | done (A1) |
+| 2 | reject non-INR rows at load | done (Phase C) |
+| 3 | fix the `decomposition_out_of_bounds` miscategorisation | done (A2) |
+| 4 | timeout + cache + call cap on `ClaudeTier` | done (P0-3) |
+| 5 | assignments view in the UI | done (P0-2) |
+| 6 | **ceiling panel** | **done** — 91.24% reported beside 88.66%, derived from truth, moves with the batch |
+| 7 | Ring-2 investigator | done (Phase B) |
+| 8 | **reword the trust boundary honestly** | **done** — the absolute claim is gone from `interface.py`, `AGENTIC.md`, `METRICS.md` and `recorded.py` |
+| 9 | balance-continuity check | done (P1-4) |
+
+### The implied deduction rate, added on top
+An `unexplained_residual` said "credit 643537p vs expected 644715..644719p" and left an
+operator to work out why. It now adds: *"the credit implies a 2.77% deduction from gross,
+above the 1.8%–2.5% this engine assumes — consistent with a charge levied on top of the
+gateway fee"*.
+
+Verified against ground truth rather than asserted: all three refusals it fires on carry
+the `bank_charge` label, which is exactly what a rate above the band means. It stays
+silent when the implied rate is inside the band, because there the residual is not a rate
+problem and a note about rates would point the wrong way.
+
+### Not built: naming the nearest out-of-window payment on a `no_candidate`
+The audit's Phase 5 proposed this as a 1-hour fix. **Measured first: there are zero
+`no_candidate` credits on either batch.** The candidate pool is never empty at these
+densities — even the five holdout credits deliberately drifted past the lookback still
+find *other* payments in their window, so they refuse as `no_subset_fits` with the wrong
+candidates rather than reaching the empty-pool path at all.
+
+So the feature would have been written for a branch that never runs, which is precisely
+what the two deleted refusal categories were. Recorded as a measurement rather than
+built. It becomes worth doing if the batch is ever made sparse enough to reach that path.
+
+---
+
 ## The P1/P2 tail, 2026-09-03 — closed
 
 Everything `REVIEW.md` raised below P0 is now done, plus one thing Phase B turned up.

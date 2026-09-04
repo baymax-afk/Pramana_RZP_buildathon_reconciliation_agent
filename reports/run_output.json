@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T00:53:18.403775+00:00",
+  "generated_at": "2026-09-04T00:57:23.932661+00:00",
   "seed": 20260905,
   "density": 6,
   "llm_tier": "claude:claude-sonnet-5",
@@ -1314,7 +1314,7 @@
     "bank_txn_0014": {
       "bank_txn_id": "bank_txn_0014",
       "verdict": "assign",
-      "plain": "This Rs 1,519.50 credit is a single payment from Bharat Traders - the only one of the 9 payments in the 5-day settlement window whose expected amount matches it, exactly.",
+      "plain": "This Rs 1,519.50 credit is a single payment from Bharat Traders. The bank line quotes INV-2026-1014, which identifies that payment outright, and the amount agrees exactly.",
       "evidence": [
         {
           "kind": "bank_txn",
@@ -1354,7 +1354,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Read the narration.",
-          "detail": "Extracted payer 'BHARAT TRADERS'.",
+          "detail": "Extracted payer 'BHARAT TRADERS', reference 'INV-2026-1014'.",
           "evidence": []
         },
         {
@@ -1367,14 +1367,7 @@
         {
           "seq": 4,
           "stage": "tier:tier1_reference",
-          "headline": "Tried reference match - nothing conclusive.",
-          "detail": "This tier found no candidate it could stand behind, so the next and weaker one was tried.",
-          "evidence": []
-        },
-        {
-          "seq": 5,
-          "stage": "tier:tier2_amount_date",
-          "headline": "Amount and date produced a match.",
+          "headline": "Reference match produced a match.",
           "detail": "After gateway fees and any TDS, the payment(s) should have settled for between Rs 1,519.48 and Rs 1,519.52. The bank credited Rs 1,519.50, leaving a residual of +0 paise - inside the 100-paise tolerance fixed before the run. Here the gateway fee is known exactly from the payment record. Uniqueness margin 1.00: how far the next-best combination sat outside tolerance.",
           "evidence": [
             {
@@ -1386,24 +1379,24 @@
           ]
         },
         {
-          "seq": 6,
+          "seq": 5,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: exact (+4.38 bits) - exact name agreement on 'BHARAT TRADERS'\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -3.00 (1 in 9 payments in the window would match by chance)\n  TOTAL: +1.38 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: exact (+4.38 bits) - exact name agreement on 'BHARAT TRADERS'\n  reference: exact (+7.53 bits) - exact reference agreement on INV-2026-1014\n  prior from the blocking pool: -3.00 (1 in 9 payments in the window would match by chance)\n  TOTAL: +8.91 bits",
           "evidence": []
         },
         {
-          "seq": 7,
+          "seq": 6,
           "stage": "resolve",
           "headline": "No other credit wanted these payments.",
           "detail": "The bid was uncontested and was granted in round 1 of the fixpoint loop.",
           "evidence": []
         },
         {
-          "seq": 8,
+          "seq": 7,
           "stage": "verdict",
           "headline": "POSTED.",
-          "detail": "This Rs 1,519.50 credit is a single payment from Bharat Traders - the only one of the 9 payments in the 5-day settlement window whose expected amount matches it, exactly.",
+          "detail": "This Rs 1,519.50 credit is a single payment from Bharat Traders. The bank line quotes INV-2026-1014, which identifies that payment outright, and the amount agrees exactly.",
           "evidence": [
             {
               "kind": "bank_txn",
@@ -4512,7 +4505,7 @@
           "seq": 4,
           "stage": "tier:tier1_reference",
           "headline": "Reference match refused: unexplained_residual.",
-          "detail": "reference matches payment pay_SYN000606242 but the amount does not: credit 643537p vs expected 644715..644719p (residual -1178p)",
+          "detail": "reference matches payment pay_SYN000606242 but the amount does not: credit 643537p vs expected 644715..644719p (residual -1178p). The credit implies a 2.77% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
           "evidence": [
             {
               "kind": "payment",
@@ -4526,7 +4519,7 @@
           "seq": 5,
           "stage": "verdict",
           "headline": "REFUSED - sent to a human.",
-          "detail": "reference matches payment pay_SYN000606242 but the amount does not: credit 643537p vs expected 644715..644719p (residual -1178p)",
+          "detail": "reference matches payment pay_SYN000606242 but the amount does not: credit 643537p vs expected 644715..644719p (residual -1178p). The credit implies a 2.77% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
           "evidence": [
             {
               "kind": "bank_txn",
@@ -6735,7 +6728,7 @@
           "seq": 4,
           "stage": "tier:tier1_reference",
           "headline": "Reference match refused: unexplained_residual.",
-          "detail": "reference matches payment pay_R2XTWf0ZuwMZJXKs9 but the amount does not: credit 413847p vs expected 416205..416209p (residual -2358p)",
+          "detail": "reference matches payment pay_R2XTWf0ZuwMZJXKs9 but the amount does not: credit 413847p vs expected 416205..416209p (residual -2358p). The credit implies a 3.15% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
           "evidence": [
             {
               "kind": "payment",
@@ -6749,7 +6742,7 @@
           "seq": 5,
           "stage": "verdict",
           "headline": "REFUSED - sent to a human.",
-          "detail": "reference matches payment pay_R2XTWf0ZuwMZJXKs9 but the amount does not: credit 413847p vs expected 416205..416209p (residual -2358p)",
+          "detail": "reference matches payment pay_R2XTWf0ZuwMZJXKs9 but the amount does not: credit 413847p vs expected 416205..416209p (residual -2358p). The credit implies a 3.15% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
           "evidence": [
             {
               "kind": "bank_txn",
@@ -16455,7 +16448,7 @@
           "seq": 4,
           "stage": "tier:tier1_reference",
           "headline": "Reference match refused: unexplained_residual.",
-          "detail": "reference matches payment pay_SYN001844736 but the amount does not: credit 3918355p vs expected 3918853..3918857p (residual -498p)",
+          "detail": "reference matches payment pay_SYN001844736 but the amount does not: credit 3918355p vs expected 3918853..3918857p (residual -498p). The credit implies a 2.61% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
           "evidence": [
             {
               "kind": "payment",
@@ -16469,7 +16462,7 @@
           "seq": 5,
           "stage": "verdict",
           "headline": "REFUSED - sent to a human.",
-          "detail": "reference matches payment pay_SYN001844736 but the amount does not: credit 3918355p vs expected 3918853..3918857p (residual -498p)",
+          "detail": "reference matches payment pay_SYN001844736 but the amount does not: credit 3918355p vs expected 3918853..3918857p (residual -498p). The credit implies a 2.61% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
           "evidence": [
             {
               "kind": "bank_txn",
@@ -17310,8 +17303,8 @@
     "materiality_rupees": 5000.0
   },
   "tier_counts": {
-    "tier1_reference": 44,
-    "tier2_amount_date": 63,
+    "tier1_reference": 45,
+    "tier2_amount_date": 62,
     "tier3_subsetsum": 20
   },
   "exceptions": [
@@ -17385,7 +17378,7 @@
       "reference": "KKBKH63765170736",
       "why": "The counterparty is right but the money is not. Likely a partial payment or a deduction the ledger does not record.",
       "next_step": "Establish what the shortfall is -- partial settlement, TDS, or a fee not modelled.",
-      "engine_reason": "reference matches payment pay_SYN001844736 but the amount does not: credit 3918355p vs expected 3918853..3918857p (residual -498p)",
+      "engine_reason": "reference matches payment pay_SYN001844736 but the amount does not: credit 3918355p vs expected 3918853..3918857p (residual -498p). The credit implies a 2.61% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
       "candidates": [
         {
           "payment_ids": [
@@ -17520,7 +17513,7 @@
       "reference": "KKBKH05851893192",
       "why": "The counterparty is right but the money is not. Likely a partial payment or a deduction the ledger does not record.",
       "next_step": "Establish what the shortfall is -- partial settlement, TDS, or a fee not modelled.",
-      "engine_reason": "reference matches payment pay_SYN000606242 but the amount does not: credit 643537p vs expected 644715..644719p (residual -1178p)",
+      "engine_reason": "reference matches payment pay_SYN000606242 but the amount does not: credit 643537p vs expected 644715..644719p (residual -1178p). The credit implies a 2.77% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
       "candidates": [
         {
           "payment_ids": [
@@ -17570,7 +17563,7 @@
       "reference": "AXISP49789229159",
       "why": "The counterparty is right but the money is not. Likely a partial payment or a deduction the ledger does not record.",
       "next_step": "Establish what the shortfall is -- partial settlement, TDS, or a fee not modelled.",
-      "engine_reason": "reference matches payment pay_R2XTWf0ZuwMZJXKs9 but the amount does not: credit 413847p vs expected 416205..416209p (residual -2358p)",
+      "engine_reason": "reference matches payment pay_R2XTWf0ZuwMZJXKs9 but the amount does not: credit 413847p vs expected 416205..416209p (residual -2358p). The credit implies a 3.15% deduction from gross, above the 1.8%-2.5% this engine assumes -- consistent with a charge levied on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee",
       "candidates": [
         {
           "payment_ids": [
@@ -19864,15 +19857,15 @@
       "invoice_nos": [
         "INV-2026-1014"
       ],
-      "tier": "tier2_amount_date",
+      "tier": "tier1_reference",
       "rupees": 1519.5,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 1.382,
+      "fs_weight": 8.915,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9404
+      "confidence": 0.982
     },
     {
       "bank_txn_id": "bank_txn_0024",
@@ -20044,5 +20037,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 19
+  "throughput_records_per_s": 22
 }

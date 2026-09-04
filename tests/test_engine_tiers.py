@@ -516,3 +516,65 @@ def test_a_matching_narration_count_still_assigns(written):
         ))
     )
     assert set(after.assignment_map.get(single.bank_txn_id, ())) == set(single.payment_ids)
+
+
+# --------------------------------------------------------------------------
+# The implied deduction rate
+# --------------------------------------------------------------------------
+def test_an_unexplained_residual_names_the_rate_that_would_reconcile_it(written):
+    """
+    A residual is a symptom; the rate it implies is a diagnosis.
+
+    "credit 643537p vs expected 644715..644719p" says the numbers disagree and leaves an
+    operator to work out why. "implies a 2.77% deduction, above the 1.8-2.5% this engine
+    assumes" names the thing to look for.
+
+    Checked against ground truth rather than asserted: every refusal this fires on at the
+    reported seed carries the `bank_charge` label -- a receiving-bank fee taken on top of
+    MDR, which is exactly what a rate above the band means.
+    """
+    import config as cfg
+
+    batch, inputs, _ = written
+    truth = {t.bank_txn_id: t for t in batch.truth if t.bank_txn_id}
+    out = match_once(inputs)
+
+    residuals = [r for r in out.refusals if r.category.value == "unexplained_residual"]
+    if not residuals:
+        pytest.skip("no unexplained_residual refusals at this seed")
+
+    diagnosed = 0
+    for r in residuals:
+        if "implies a" not in r.reason:
+            continue
+        diagnosed += 1
+        assert "deduction from gross" in r.reason
+        assert f"{cfg.MDR_RATE_BAND[1]:.1%}" in r.reason
+        link = truth.get(r.bank_txn_id)
+        assert link and "bank_charge" in link.defect_labels, (
+            f"{r.bank_txn_id}: the reason blames a deduction above the band, but ground "
+            f"truth says {link.defect_labels if link else 'nothing'} -- the diagnosis "
+            f"has to be right, not merely plausible"
+        )
+    assert diagnosed, "no refusal carried an implied-rate diagnosis"
+
+
+def test_the_rate_note_is_silent_when_the_rate_is_inside_the_band():
+    """
+    Where the residual is not a rate problem, a note about rates points the wrong way.
+    Saying nothing is the correct output, and a diagnosis that always fires is not one.
+    """
+    import config as cfg
+    from recon.engine.tier1_reference import _implied_rate_note
+
+    gross = 100_000
+    mid = (cfg.MDR_RATE_BAND[0] + cfg.MDR_RATE_BAND[1]) / 2
+    assert _implied_rate_note(int(gross * (1 - mid)), gross) == ""
+
+    above = _implied_rate_note(int(gross * (1 - cfg.MDR_RATE_BAND[1] - 0.01)), gross)
+    assert "above the" in above
+
+    below = _implied_rate_note(int(gross * (1 - cfg.MDR_RATE_BAND[0] + 0.01)), gross)
+    assert "below the" in below and "more arrived" in below
+
+    assert _implied_rate_note(1000, 0) == "", "a zero gross must not divide"

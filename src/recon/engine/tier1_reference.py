@@ -17,6 +17,8 @@ bank-side defect, and the correct response is to surface both, not to guess.
 
 from __future__ import annotations
 
+import config as cfg
+
 from collections import defaultdict
 
 from ..schemas import BankTxn, Invoice, Payment
@@ -146,7 +148,47 @@ def match(
             RefusalCategory.UNEXPLAINED_RESIDUAL,
             f"reference matches payment {pid} but the amount does not: credit "
             f"{txn.credit}p vs expected {interval.lo}..{interval.hi}p "
-            f"(residual {resid:+d}p)",
+            f"(residual {resid:+d}p)"
+            + _implied_rate_note(txn.credit, payment.amount),
         )
 
     return [candidate], None, ""
+
+
+def _implied_rate_note(credit: int, gross: int) -> str:
+    """
+    Say what deduction rate WOULD reconcile this credit, and whether the engine allows it.
+
+    A residual is a symptom; the rate it implies is a diagnosis. "Credit 643537p vs
+    expected 644715..644719p" tells an operator the numbers disagree and leaves them to
+    work out why. "The credit implies a 2.77% deduction, above the 1.8-2.5% this engine
+    assumes -- consistent with a charge levied on top of the gateway fee" names the thing
+    to go and look for.
+
+    Measured on the reported batch: all three `unexplained_residual` refusals imply
+    2.61-3.15%, every one above the band, and every one is a `bank_charge` -- the
+    receiving bank taking its own NEFT/RTGS fee on top of MDR. The engine cannot widen
+    its band to absorb that without also absorbing genuine coincidences, which is the
+    argument `config.py` makes for keeping the band narrow. What it can do is say which
+    it is looking at.
+
+    Silent when the rate is inside the band: there the residual is not a rate problem and
+    a note about rates would point the wrong way.
+    """
+    if gross <= 0:
+        return ""
+    implied = (gross - credit) / gross
+    lo, hi = cfg.MDR_RATE_BAND
+    if implied > hi:
+        return (
+            f". The credit implies a {implied:.2%} deduction from gross, above the "
+            f"{lo:.1%}-{hi:.1%} this engine assumes -- consistent with a charge levied "
+            f"on top of the gateway fee, such as a receiving-bank NEFT/RTGS fee"
+        )
+    if implied < lo:
+        return (
+            f". The credit implies a {implied:.2%} deduction from gross, below the "
+            f"{lo:.1%}-{hi:.1%} this engine assumes -- more arrived than a fee-bearing "
+            f"settlement of this payment would produce"
+        )
+    return ""
