@@ -36,3 +36,8 @@ desktop.ini
 # the moment the next session starts changing things. The durable record is
 # DEFECT_LOG.md, OUTSTANDING_TASKS.md and the metrics block.
 docs/SESSION_HANDOFF.md
+
+# Independent external review. A working critique for the build, not a submission
+# artefact: it describes the state of the repo on one day and goes stale as the
+# findings get fixed. The durable record stays DEFECT_LOG.md and OUTSTANDING_TASKS.md.
+docs/INDEPENDENT_REVIEW_*.md
