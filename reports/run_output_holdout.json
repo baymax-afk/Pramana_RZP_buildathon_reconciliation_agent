@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T01:54:12.170173+00:00",
+  "generated_at": "2026-09-04T02:20:55.878359+00:00",
   "seed": 8080808,
   "density": 12,
   "llm_tier": "disabled",
@@ -16409,7 +16409,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": true,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0041",
@@ -16433,7 +16443,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 12,
+        "due_at": "2026-09-04T14:20:55+00:00",
+        "material": true,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0054",
@@ -16457,7 +16477,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 12,
+        "due_at": "2026-09-04T14:20:55+00:00",
+        "material": true,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0028",
@@ -16470,7 +16500,17 @@
       "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 2 candidates sums to 3677684p within 100p at k<=6",
       "candidates": [],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": true,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0096",
@@ -16494,7 +16534,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 12,
+        "due_at": "2026-09-04T14:20:55+00:00",
+        "material": true,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0105",
@@ -16518,7 +16568,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 12,
+        "due_at": "2026-09-04T14:20:55+00:00",
+        "material": true,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0109",
@@ -16542,7 +16602,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 12,
+        "due_at": "2026-09-04T14:20:55+00:00",
+        "material": true,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0093",
@@ -16566,7 +16636,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": true,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0122",
@@ -16579,7 +16659,17 @@
       "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 2 candidates sums to 1845284p within 100p at k<=6",
       "candidates": [],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": true,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0009",
@@ -16605,7 +16695,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": true,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0007",
@@ -16631,7 +16731,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": true,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0110",
@@ -16655,7 +16765,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 12,
+        "due_at": "2026-09-04T14:20:55+00:00",
+        "material": true,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0037",
@@ -16679,7 +16799,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": true,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0085",
@@ -16703,7 +16833,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 12,
+        "due_at": "2026-09-04T14:20:55+00:00",
+        "material": true,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0079",
@@ -16727,7 +16867,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 48,
+        "due_at": "2026-09-06T02:20:55+00:00",
+        "material": false,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0006",
@@ -16740,7 +16890,17 @@
       "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 4 candidates sums to 412065p within 100p at k<=6",
       "candidates": [],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 48,
+        "due_at": "2026-09-06T02:20:55+00:00",
+        "material": false,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0001",
@@ -16753,7 +16913,17 @@
       "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 4 candidates sums to 367361p within 100p at k<=6",
       "candidates": [],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 48,
+        "due_at": "2026-09-06T02:20:55+00:00",
+        "material": false,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0021",
@@ -16777,7 +16947,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": false,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0056",
@@ -16802,7 +16982,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 48,
+        "due_at": "2026-09-06T02:20:55+00:00",
+        "material": false,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0031",
@@ -16826,7 +17016,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": false,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0064",
@@ -16862,7 +17062,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "treasury_confirm",
+        "queue_label": "Treasury \u2014 confirm the split",
+        "owner": "Treasury analyst",
+        "action": "Obtain the remittance advice and confirm which payments this credit covers.",
+        "sla_hours": 8,
+        "due_at": "2026-09-04T10:20:55+00:00",
+        "material": false,
+        "rationale": "The engine found more than one arithmetically valid answer and refused to choose. A remittance advice settles it in one lookup, so this is the fastest queue on the board."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0092",
@@ -16886,7 +17096,17 @@
           ]
         }
       ],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "collections",
+        "queue_label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "sla_hours": 24,
+        "due_at": "2026-09-05T02:20:55+00:00",
+        "material": false,
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
+      }
     },
     {
       "bank_txn_id": "bank_txn_0020",
@@ -16899,9 +17119,123 @@
       "next_step": "Look for a missing payment, an unrecorded refund, or a deduction that is not on the invoice.",
       "engine_reason": "no subset of the 5 candidates sums to 18199p within 100p at k<=6",
       "candidates": [],
-      "confidence": null
+      "confidence": null,
+      "routing": {
+        "queue": "investigations",
+        "queue_label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "sla_hours": 48,
+        "due_at": "2026-09-06T02:20:55+00:00",
+        "material": false,
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
+      }
     }
   ],
+  "worklist": {
+    "queues": [
+      {
+        "queue": "engineering",
+        "label": "Engineering \u2014 the engine contradicted itself",
+        "owner": "Platform engineer",
+        "sla_hours": 4,
+        "action": "Escalate immediately: an assignment depended on input order and was refused by the gate.",
+        "rationale": "`order_dependent_assignment` means the runtime permutation gate caught a match that changed with the order the records were read in. It has never fired on a reported batch. If it ever does, it is a defect in the matcher and not work for an accountant \u2014 hence the tightest SLA and the only queue that does not go to finance.",
+        "count": 0,
+        "material_count": 0,
+        "rupees_at_risk": 0,
+        "categories": [],
+        "bank_txn_ids": []
+      },
+      {
+        "queue": "treasury_confirm",
+        "label": "Treasury \u2014 confirm the split",
+        "owner": "Treasury analyst",
+        "sla_hours": 8,
+        "action": "Obtain the remittance advice and confirm which payments this credit covers.",
+        "rationale": "The engine found more than one arithmetically valid answer and refused to choose. A remittance advice settles it in one lookup, so this is the fastest queue on the board.",
+        "count": 1,
+        "material_count": 0,
+        "rupees_at_risk": 800.0,
+        "categories": [
+          "multiple_candidates"
+        ],
+        "bank_txn_ids": [
+          "bank_txn_0064"
+        ]
+      },
+      {
+        "queue": "collections",
+        "label": "Collections \u2014 confirm the counterparty",
+        "owner": "Collections / AR",
+        "sla_hours": 24,
+        "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
+        "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it.",
+        "count": 10,
+        "material_count": 7,
+        "rupees_at_risk": 194951.48,
+        "categories": [
+          "amount_name_conflict"
+        ],
+        "bank_txn_ids": [
+          "bank_txn_0041",
+          "bank_txn_0054",
+          "bank_txn_0096",
+          "bank_txn_0105",
+          "bank_txn_0109",
+          "bank_txn_0110",
+          "bank_txn_0085",
+          "bank_txn_0021",
+          "bank_txn_0031",
+          "bank_txn_0092"
+        ]
+      },
+      {
+        "queue": "investigations",
+        "label": "Investigations \u2014 money not accounted for",
+        "owner": "Reconciliation lead",
+        "sla_hours": 48,
+        "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
+        "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing.",
+        "count": 12,
+        "material_count": 7,
+        "rupees_at_risk": 179090.84,
+        "categories": [
+          "no_subset_fits"
+        ],
+        "bank_txn_ids": [
+          "bank_txn_0103",
+          "bank_txn_0028",
+          "bank_txn_0093",
+          "bank_txn_0122",
+          "bank_txn_0009",
+          "bank_txn_0007",
+          "bank_txn_0037",
+          "bank_txn_0079",
+          "bank_txn_0006",
+          "bank_txn_0001",
+          "bank_txn_0056",
+          "bank_txn_0020"
+        ]
+      },
+      {
+        "queue": "config_review",
+        "label": "Configuration \u2014 the search gave up",
+        "owner": "Reconciliation lead",
+        "sla_hours": 72,
+        "action": "Narrow the settlement window or supply a remittance advice; then re-run.",
+        "rationale": "The engine declined to search rather than searching and failing. Nothing is wrong with the books; the batch is too crowded for the bound. This is the one queue whose fix is a setting, not a document.",
+        "count": 0,
+        "material_count": 0,
+        "rupees_at_risk": 0,
+        "categories": [],
+        "bank_txn_ids": []
+      }
+    ],
+    "total_exceptions": 23,
+    "total_rupees_at_risk": 374842.32,
+    "note": "Category, exposure and candidates are MEASURED by the engine. Queue, owner and SLA are configured defaults -- nothing here fits or validates them against an org chart. Materiality (PCAOB AS 2315) halves the clock and is the one input that is not a choice."
+  },
   "assignments": [
     {
       "bank_txn_id": "bank_txn_0127",
@@ -18947,5 +19281,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 415
+  "throughput_records_per_s": 410
 }

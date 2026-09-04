@@ -399,6 +399,60 @@ than the reverse, and it is defensible out loud.
 - **Verification-as-a-service.** The four layers do not depend on Pramana's matcher.
   Point them at an incumbent's output and report *its* precision. Given the README's
   own observation that vendors publish coverage and not precision, that is a wedge.
+
+> **All three were built, 2026-09-04.** Kept above as written; what they turned into,
+> with the numbers each produced on first run:
+>
+> **1. Evidence-attributable coverage gain, per source.** `run.py agent` now credits each
+> verdict change to the evidence SOURCE its proposal consulted, measured by
+> counterfactual — the engine re-run carrying only that source's evidence, so a row is
+> what that source buys alone rather than a share of a joint result allocated by a rule.
+> First run: *the authorised-payer register closed 3 exceptions and released ₹66,357.55
+> at precision 1.0000.* A proposal citing no external source is filed as
+> `model_assertion` and reported separately, always — it may be right, and it is not a
+> dataset anyone can buy, re-read or audit. On this batch there are none, and the report
+> says so rather than leaving the row absent.
+>
+> **2. The refusal taxonomy as a routing table.** Nine categories to five desks, each
+> with an owner, an SLA and the action that clears it; materiality (PCAOB AS 2315) halves
+> the clock without changing the desk. Served at `/api/worklist` and rendered as a
+> Worklist tab ordered by deadline, not by exposure — sorted by rupees it is a headline,
+> sorted by the clock it is a rota. The board on the reported batch:
+>
+> | desk | SLA | open | material | at risk |
+> |---|--:|--:|--:|--:|
+> | Engineering — the engine contradicted itself | 4h | 0 | 0 | — |
+> | Treasury — confirm the split | 8h | 1 | 0 | ₹800.00 |
+> | Collections — confirm the counterparty | 24h | 5 | 5 | ₹151,001.61 |
+> | Investigations — money not accounted for | 48h | 9 | 6 | ₹150,107.61 |
+> | Configuration — the search gave up | 72h | 0 | 0 | — |
+>
+> Category, exposure and candidates are measured; queue, owner and SLA are configured
+> defaults fitted to nothing, and the payload says so where it travels.
+>
+> **3. Verification-as-a-service — and this one measured better than expected.**
+> `run.py verify-foreign` audits a third party's assignments with the same four layers,
+> **reading no ground truth**: conservation, subset-sum uniqueness, Fellegi–Sunter
+> contradiction, double-posting, window and id resolution. Against a deliberately naive
+> straw man that always assigns and never refuses:
+>
+> | | reported | shifted holdout |
+> |---|--:|--:|
+> | the claimant's coverage | 100.00% | 100.00% |
+> | truth-free survival | 51.77% | 47.24% |
+> | its true precision (scored after) | 0.5390 | 0.5276 |
+> | **wrong claims missed** | **0** | **0** |
+> | wrong claims caught | 65 | 60 |
+> | correct claims flagged | 3 | 7 |
+>
+> **Recall 1.0000 on both distributions with no answer key**, and every false alarm is
+> `identity_contradicted` — the same conservative refusal class the engine already
+> discloses, and the one the payer register closes. The self-audit arm is the
+> credibility check and passes clean at 126/126: an auditor that flags the matcher it
+> ships with has a bug in one of the two and no way to say which from outside. Getting
+> that arm clean forced a real correction — uniqueness must be judged against what the
+> claimant had LEFT, not against the raw window, or the auditor flags any matcher that
+> claims payments as it goes, this engine included.
 - **BenchRec calibration** (W1) to make the confidence score mean something.
 - **Signed transaction model** to bring chargebacks and reversals inside the boundary.
 

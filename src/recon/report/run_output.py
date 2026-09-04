@@ -24,6 +24,7 @@ import config as cfg
 
 from ..engine.results import MatchOutput
 from ..schemas import ReconInputs
+from . import routing as _routing
 
 SCHEMA_VERSION = 1
 
@@ -87,6 +88,10 @@ class ExceptionRow:
     engine_reason: str
     candidates: list[dict] = field(default_factory=list)
     confidence: float | None = None
+    # Which desk, which owner, by when. Computed at REPORT time rather than in the
+    # engine, because a due time needs a clock and `match_once` deliberately has none --
+    # MR1 depends on it being a pure function of its inputs. See report/routing.py.
+    routing: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +182,7 @@ def build(
                 next_step=_NEXT_STEP.get(r.category.value, ""),
                 engine_reason=r.reason,
                 candidates=cands,
+                routing=_routing.route(r.category.value, r.paise_at_risk).as_dict(),
             )
         )
 
@@ -198,6 +204,7 @@ def build(
                 why="Nothing in the settlement window accounts for this credit at all.",
                 next_step="Check for a payment recorded outside the window, or a credit that is not settlement-related.",
                 engine_reason="no candidate found by any tier",
+                routing=_routing.route("no_candidate", t.credit).as_dict(),
             )
         )
 
@@ -281,6 +288,11 @@ def build(
         },
         "tier_counts": dict(out.tier_counts),
         "exceptions": [asdict(e) for e in exceptions],
+        # The same exceptions, aggregated by desk. Served alongside rather than derived
+        # in the client, so the CLI, the API and the UI cannot disagree about how many
+        # rows are on whose plate -- three implementations of one group-by is how a
+        # worklist and its summary drift apart.
+        "worklist": _worklist(exceptions),
         "assignments": [asdict(a) for a in assignments],
         "verification": _verification_block(relations, ensemble),
         "throughput_records_per_s": (
@@ -368,3 +380,54 @@ def write(payload: dict, path: Path | None = None) -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     return p
+
+
+def _worklist(exceptions: list[ExceptionRow]) -> dict:
+    """
+    The exception list aggregated by desk: what is on whose plate, and how much money.
+
+    Ordered by SLA rather than by volume or exposure. A worklist sorted by rupees puts
+    the biggest number first and tells a team nothing about what will be late; sorted by
+    the clock it is a rota. Within a queue the rows stay in the exception list's own
+    order, which is descending exposure -- so the board answers "which desk first" and
+    each desk answers "which row first", and neither has to re-sort the other's.
+
+    Queues with nothing on them are INCLUDED, with zeroes. A desk that has no work today
+    is a fact about today; omitting it makes the board silently change shape from run to
+    run, and a reader cannot tell an empty queue from a queue that stopped existing.
+    """
+    by_queue: dict[str, list[ExceptionRow]] = {q.key: [] for q in _routing.queues()}
+    for e in exceptions:
+        key = e.routing.get("queue")
+        if key is not None:
+            by_queue.setdefault(key, []).append(e)
+
+    rows = []
+    for q in _routing.queues():
+        items = by_queue.get(q.key, [])
+        rows.append(
+            {
+                "queue": q.key,
+                "label": q.label,
+                "owner": q.owner,
+                "sla_hours": q.sla_hours,
+                "action": q.action,
+                "rationale": q.rationale,
+                "count": len(items),
+                "material_count": sum(1 for e in items if e.routing.get("material")),
+                "rupees_at_risk": round(sum(e.rupees_at_risk for e in items), 2),
+                "categories": sorted({e.category for e in items}),
+                "bank_txn_ids": [e.bank_txn_id for e in items],
+            }
+        )
+    return {
+        "queues": rows,
+        "total_exceptions": len(exceptions),
+        "total_rupees_at_risk": round(sum(e.rupees_at_risk for e in exceptions), 2),
+        "note": (
+            "Category, exposure and candidates are MEASURED by the engine. Queue, owner "
+            "and SLA are configured defaults -- nothing here fits or validates them "
+            "against an org chart. Materiality (PCAOB AS 2315) halves the clock and is "
+            "the one input that is not a choice."
+        ),
+    }

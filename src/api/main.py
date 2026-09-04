@@ -183,6 +183,34 @@ def get_summary() -> dict:
     }
 
 
+@app.get("/api/worklist")
+def get_worklist() -> dict:
+    """
+    The exception list aggregated by desk: what is on whose plate, and by when.
+
+    **Served rather than derived in the client.** The CLI, this route and the UI all need
+    the same group-by, and three implementations of one aggregation is how a worklist and
+    its summary come to disagree about how many rows are on a desk. It is computed once,
+    in `recon/report/routing.py`, and travels in the payload.
+
+    Queues with no work are returned WITH ZEROES rather than omitted, so the board keeps
+    its shape between runs and a reader can tell an empty desk from a deleted one.
+    """
+    data = _load()
+    worklist = data.get("worklist")
+    if worklist is None:
+        # An artefact from before routing existed. Say so rather than returning an empty
+        # board, which would read as "no work" instead of "no data".
+        return {
+            "status": "unavailable",
+            "note": (
+                "This run output predates the routing table. Regenerate it with: "
+                "python run.py match --verify --no-llm"
+            ),
+        }
+    return {"status": "ok", **worklist}
+
+
 _SCORECARD_CACHE: tuple[tuple[int, int], dict] | None = None
 
 

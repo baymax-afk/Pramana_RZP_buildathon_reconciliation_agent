@@ -37,6 +37,7 @@ from ..engine.results import MatchOutput
 from ..schemas import PayerAuthorisation, ReconInputs
 from .ledger import EvidenceLedger
 from .schemas import InvestigationTrace
+from .sources import SourceContribution, sources_of
 from .tools import Toolbox
 
 
@@ -71,6 +72,13 @@ class AgentRun:
     payments_gained: int = 0
     baseline: MatchOutput | None = None
     enriched: MatchOutput | None = None
+    # What each NAMED evidence source bought, measured on its own. See `sources.py`:
+    # this is the row a buyer reads, and `model_assertion` is the row that says the
+    # agent concluded something with no external citation at all.
+    by_source: dict[str, SourceContribution] = field(default_factory=dict)
+    # The counterfactual run behind each row, kept so the scorer -- which is outside the
+    # ground-truth boundary and may read truth -- can fill in per-source precision.
+    source_outputs: dict[str, MatchOutput] = field(default_factory=dict)
 
     @property
     def evidence_attributable_gain(self) -> float:
@@ -98,6 +106,7 @@ class AgentRun:
             "budget_exhausted": self.budget_exhausted,
             "payments_gained": self.payments_gained,
             "evidence_attributable_gain": round(self.evidence_attributable_gain, 3),
+            "by_source": [c.as_dict() for c in self.by_source.values()],
             "deltas": [
                 {
                     "bank_txn_id": d.bank_txn_id,
@@ -220,4 +229,41 @@ def orchestrate(
     base_assigned = sum(len(v) for v in baseline.assignment_map.values())
     new_assigned = sum(len(v) for v in enriched.assignment_map.values())
     run.payments_gained = new_assigned - base_assigned
+
+    # ---- per-source attribution -----------------------------------------
+    #
+    # The counterfactual, one source at a time: re-run with ONLY the proposals that
+    # cited this source, so the number reported is what that source buys on its own
+    # rather than a share of a joint result allocated by some rule. See
+    # `agent/sources.py` for why apportionment was rejected.
+    #
+    # Precision is deliberately NOT computed here. `recon.agent` sits inside the
+    # ground-truth isolation boundary, and the audit hook enforces it -- so this
+    # produces the counterfactual OUTPUTS and the scorer, outside the boundary, turns
+    # them into precision. That split is not an inconvenience; it is the same reason the
+    # engine cannot score itself.
+    by_source: dict[str, list] = {}
+    for proposal in ledger.accepted:
+        for source in sources_of(proposal.tool_calls):
+            by_source.setdefault(source, []).append(proposal)
+
+    for source, proposals in sorted(by_source.items()):
+        only = {}
+        for p in proposals:
+            only.setdefault(p.bank_txn_id, {})[p.field.value] = p.value
+        isolated = match_once(inputs, llm=llm, evidence=only)
+        contribution = SourceContribution(source=source, proposals=len(proposals))
+        for p in proposals:
+            txn = p.bank_txn_id
+            if _verdict_of(baseline, txn) == "assign":
+                continue
+            if _verdict_of(isolated, txn) != "assign":
+                continue
+            contribution.exceptions_closed += 1
+            contribution.payments_gained += len(isolated.assignment_map.get(txn, ()))
+            contribution.paise_released += credits.get(txn, 0)
+            contribution.bank_txn_ids.append(txn)
+        run.by_source[source] = contribution
+        run.source_outputs[source] = isolated
+
     return run

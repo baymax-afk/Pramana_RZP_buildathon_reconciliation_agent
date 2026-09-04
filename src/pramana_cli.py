@@ -15,6 +15,7 @@ Subcommands for matching, verification and scoring land with those blocks.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -495,6 +496,64 @@ def cmd_agent(args: argparse.Namespace) -> int:
         "    verdict change traces to evidence rather than to an agent's opinion."
     )
 
+    # ---- what each SOURCE bought, on its own -----------------------------
+    #
+    # Precision is filled in HERE, not in the orchestrator: `recon.agent` is inside the
+    # ground-truth boundary and the audit hook enforces it, so the agent produces the
+    # counterfactual outputs and the scorer -- which may read truth -- turns them into
+    # precision. The same split that stops the engine scoring itself.
+    for contribution in run.by_source.values():
+        isolated = run.source_outputs.get(contribution.source)
+        if isolated is None:
+            continue
+        contribution.precision_before = before.match_precision
+        contribution.precision_after = _score(isolated).match_precision
+        contribution.precision_measured = True
+
+    if run.by_source:
+        print("\n  WHAT EACH EVIDENCE SOURCE BOUGHT, MEASURED ON ITS OWN")
+        print("  " + "-" * 62)
+        print(
+            f"    {'source':30s} {'closed':>6s} {'rupees released':>17s} {'precision':>10s}"
+        )
+        for c in sorted(
+            run.by_source.values(), key=lambda c: (-c.paise_released, c.source)
+        ):
+            tag = c.source if c.is_external else f"{c.source} (no citation)"
+            prec = f"{c.precision_after:.4f}" if c.precision_measured else "unmeasured"
+            print(
+                f"    {tag:30s} {c.exceptions_closed:>6d} "
+                f"{'Rs ' + format(c.rupees_released, ',.2f'):>17s} {prec:>10s}"
+            )
+            if c.precision_measured and c.precision_delta < 0:
+                print(
+                    f"      ** this source bought coverage at the cost of "
+                    f"{abs(c.precision_delta):.4f} precision. Do not license it. **"
+                )
+        print(
+            "\n    Each row is a SEPARATE re-run of the engine carrying only that\n"
+            "    source's evidence, so a row is what that source buys alone -- not a\n"
+            "    share of a joint result. Two sources that close the same exception\n"
+            "    both count it, so the rows need not sum to the total above."
+        )
+        # An ABSENT `model_assertion` row means no proposal was made without citing an
+        # external source, which is the good case and worth saying out loud -- an
+        # absent row reads as "not measured" unless the report says otherwise.
+        model_only = run.by_source.get("model_assertion")
+        if model_only and model_only.exceptions_closed:
+            print(
+                f"\n    {model_only.exceptions_closed} exception(s) were closed on a "
+                f"`model_assertion` -- the\n"
+                "    agent concluded something without consulting any external source.\n"
+                "    Reported separately on purpose: it may be correct, but it is not a\n"
+                "    dataset anyone can buy, re-read, or audit."
+            )
+        else:
+            print(
+                "\n    No exception was closed on a bare model assertion: every verdict\n"
+                "    that moved cites a source someone could procure and re-read."
+            )
+
     if run.deltas:
         print("\n  VERDICTS THAT MOVED")
         print("  " + "-" * 62)
@@ -780,6 +839,170 @@ def _wrap(text: str, width: int) -> list[str]:
     return textwrap.wrap(text, width=width)
 
 
+def cmd_verify_foreign(args) -> int:
+    """
+    Verification-as-a-service: audit somebody else's matches.
+
+    The four layers are properties of a CLAIM, not of this matcher, so they hold whoever
+    made it. Everything printed above the SCORED block is derived from the three sides
+    plus the claim -- no ground truth is read to produce it, which is what makes this a
+    service a merchant can point at an incumbent's Monday output rather than a benchmark
+    that needs labelled data first.
+    """
+    from recon.verify.foreign import CONTEXT_DEPENDENT, audit
+
+    generated_dir = cfg.HOLDOUT if args.dataset == "holdout" else None
+    try:
+        inputs = load_inputs(generated_dir=generated_dir)
+    except ValueError as e:
+        print(f"\n  {e}\n")
+        return 1
+
+    if args.claims:
+        from loaders import load_foreign_claims
+
+        path = Path(args.claims)
+        if not path.is_file():
+            print(f"\n  No such claims file: {path}\n")
+            return 1
+        try:
+            claims = load_foreign_claims(path)
+        except ValueError as e:
+            print(f"\n  {e}\n")
+            return 1
+        claimant = args.claimant or path.name
+    elif args.naive:
+        from external.naive_matcher import NAME, match as naive_match
+
+        claims = naive_match(inputs)
+        claimant = args.claimant or NAME
+    else:
+        # Auditing our own output is the control arm and the credibility check, not a
+        # party trick: an auditor that flags the matcher it ships with has a bug in one
+        # of the two, and you cannot tell which from the outside.
+        from recon.verify.foreign import ForeignClaim
+
+        # The deterministic arm deliberately: the self-audit is a claim about THIS
+        # engine, and auditing a run whose tier varies between invocations would make
+        # the control arm vary with it.
+        out = match_once(inputs)
+        claims = tuple(
+            ForeignClaim(bank_txn_id=t, payment_ids=tuple(sorted(p)))
+            for t, p in sorted(out.assignment_map.items())
+        )
+        claimant = args.claimant or "pramana (self-audit)"
+
+    a = audit(inputs, claims, claimant=claimant)
+
+    _print_block(
+        f"FOREIGN VERIFICATION  claimant={a.claimant}",
+        [
+            ("credits in the batch", a.credits_in_batch),
+            ("claims made", a.claims),
+            ("coverage", f"{a.coverage:.2%}"),
+            ("claims surviving every check", a.claims_surviving),
+            ("survival", f"{a.survival:.2%}"),
+            ("exposure on failed claims", f"Rs {a.paise_at_risk / 100:,.2f}"),
+            ("credits left unclaimed", f"{len(a.unclaimed_credits)}"),
+            ("value left unclaimed", f"Rs {a.unclaimed_paise / 100:,.2f}"),
+        ],
+    )
+    print(
+        "\n    Coverage and survival are reported TOGETHER, for the reason this\n"
+        "    engine's own headline is a triple: a claimant who assigns nothing posts a\n"
+        "    perfect audit, and one who assigns everything posts a perfect coverage."
+    )
+
+    checks = a.by_check()
+    if checks:
+        print("\n  WHAT DID NOT SURVIVE")
+        print("  " + "-" * 62)
+        for check, n in checks.items():
+            tag = " (observation, not a failure)" if check == CONTEXT_DEPENDENT else ""
+            print(f"    {check:24s} {n:>4d}{tag}")
+
+        print("\n  THE LARGEST, WITH THE CHECK THAT OBJECTED")
+        print("  " + "-" * 62)
+        for f in sorted(a.findings, key=lambda f: -f.paise)[:8]:
+            print(f"    {f.bank_txn_id}  Rs {f.paise / 100:>12,.2f}  {f.check}")
+            for line in _wrap(f.detail, 64):
+                print(f"        {line}")
+    else:
+        print("\n  Every claim survived every check.")
+
+    if args.write:
+        # Its own file per dataset. `match --dataset holdout` silently overwriting the
+        # reported run's artefact is a mistake this project has already made once
+        # (DEFECT_LOG 2026-09-03) and it costs nothing to not make it again.
+        out_path = cfg.REPORTS / (
+            "foreign_audit_holdout.json" if generated_dir is not None
+            else "foreign_audit.json"
+        )
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(a.as_dict(), indent=2) + "\n", encoding="utf-8")
+        print(f"\n  wrote {out_path}")
+
+    if not args.score:
+        return 0
+
+    # ---- the part that DOES need ground truth ---------------------------
+    #
+    # Only reached with --score, and only to answer one question: how well does the
+    # truth-free audit predict the claims that are actually wrong? That number is what
+    # licenses the service. It is measured here rather than asserted, and the miss count
+    # is printed first because it is the one that would sink the claim.
+    from scorer.score import load_truth
+
+    truth_path = (
+        (generated_dir / "_truth" / "ground_truth.json")
+        if generated_dir is not None
+        else cfg.TRUTH_DIR / "ground_truth.json"
+    )
+    if not truth_path.exists():
+        print("\n  No ground truth present, so the audit cannot be scored.")
+        print("  (Every number above stands -- none of it needed truth.)")
+        return 0
+
+    _, links = load_truth(truth_path)
+    truth = {
+        l.bank_txn_id: set(l.payment_ids)
+        for l in links
+        if l.bank_txn_id and l.expected_verdict == "assign"
+    }
+    flagged = {f.bank_txn_id for f in a.findings if f.check != CONTEXT_DEPENDENT}
+
+    def _wrong(c):
+        return truth.get(c.bank_txn_id) != set(c.payment_ids)
+
+    caught = sum(1 for c in claims if c.bank_txn_id in flagged and _wrong(c))
+    false_alarm = sum(1 for c in claims if c.bank_txn_id in flagged and not _wrong(c))
+    missed = sum(1 for c in claims if c.bank_txn_id not in flagged and _wrong(c))
+    clean = sum(1 for c in claims if c.bank_txn_id not in flagged and not _wrong(c))
+    correct = sum(1 for c in claims if not _wrong(c))
+
+    print("\n  SCORED  (ground truth read HERE and nowhere above)")
+    print("  " + "-" * 62)
+    print(f"    the claimant's true precision   {correct}/{len(claims)} = "
+          f"{correct / len(claims) if claims else 0:.4f}")
+    print(f"    truth-free survival             {a.claims_surviving}/{a.claims} = "
+          f"{a.survival:.4f}")
+    print("\n    THE AUDIT AS A DETECTOR OF WRONG CLAIMS")
+    print(f"      wrong claims MISSED       {missed:>4}   <- the number that matters")
+    print(f"      wrong claims caught       {caught:>4}")
+    print(f"      correct claims flagged    {false_alarm:>4}   <- false alarms")
+    print(f"      correct claims passed     {clean:>4}")
+    if caught + missed:
+        print(f"      recall                    {caught / (caught + missed):>7.4f}")
+    if caught + false_alarm:
+        print(f"      flag precision            {caught / (caught + false_alarm):>7.4f}")
+    print(
+        "\n    Recall is the number to read first: a missed wrong claim is money posted\n"
+        "    to the wrong receivable that nobody was told about. A false alarm costs an\n"
+        "    analyst a look."
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="pramana", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -858,6 +1081,35 @@ def main(argv: list[str] | None = None) -> int:
     )
     h.add_argument("--no-write", dest="write", action="store_false", default=True)
     h.set_defaults(func=cmd_holdout)
+
+    v = sub.add_parser(
+        "verify-foreign",
+        help="audit somebody else's matches with the four layers (needs no ground truth)",
+    )
+    v.add_argument(
+        "--claims",
+        help="CSV of a third party's assignments: bank_txn_id,payment_ids",
+    )
+    v.add_argument(
+        "--naive",
+        action="store_true",
+        help="audit the built-in straw-man matcher instead of a file (see "
+             "external/naive_matcher.py -- it is a straw man and says so)",
+    )
+    v.add_argument(
+        "--claimant", default="", help="what to call the claimant in the report"
+    )
+    v.add_argument(
+        "--dataset", choices=("reported", "holdout"), default="reported",
+        help="which batch the claims are against",
+    )
+    v.add_argument(
+        "--score", action="store_true",
+        help="additionally read ground truth and report how well the truth-free audit "
+             "predicted the claims that are actually wrong",
+    )
+    v.add_argument("--no-write", dest="write", action="store_false", default=True)
+    v.set_defaults(func=cmd_verify_foreign)
 
     w = sub.add_parser("sweep", help="density sweep: refusal rate vs precision")
     w.add_argument("--seeds", type=int, nargs="+", default=[11111, 22222, 33333, 44444, 55555])

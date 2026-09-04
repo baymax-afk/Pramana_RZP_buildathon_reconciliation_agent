@@ -633,6 +633,106 @@ function Ceiling() {
   );
 }
 
+// --------------------------------------------------------------------------
+// The worklist: the refusal taxonomy as a routing table
+//
+// REVIEW.md section 8's second product item. An AP team does not buy a match rate, it
+// buys a smaller worklist with a shape it can staff. Nine named refusal categories, each
+// carrying the reason the engine declined, go to different desks with different
+// turnaround times -- because "two subsets fit this credit" is answerable in minutes
+// from a remittance advice and "nothing in the window accounts for this money" is an
+// investigation.
+//
+// Ordered by SLA, not by exposure. Sorted by rupees the board leads with the biggest
+// number and says nothing about what will be late; sorted by the clock it is a rota.
+// Inside a queue the rows keep the exception list's own descending-exposure order, so
+// the board answers "which desk first" and each desk answers "which row first".
+// --------------------------------------------------------------------------
+function useWorklist() {
+  const [state, setState] = useState({ status: "loading" });
+  useEffect(() => {
+    let alive = true;
+    getJSON("/api/worklist")
+      .then((data) => alive && setState({ status: "ready", data }))
+      .catch((e) => alive && setState({ status: "error", error: String(e.message ?? e) }));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return state;
+}
+
+function QueueCard({ row, exceptions }) {
+  const [open, setOpen] = useState(false);
+  const rows = exceptions.filter((e) => e.routing?.queue === row.queue);
+  const empty = row.count === 0;
+  return (
+    <li className={`queue ${empty ? "empty" : ""}`}>
+      <button className="queue-head" onClick={() => !empty && setOpen((v) => !v)}>
+        <span className="chev">{empty ? "·" : open ? "▾" : "▸"}</span>
+        <span className="queue-sla">{row.sla_hours}h</span>
+        <span className="queue-name">
+          {row.label}
+          <span className="queue-owner">{row.owner}</span>
+        </span>
+        <span className="queue-count">
+          {row.count === 0 ? "clear" : `${row.count} open`}
+          {row.material_count > 0 && (
+            <span className="queue-material">{row.material_count} material</span>
+          )}
+        </span>
+        <span className="queue-money">
+          {row.rupees_at_risk > 0 ? RUPEES.format(row.rupees_at_risk) : "—"}
+        </span>
+      </button>
+      {open && (
+        <div className="queue-body">
+          <p className="queue-action">
+            <strong>Do this</strong> {row.action}
+          </p>
+          <p className="muted">{row.rationale}</p>
+          <ol className="exceptions">
+            {rows.map((e, i) => (
+              <ExceptionCard key={e.bank_txn_id} row={e} rank={i + 1} />
+            ))}
+          </ol>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function Worklist({ exceptions }) {
+  const wl = useWorklist();
+  if (wl.status === "loading") return <p className="muted">Loading the worklist…</p>;
+  if (wl.status === "error" || wl.data?.status === "unavailable")
+    return (
+      <section className="ceiling not-run">
+        <h2>Worklist — unavailable</h2>
+        <p className="gate">
+          {wl.data?.note ?? "The worklist could not be read from this run."}
+        </p>
+      </section>
+    );
+
+  const { queues, total_exceptions, total_rupees_at_risk, note } = wl.data;
+  return (
+    <>
+      <p className="showing">
+        {total_exceptions} open exceptions · {RUPEES.format(total_rupees_at_risk)} at
+        risk, across {queues.filter((q) => q.count > 0).length} of {queues.length} desks.
+        Soonest deadline first.
+      </p>
+      <ul className="queues">
+        {queues.map((q) => (
+          <QueueCard key={q.queue} row={q} exceptions={exceptions} />
+        ))}
+      </ul>
+      <p className="worklist-note">{note}</p>
+    </>
+  );
+}
+
 export default function App() {
   const run = useRun();
   const [filter, setFilter] = useState("all");
@@ -735,10 +835,15 @@ export default function App() {
         <button className={tab === "matches" ? "on" : ""} onClick={() => setTab("matches")}>
           Matches
         </button>
+        <button className={tab === "worklist" ? "on" : ""} onClick={() => setTab("worklist")}>
+          Worklist
+        </button>
         <button className={tab === "invoices" ? "on" : ""} onClick={() => setTab("invoices")}>
           Invoice ledger
         </button>
       </nav>
+
+      {tab === "worklist" && <Worklist exceptions={run.data.exceptions} />}
 
       {tab === "invoices" && <Invoices />}
 

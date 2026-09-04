@@ -339,3 +339,50 @@ def load_inputs(
         seed=seed,
         payments_per_window=payments_per_window,
     )
+
+
+def load_foreign_claims(path: Path) -> tuple["ForeignClaim", ...]:
+    """
+    Read a third party's assignments: which payments they say each credit is.
+
+        bank_txn_id,payment_ids
+        bank_txn_0001,pay_A
+        bank_txn_0002,"pay_B pay_C"
+
+    `payment_ids` is whitespace- or semicolon-separated so a many-to-one settlement can
+    be expressed without inventing a nested format, and so the file stays something an
+    incumbent's export can be coerced into with a spreadsheet rather than a script.
+
+    **Nothing here validates the claims.** A row naming a payment that does not exist is
+    loaded and passed through; `recon.verify.foreign` reports it as `unknown_id`. That
+    split is deliberate: the loader's job is to say where a file is malformed, and the
+    auditor's job is to say where a CLAIM is unsupportable. A loader that silently
+    dropped unresolvable rows would improve the claimant's audit by discarding its worst
+    rows, which is exactly backwards.
+    """
+    from recon.verify.foreign import ForeignClaim
+
+    claims: list[ForeignClaim] = []
+    with path.open(newline="", encoding="utf-8") as fh:
+        for row_no, row in enumerate(csv.DictReader(fh), start=2):
+            if not any((v or "").strip() for v in row.values()):
+                continue
+            txn_id = _text(row, "bank_txn_id", path, row_no).strip()
+            raw = _text(row, "payment_ids", path, row_no)
+            ids = tuple(
+                p for p in raw.replace(";", " ").replace(",", " ").split() if p
+            )
+            if not txn_id:
+                raise ValueError(
+                    f"{path.name}: row {row_no} has an empty bank_txn_id. A claim with "
+                    f"no credit to attach to cannot be audited or ignored safely."
+                )
+            if not ids:
+                raise ValueError(
+                    f"{path.name}: row {row_no} claims {txn_id!r} with no payment ids. "
+                    f"If the intent is 'no match', omit the row -- an empty claim and an "
+                    f"absent claim mean different things and this file cannot express "
+                    f"the difference."
+                )
+            claims.append(ForeignClaim(bank_txn_id=txn_id, payment_ids=ids))
+    return tuple(claims)

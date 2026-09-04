@@ -409,3 +409,48 @@ dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
 @media (prefers-color-scheme: dark) {
   .verification.not-run pre { background: #3a2c07; border-color: #6b5210; color: #fbbf24; }
 }
+
+/* ---- worklist ----
+ *
+ * The board a team staffs against. Ordered by SLA, so the leftmost number on every row
+ * is the clock -- the thing that decides what gets picked up, not the money.
+ * An empty desk stays on the board, greyed: a queue that vanishes when it is clear makes
+ * the board change shape between runs and hides the difference between "nothing today"
+ * and "no longer routed".
+ */
+.queues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.queue { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.queue.empty { opacity: 0.55; }
+.queue-head {
+  width: 100%; font: inherit; text-align: left; background: none; border: 0;
+  display: grid; grid-template-columns: 22px 46px 1fr 190px 130px; gap: 12px;
+  align-items: center; padding: 13px 16px; color: var(--ink); cursor: pointer;
+}
+.queue.empty .queue-head { cursor: default; }
+.queue:not(.empty) .queue-head:hover { background: #faf9f7; }
+.queue-sla {
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px;
+  color: var(--accent); text-align: right;
+}
+.queue-name { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.queue-owner { font-size: 12px; color: var(--muted); }
+.queue-count { font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; align-items: baseline; }
+.queue-material {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--warn); background: var(--warn-bg); border: 1px solid #f0dfbe;
+  border-radius: 999px; padding: 1px 7px;
+}
+.queue-money { font-variant-numeric: tabular-nums; text-align: right; font-size: 14px; }
+.queue-body { padding: 4px 16px 16px; border-top: 1px solid var(--line); }
+.queue-action { font-size: 13px; margin: 12px 0 6px; }
+.queue-action strong {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--accent); margin-right: 8px;
+}
+.queue-body > .muted { font-size: 12.5px; margin: 0 0 14px; }
+.worklist-note { font-size: 12px; color: var(--muted); margin: 18px 0 0; max-width: 70ch; }
+
+@media (max-width: 720px) {
+  .queue-head { grid-template-columns: 22px 46px 1fr; }
+  .queue-count, .queue-money { grid-column: 3; text-align: left; }
+}

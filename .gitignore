@@ -11,6 +11,11 @@ data/benchrec/
 # Re-create it by running the agent; the run itself is the artefact.
 reports/evidence_ledger.json
 
+# A foreign audit is a report ABOUT somebody else's output, produced on demand by
+# `run.py verify-foreign`. Committing one would freeze a claim about a third party in
+# this repository's history, which is a thing to do deliberately and not by default.
+reports/foreign_audit*.json
+
 # Secrets. The LLM tier and the Razorpay MCP both read from here.
 .env
 *.key

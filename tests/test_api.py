@@ -462,3 +462,59 @@ def test_the_unverified_strip_names_the_command_that_fixes_it():
         "the not-run verification strip says the layers did not run without saying how "
         "to run them"
     )
+
+
+# --------------------------------------------------------------------------
+# The worklist route
+# --------------------------------------------------------------------------
+@requires_run
+def test_the_worklist_route_serves_the_board_and_its_caveat():
+    r = client.get("/api/worklist")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert sum(q["count"] for q in body["queues"]) == body["total_exceptions"]
+    # The board must carry the sentence saying which of its numbers are chosen rather
+    # than measured. A table of SLA hours reads as a measurement otherwise.
+    assert "configured defaults" in body["note"]
+
+
+@requires_run
+def test_the_worklist_and_the_exception_list_agree_on_the_wire():
+    """
+    Same group-by, one implementation. Two would drift, and the drift would show up as a
+    desk quietly missing a row rather than as an error.
+    """
+    board = client.get("/api/worklist").json()
+    exceptions = client.get("/api/run").json()["exceptions"]
+    for q in board["queues"]:
+        assert q["bank_txn_ids"] == [
+            e["bank_txn_id"] for e in exceptions if e["routing"]["queue"] == q["queue"]
+        ]
+
+
+def test_a_run_output_predating_routing_says_unavailable_not_empty(tmp_path, monkeypatch):
+    """
+    An old artefact has no `worklist` key. Returning an empty board would read as "no
+    work on any desk" -- the most misleading possible answer for a triage page.
+    """
+    import json as _json
+
+    stale = tmp_path / "run_output.json"
+    stale.write_text(_json.dumps({"exceptions": [], "seed": 1}), encoding="utf-8")
+    monkeypatch.setattr(api_main, "RUN_OUTPUT", stale)
+    api_main._CACHE = None
+    body = client.get("/api/worklist").json()
+    assert body["status"] == "unavailable"
+    assert "match --verify" in body["note"]
+
+
+def test_the_ui_renders_the_worklist_grouped_by_desk():
+    from pathlib import Path
+
+    jsx = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text(
+        encoding="utf-8"
+    )
+    assert "function Worklist" in jsx and "function QueueCard" in jsx
+    assert 'getJSON("/api/worklist")' in jsx, "the worklist must come from the served board"
+    assert 'tab === "worklist"' in jsx

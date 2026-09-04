@@ -411,6 +411,46 @@ uvicorn api.main:app --port 8000     # read-only API (importable from anywhere)
 cd ui && npm install && npm run dev  # triage UI on :5173
 ```
 
+```bash
+python run.py verify-foreign --naive --score
+```
+
+**Verification-as-a-service: the four layers pointed at somebody else's matches.** They
+are properties of a *claim* — "this credit is these payments" — not of this matcher, so
+they hold whoever made it, and **none of the findings needs ground truth.** Point it at
+an incumbent's Monday output with nothing labelled anywhere and it returns the specific
+claims that do not survive conservation, subset-sum uniqueness, Fellegi–Sunter
+contradiction, double-posting or window resolution.
+
+Measured against a deliberately naive matcher that always assigns and never refuses (a
+straw man, and [`src/external/naive_matcher.py`](src/external/naive_matcher.py) says so
+in its first line):
+
+| | reported | shifted holdout |
+|---|--:|--:|
+| the claimant's coverage | 100.00% | 100.00% |
+| truth-free survival | 51.77% | 47.24% |
+| its true precision, scored afterwards | 0.5390 | 0.5276 |
+| **wrong claims missed** | **0** | **0** |
+| correct claims flagged | 3 | 7 |
+
+**Recall 1.0000 on both distributions with no answer key.** Every false alarm is
+`identity_contradicted` — the same conservative refusal class the engine already
+discloses. `python run.py verify-foreign` with no arguments audits *this* engine's own
+output and passes 126/126, which is the control arm: an auditor that flags the matcher it
+ships with has a bug in one of the two and no way to say which from the outside.
+
+```bash
+python run.py agent --offline
+```
+
+Reports **evidence-attributable coverage gain per source**, not per agent — each verdict
+change credited to the dataset its proposal consulted, measured by re-running the engine
+with only that source's evidence: *the authorised-payer register closed 3 exceptions and
+released ₹66,357.55 at precision 1.0000.* A proposal citing nothing external is filed as
+`model_assertion` and reported separately, because it may be right and it is still not a
+dataset anyone can buy, re-read or audit.
+
 The UI is a single page: exceptions ranked by rupees at risk, each expanding to show
 why the engine declined, what to do next, and — for ambiguous credits — every candidate
 it refused to choose between.
@@ -429,7 +469,7 @@ would be worse than none.
 pytest tests/
 ```
 
-418 tests, including the end-to-end isolation test — which deletes the ground-truth
+450 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,
