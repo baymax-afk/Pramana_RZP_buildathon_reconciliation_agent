@@ -142,6 +142,34 @@ Details, including the four name-matching bugs found by reading its output, in
 
 ---
 
+## The gap, and the ceiling it is measured against
+
+`python run.py match --verify` reports a **reachable ceiling** beside the match rate,
+derived from ground truth rather than carried as a constant.
+
+```
+match rate            88.66%     172/194 captured payments assigned
+reachable ceiling     91.24%     177/194 payments ground truth says CAN be matched
+short of the ceiling       5     payments the engine could have matched and did not
+```
+
+**100% is not on offer, and saying so is not a hedge.** Of the 22 captured payments left
+unmatched, **17 are unreachable by construction** — six never settled, so no bank credit
+exists to match them, and the rest belong to relations the engine does not model
+(`split_settlement`, `bank_charge`), where refusing is the correct output. Counting those
+against the engine scores it for failing to do something nobody claims it can do.
+
+**The engine is 5 payments from the maximum this data permits, and all 5 share one
+cause** — `third_party_payer`, every one at residual `+0p` with a Fellegi–Sunter field
+weight of `-3.26`. The amount channel is exact; the name channel disagrees because a
+parent company settled a subsidiary's invoice. `run.py agent` closes 3 of them by
+supplying the authorised-payer relationship as evidence and re-running the engine.
+
+On the shifted holdout the ceiling is **92.27%** and the engine reaches 84.54% — 15
+short, which is what a distribution it was not built against costs.
+
+---
+
 ## Generalization: the shifted holdout
 
 `python run.py holdout` builds it once; `python run.py match --dataset holdout` scores it.

@@ -440,3 +440,73 @@ def test_metrics_carries_one_current_refusal_rate_for_the_reported_density():
     stale = metrics.index("| refusal rate | 0.7% | 0.8% | **4.9%** |")
     marker = metrics.index("SUPERSEDED")
     assert marker > stale, "the SUPERSEDED note must follow the table it qualifies"
+
+
+def test_the_reachable_ceiling_is_derived_from_truth_not_asserted():
+    """
+    A match rate invites comparison against 100%, and 100% is not on offer: some captured
+    payments never settled, so no bank credit exists to match them, and others belong to
+    a relation the engine does not model and are refused correctly. Counting those
+    against the engine scores it for failing to do something nobody claims it can do.
+
+    The ceiling must therefore be COMPUTED from ground truth for whatever batch is in
+    front of it, not carried as a constant that was true once. The audit derived 91.24%
+    by hand for the primary batch; this checks the scorer reaches the same number the
+    same way, and that the arithmetic closes.
+    """
+    from recon.engine.match import match_once
+    from recon.generator import build
+    from scorer.score import score
+
+    batch = build.generate(seed=cfg.SEED_PRIMARY)
+    out = match_once(batch.inputs)
+    captured = sum(1 for p in batch.inputs.payments if p.captured)
+    card = score(
+        out, batch.truth,
+        total_payments=len(batch.inputs.payments),
+        captured_payments=captured,
+        ambiguity_bank_txn_id=batch.ambiguity_bank_txn_id or "",
+        credits_by_id={x.id: x.credit for x in batch.inputs.bank_txns},
+        seed=cfg.SEED_PRIMARY,
+    )
+
+    # The ceiling sits between the match rate and 1.0 -- below 1.0 because some payments
+    # are unreachable, at or above the match rate because it is what the engine is
+    # measured against.
+    assert card.match_rate <= card.ceiling < 1.0
+    assert card.reachable_payments <= captured
+
+    # And the arithmetic closes: assigned + short of the ceiling == reachable.
+    assert card.payments_assigned + card.short_of_ceiling == card.reachable_payments
+
+    # Every payment counted in the shortfall must be one ground truth wanted assigned.
+    assert card.short_of_ceiling >= 0
+    if card.short_of_ceiling:
+        assert card.shortfall_by_defect, (
+            "payments are short of the ceiling but no defect is named as the cause"
+        )
+        assert max(card.shortfall_by_defect.values()) <= card.short_of_ceiling
+
+
+def test_the_ceiling_moves_with_the_batch():
+    """
+    A constant would pass the test above on the batch it was written for and lie on every
+    other one. Two batches with different reachability must report different ceilings.
+    """
+    from recon.engine.match import match_once
+    from recon.generator import build
+    from scorer.score import score
+
+    def ceiling_of(seed):
+        batch = build.generate(seed=seed)
+        out = match_once(batch.inputs)
+        return score(
+            out, batch.truth,
+            total_payments=len(batch.inputs.payments),
+            captured_payments=sum(1 for p in batch.inputs.payments if p.captured),
+            ambiguity_bank_txn_id=batch.ambiguity_bank_txn_id or "",
+            credits_by_id={x.id: x.credit for x in batch.inputs.bank_txns},
+            seed=seed,
+        ).ceiling
+
+    assert ceiling_of(cfg.SEED_PRIMARY) != ceiling_of(cfg.SEED_SECONDARY)

@@ -80,6 +80,7 @@ class Scorecard:
     no_candidate: int
     no_candidate_by_relation: dict[str, int]
 
+
     # Detail
     exceptions_by_category: dict[str, int]
     paise_at_risk_by_category: dict[str, int]
@@ -89,6 +90,16 @@ class Scorecard:
     # many payments a credit covers, `defect` says what makes it hard.
     outcome_by_defect: dict[str, tuple[int, int, int, int]]
     ambiguity_case_verdict: str
+    # The reachable ceiling: how much of the batch ground truth says CAN be matched.
+    # Match rate alone invites comparison against 100%, and 100% is not available -- a
+    # payment that never settled has no bank credit to match, and one the model cannot
+    # represent (a split settlement) is refused correctly. Reporting the gap to the
+    # ceiling instead says how much of the shortfall is the engine's, which is the
+    # number worth arguing about.
+    reachable_payments: int = 0
+    ceiling: float = 0.0
+    short_of_ceiling: int = 0
+    shortfall_by_defect: dict[str, int] = field(default_factory=dict)
     materiality: object | None = None
     confidence_deciles: tuple[tuple[float, int, float], ...] = ()
     confidence_calibrated: bool = False
@@ -279,6 +290,36 @@ def score(
         for d, v in sorted(buckets.items())
     )
 
+    # ---- the reachable ceiling ----
+    #
+    # Derived from truth, not asserted: a captured payment is REACHABLE when some link
+    # says a credit should be assigned to it. Everything else is unreachable for a
+    # reason ground truth already records -- it never settled, or it belongs to a
+    # relation the engine does not model -- and counting those against the engine scores
+    # it for failing to do something nobody claims it can do.
+    captured_ids = {
+        pid
+        for link in links
+        for pid in link.payment_ids
+    }
+    assigned_ids = {pid for a in out.assignments for pid in a.payment_ids}
+    reachable = {
+        pid
+        for link in links
+        if link.bank_txn_id and link.expected_verdict == "assign"
+        for pid in link.payment_ids
+    }
+    missed = reachable - assigned_ids
+    shortfall: dict[str, int] = {}
+    for link in links:
+        if not link.bank_txn_id or link.expected_verdict != "assign":
+            continue
+        n = sum(1 for pid in link.payment_ids if pid in missed)
+        if not n:
+            continue
+        for label in link.defect_labels:
+            shortfall[label] = shortfall.get(label, 0) + n
+
     return Scorecard(
         total_payments=total_payments,
         captured_payments=captured_payments,
@@ -296,6 +337,12 @@ def score(
         refusal_correctness=_safe(correct_refusals, len(out.refusals)),
         no_candidate=len(out.no_candidate),
         no_candidate_by_relation=no_cand_by_rel,
+        reachable_payments=len(reachable),
+        ceiling=_safe(len(reachable), captured_payments),
+        short_of_ceiling=len(missed),
+        shortfall_by_defect=dict(
+            sorted(shortfall.items(), key=lambda kv: -kv[1])
+        ),
         exceptions_by_category=by_cat,
         paise_at_risk_by_category=risk_by_cat,
         precision_by_tier={k: (v[0], v[1]) for k, v in precision_by_tier.items()},

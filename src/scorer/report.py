@@ -97,6 +97,31 @@ def render(
             f"assignment.")
         add(f"      These are MISSES, not errors -- no money was posted anywhere.")
 
+    # ---- the reachable ceiling ----
+    #
+    # A match rate invites comparison against 100%, and 100% is not on offer. Some
+    # captured payments never settled, so no bank credit exists to match them; others
+    # belong to a relation the engine does not model and are refused correctly. Reporting
+    # the gap to what ground truth says is REACHABLE separates "the engine missed this"
+    # from "nothing could have got this", which is the only part of the shortfall worth
+    # arguing about -- and it is the difference between a defensive number and a claim.
+    if sc.reachable_payments:
+        add("")
+        add(f"    reachable ceiling     {_pct(sc.ceiling)}"
+            f"     {sc.reachable_payments}/{sc.captured_payments} payments ground truth "
+            f"says CAN be matched")
+        add(f"    short of the ceiling  {sc.short_of_ceiling:>6}"
+            f"     payments the engine could have matched and did not")
+        unreachable = sc.captured_payments - sc.reachable_payments
+        add(f"      the other {unreachable} unmatched payment(s) are unreachable by "
+            f"construction:")
+        add(f"      they never settled, or they belong to a relation the engine does not")
+        add(f"      model -- refusing those is the correct output, not a miss.")
+        if sc.shortfall_by_defect:
+            top = list(sc.shortfall_by_defect.items())[:4]
+            add(f"      the shortfall carries: "
+                + ", ".join(f"{label} x{n}" for label, n in top))
+
     if compare is not None:
         add("")
         add(f"    Everything below this block is the ppw={payments_per_window} run. The "

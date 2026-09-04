@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-03T20:19:06.497097+00:00",
+  "generated_at": "2026-09-04T00:53:18.403775+00:00",
   "seed": 20260905,
   "density": 6,
   "llm_tier": "claude:claude-sonnet-5",
@@ -280,7 +280,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 4 candidate payment(s).",
-          "detail": "Only payments settling between 2026-06-01 and 2026-06-06 (5-day lookback) can belong to a credit on 2026-06-06. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-06-01 and 2026-06-06 (5-day lookback) can belong to a credit on 2026-06-06. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -401,7 +401,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 4 candidate payment(s).",
-          "detail": "Only payments settling between 2026-06-01 and 2026-06-06 (5-day lookback) can belong to a credit on 2026-06-06. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-06-01 and 2026-06-06 (5-day lookback) can belong to a credit on 2026-06-06. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -516,7 +516,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 1 candidate payment(s).",
-          "detail": "Only payments settling between 2026-06-03 and 2026-06-08 (5-day lookback) can belong to a credit on 2026-06-08. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-06-03 and 2026-06-08 (5-day lookback) can belong to a credit on 2026-06-08. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -594,7 +594,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 1 candidate payment(s).",
-          "detail": "Only payments settling between 2026-06-03 and 2026-06-08 (5-day lookback) can belong to a credit on 2026-06-08. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-06-03 and 2026-06-08 (5-day lookback) can belong to a credit on 2026-06-08. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -1314,7 +1314,7 @@
     "bank_txn_0014": {
       "bank_txn_id": "bank_txn_0014",
       "verdict": "assign",
-      "plain": "This Rs 1,519.50 credit is a single payment from Bharat Traders. The bank line quotes INV-2026-1014, which identifies that payment outright, and the amount agrees exactly.",
+      "plain": "This Rs 1,519.50 credit is a single payment from Bharat Traders - the only one of the 9 payments in the 5-day settlement window whose expected amount matches it, exactly.",
       "evidence": [
         {
           "kind": "bank_txn",
@@ -1354,7 +1354,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Read the narration.",
-          "detail": "Extracted payer 'BHARAT TRADERS', reference 'INV-2026-1014'.",
+          "detail": "Extracted payer 'BHARAT TRADERS'.",
           "evidence": []
         },
         {
@@ -1367,7 +1367,14 @@
         {
           "seq": 4,
           "stage": "tier:tier1_reference",
-          "headline": "Reference match produced a match.",
+          "headline": "Tried reference match - nothing conclusive.",
+          "detail": "This tier found no candidate it could stand behind, so the next and weaker one was tried.",
+          "evidence": []
+        },
+        {
+          "seq": 5,
+          "stage": "tier:tier2_amount_date",
+          "headline": "Amount and date produced a match.",
           "detail": "After gateway fees and any TDS, the payment(s) should have settled for between Rs 1,519.48 and Rs 1,519.52. The bank credited Rs 1,519.50, leaving a residual of +0 paise - inside the 100-paise tolerance fixed before the run. Here the gateway fee is known exactly from the payment record. Uniqueness margin 1.00: how far the next-best combination sat outside tolerance.",
           "evidence": [
             {
@@ -1379,24 +1386,24 @@
           ]
         },
         {
-          "seq": 5,
+          "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: exact (+4.38 bits) - exact name agreement on 'BHARAT TRADERS'\n  reference: exact (+7.53 bits) - exact reference agreement on INV-2026-1014\n  prior from the blocking pool: -3.00 (1 in 9 payments in the window would match by chance)\n  TOTAL: +8.91 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: exact (+4.38 bits) - exact name agreement on 'BHARAT TRADERS'\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -3.00 (1 in 9 payments in the window would match by chance)\n  TOTAL: +1.38 bits",
           "evidence": []
         },
         {
-          "seq": 6,
+          "seq": 7,
           "stage": "resolve",
           "headline": "No other credit wanted these payments.",
           "detail": "The bid was uncontested and was granted in round 1 of the fixpoint loop.",
           "evidence": []
         },
         {
-          "seq": 7,
+          "seq": 8,
           "stage": "verdict",
           "headline": "POSTED.",
-          "detail": "This Rs 1,519.50 credit is a single payment from Bharat Traders. The bank line quotes INV-2026-1014, which identifies that payment outright, and the amount agrees exactly.",
+          "detail": "This Rs 1,519.50 credit is a single payment from Bharat Traders - the only one of the 9 payments in the 5-day settlement window whose expected amount matches it, exactly.",
           "evidence": [
             {
               "kind": "bank_txn",
@@ -3021,7 +3028,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 1 candidate payment(s).",
-          "detail": "Only payments settling between 2026-06-17 and 2026-06-22 (5-day lookback) can belong to a credit on 2026-06-22. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-06-17 and 2026-06-22 (5-day lookback) can belong to a credit on 2026-06-22. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -3714,7 +3721,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 1 candidate payment(s).",
-          "detail": "Only payments settling between 2026-06-21 and 2026-06-26 (5-day lookback) can belong to a credit on 2026-06-26. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-06-21 and 2026-06-26 (5-day lookback) can belong to a credit on 2026-06-26. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -4498,7 +4505,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 2 candidate payment(s).",
-          "detail": "Only payments settling between 2026-06-26 and 2026-07-01 (5-day lookback) can belong to a credit on 2026-07-01. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-06-26 and 2026-07-01 (5-day lookback) can belong to a credit on 2026-07-01. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -5720,7 +5727,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 1 candidate payment(s).",
-          "detail": "Only payments settling between 2026-07-01 and 2026-07-06 (5-day lookback) can belong to a credit on 2026-07-06. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-07-01 and 2026-07-06 (5-day lookback) can belong to a credit on 2026-07-06. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -6721,7 +6728,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 1 candidate payment(s).",
-          "detail": "Only payments settling between 2026-07-08 and 2026-07-13 (5-day lookback) can belong to a credit on 2026-07-13. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-07-08 and 2026-07-13 (5-day lookback) can belong to a credit on 2026-07-13. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -8868,7 +8875,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 4 candidate payment(s).",
-          "detail": "Only payments settling between 2026-07-20 and 2026-07-25 (5-day lookback) can belong to a credit on 2026-07-25. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-07-20 and 2026-07-25 (5-day lookback) can belong to a credit on 2026-07-25. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -10385,7 +10392,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 2 candidate payment(s).",
-          "detail": "Only payments settling between 2026-07-31 and 2026-08-05 (5-day lookback) can belong to a credit on 2026-08-05. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-07-31 and 2026-08-05 (5-day lookback) can belong to a credit on 2026-08-05. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -12520,8 +12527,8 @@
     },
     "bank_txn_0103": {
       "bank_txn_id": "bank_txn_0103",
-      "verdict": "refuse",
-      "plain": "Not posted. The amounts agree exactly, but the payer on the bank line (ACME INDUSTRIAL SU) is not Deccan Pharma Distributors. Two independent checks disagree, so this Rs 48,020.17 credit was left for a human rather than guessed.",
+      "verdict": "assign",
+      "plain": "This Rs 48,020.17 credit is a single payment from Deccan Pharma Distributors. The bank line quotes INV-2026-1143, which identifies that payment outright, and the amount agrees exactly.",
       "evidence": [
         {
           "kind": "bank_txn",
@@ -12561,27 +12568,20 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME INDUSTRIAL SU'.",
+          "detail": "Extracted payer 'ACME INDUSTRIAL SU', reference 'INV-2026-1143'.",
           "evidence": []
         },
         {
           "seq": 3,
           "stage": "pool",
-          "headline": "Narrowed to 3 candidate payment(s).",
-          "detail": "Only payments settling between 2026-08-12 and 2026-08-17 (5-day lookback) can belong to a credit on 2026-08-17. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "headline": "Narrowed to 12 candidate payment(s).",
+          "detail": "Only payments settling between 2026-08-12 and 2026-08-17 (5-day lookback) can belong to a credit on 2026-08-17. 0 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
           "seq": 4,
           "stage": "tier:tier1_reference",
-          "headline": "Tried reference match - nothing conclusive.",
-          "detail": "This tier found no candidate it could stand behind, so the next and weaker one was tried.",
-          "evidence": []
-        },
-        {
-          "seq": 5,
-          "stage": "tier:tier2_amount_date",
-          "headline": "Amount and date produced a match.",
+          "headline": "Reference match produced a match.",
           "detail": "After gateway fees and any TDS, the payment(s) should have settled for between Rs 48,020.15 and Rs 48,020.19. The bank credited Rs 48,020.17, leaving a residual of +0 paise - inside the 100-paise tolerance fixed before the run. Here the gateway fee is known exactly from the payment record. Uniqueness margin 1.00: how far the next-best combination sat outside tolerance.",
           "evidence": [
             {
@@ -12593,17 +12593,24 @@
           ]
         },
         {
-          "seq": 6,
+          "seq": 5,
           "stage": "layer3",
-          "headline": "Weighed the name and reference evidence. The non-amount evidence CONTRADICTS the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: disagree (-3.26 bits) - name disagreement: bank 'ACME INDUSTRIAL SU' vs ['DECCAN PHARMA DIST']\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -3.46 (1 in 3 payments in the window would match by chance)\n  TOTAL: -6.72 bits",
+          "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: disagree (-3.26 bits) - name disagreement: bank 'ACME INDUSTRIAL SU' vs ['DECCAN PHARMA DIST']\n  reference: exact (+7.53 bits) - exact reference agreement on INV-2026-1143\n  prior from the blocking pool: -3.46 (1 in 12 payments in the window would match by chance)\n  TOTAL: +0.81 bits",
+          "evidence": []
+        },
+        {
+          "seq": 6,
+          "stage": "resolve",
+          "headline": "No other credit wanted these payments.",
+          "detail": "The bid was uncontested and was granted in round 1 of the fixpoint loop.",
           "evidence": []
         },
         {
           "seq": 7,
           "stage": "verdict",
-          "headline": "REFUSED - sent to a human.",
-          "detail": "Not posted. The amounts agree exactly, but the payer on the bank line (ACME INDUSTRIAL SU) is not Deccan Pharma Distributors. Two independent checks disagree, so this Rs 48,020.17 credit was left for a human rather than guessed.",
+          "headline": "POSTED.",
+          "detail": "This Rs 48,020.17 credit is a single payment from Deccan Pharma Distributors. The bank line quotes INV-2026-1143, which identifies that payment outright, and the amount agrees exactly.",
           "evidence": [
             {
               "kind": "bank_txn",
@@ -12676,8 +12683,8 @@
         {
           "seq": 3,
           "stage": "pool",
-          "headline": "Narrowed to 3 candidate payment(s).",
-          "detail": "Only payments settling between 2026-08-13 and 2026-08-18 (5-day lookback) can belong to a credit on 2026-08-18. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "headline": "Narrowed to 2 candidate payment(s).",
+          "detail": "Only payments settling between 2026-08-13 and 2026-08-18 (5-day lookback) can belong to a credit on 2026-08-18. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -12705,7 +12712,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence CONTRADICTS the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: disagree (-3.26 bits) - name disagreement: bank 'BHARATI TRADERS LL' vs ['MERIDIAN LOGISTICS']\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -3.58 (1 in 3 payments in the window would match by chance)\n  TOTAL: -6.84 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: disagree (-3.26 bits) - name disagreement: bank 'BHARATI TRADERS LL' vs ['MERIDIAN LOGISTICS']\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -3.58 (1 in 2 payments in the window would match by chance)\n  TOTAL: -6.84 bits",
           "evidence": []
         },
         {
@@ -13383,7 +13390,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 6 candidate payment(s).",
-          "detail": "Only payments settling between 2026-08-16 and 2026-08-21 (5-day lookback) can belong to a credit on 2026-08-21. 168 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-08-16 and 2026-08-21 (5-day lookback) can belong to a credit on 2026-08-21. 169 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -15254,7 +15261,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 1 candidate payment(s).",
-          "detail": "Only payments settling between 2026-08-27 and 2026-09-01 (5-day lookback) can belong to a credit on 2026-09-01. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-08-27 and 2026-09-01 (5-day lookback) can belong to a credit on 2026-09-01. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -16441,7 +16448,7 @@
           "seq": 3,
           "stage": "pool",
           "headline": "Narrowed to 1 candidate payment(s).",
-          "detail": "Only payments settling between 2026-09-02 and 2026-09-07 (5-day lookback) can belong to a credit on 2026-09-07. 172 payment(s) were already claimed by earlier credits and were excluded.",
+          "detail": "Only payments settling between 2026-09-02 and 2026-09-07 (5-day lookback) can belong to a credit on 2026-09-07. 173 payment(s) were already claimed by earlier credits and were excluded.",
           "evidence": []
         },
         {
@@ -17236,10 +17243,10 @@
     "captured_payments": 194,
     "bank_credits": 141,
     "invoices": 187,
-    "assigned": 126,
-    "refused": 15,
+    "assigned": 127,
+    "refused": 14,
     "no_candidate": 0,
-    "rupees_at_risk": 301909.22
+    "rupees_at_risk": 253889.05
   },
   "not_examined": {
     "debit_lines": 6,
@@ -17304,34 +17311,10 @@
   },
   "tier_counts": {
     "tier1_reference": 44,
-    "tier2_amount_date": 62,
+    "tier2_amount_date": 63,
     "tier3_subsetsum": 20
   },
   "exceptions": [
-    {
-      "bank_txn_id": "bank_txn_0103",
-      "category": "amount_name_conflict",
-      "rupees_at_risk": 48020.17,
-      "txn_date": "2026-08-17",
-      "narration": "INW REM 275492 ACME INDUSTRIAL SU INV20261143",
-      "reference": "ICICR92259685884",
-      "why": "The amounts reconcile but the counterparty does not. Either the payer was renamed, or this is a coincidental amount match to the wrong customer.",
-      "next_step": "Confirm the customer identity; do not post on the amount alone.",
-      "engine_reason": "amounts reconcile (residual +0p) but non-amount evidence contradicts it: Fellegi-Sunter field weight -3.26 (total -6.72). name disagreement: bank 'ACME INDUSTRIAL SU' vs ['DECCAN PHARMA DIST']",
-      "candidates": [
-        {
-          "payment_ids": [
-            "pay_SYN001441035"
-          ],
-          "rupees": 48020.17,
-          "residual_paise": 0,
-          "customers": [
-            "DECCAN PHARMA DIST"
-          ]
-        }
-      ],
-      "confidence": null
-    },
     {
       "bank_txn_id": "bank_txn_0050",
       "category": "no_subset_fits",
@@ -17903,6 +17886,24 @@
       "certain_fee": true,
       "permutation_stability": 1.0,
       "confidence": 0.9386
+    },
+    {
+      "bank_txn_id": "bank_txn_0103",
+      "payment_ids": [
+        "pay_SYN001441035"
+      ],
+      "invoice_nos": [
+        "INV-2026-1143"
+      ],
+      "tier": "tier1_reference",
+      "rupees": 48020.17,
+      "residual_paise": 0,
+      "residual_tightness": 1.0,
+      "uniqueness_margin": 1.0,
+      "fs_weight": 0.815,
+      "certain_fee": true,
+      "permutation_stability": 1.0,
+      "confidence": 0.9342
     },
     {
       "bank_txn_id": "bank_txn_0124",
@@ -19863,15 +19864,15 @@
       "invoice_nos": [
         "INV-2026-1014"
       ],
-      "tier": "tier1_reference",
+      "tier": "tier2_amount_date",
       "rupees": 1519.5,
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": 8.915,
+      "fs_weight": 1.382,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.982
+      "confidence": 0.9404
     },
     {
       "bank_txn_id": "bank_txn_0024",
@@ -20012,7 +20013,7 @@
         "name": "MR4",
         "kind": "invariant",
         "statement": "assigned payments + MDR + TDS must equal the bank credit within tolerance",
-        "checked": 126,
+        "checked": 127,
         "violations": 0,
         "passed": true
       },
@@ -20028,14 +20029,14 @@
         "name": "MR6",
         "kind": "metamorphic",
         "statement": "rerunning on the unassigned residue must produce no new assignments",
-        "checked": 21,
+        "checked": 20,
         "violations": 0,
         "passed": true
       }
     ],
     "permutation_gate": {
       "passes": 8,
-      "txns_observed": 126,
+      "txns_observed": 127,
       "unstable": 0,
       "min_stability": 1.0,
       "mean_stability": 1.0
@@ -20043,5 +20044,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 17
+  "throughput_records_per_s": 19
 }
