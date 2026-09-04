@@ -384,6 +384,10 @@ def apply_gate(ensemble: Ensemble, credits_by_id: dict[str, int]) -> MatchOutput
         gated_reversals, gated_unexplained = reversals.resolve(
             ensemble.bank_txns, tuple(kept), tuple(kept_groups),
             ensemble.payments_by_id, ensemble.invoices_by_no,
+            # The GATED refusals, not the base run's: a credit the gate withdrew is one
+            # this engine did not post, and a debit against it depends on that exception
+            # exactly as it would on any other.
+            refused={r.bank_txn_id: r.category.value for r in new_refusals},
         )
     else:
         gated_reversals = list(base.reversals)

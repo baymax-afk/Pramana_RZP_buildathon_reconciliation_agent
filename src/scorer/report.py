@@ -197,11 +197,24 @@ def render(
             add("                           subset-sum over that batch's payments: the")
             add("                           rest of the settlement still stands.")
         if sc.unexplained_debits:
-            add(f"    unexplained debits     {sc.unexplained_debits}"
-                f"   Rs {sc.unexplained_debit_paise / 100:,.2f}")
-            add("    Money left the account against something this engine did not")
-            add("    reconcile -- a bank fee, a payout, or a claw-back on an earlier")
-            add("    statement. Reported rather than dropped.")
+            add("")
+            add(f"    NOT TIED TO A SETTLEMENT   {sc.unexplained_debits} line(s), "
+                f"Rs {sc.unexplained_debit_paise / 100:,.2f}")
+            # Classified, not lumped. Every one of these used to carry the same sentence
+            # -- "money left the account and this engine cannot say against what" --
+            # which is honest and nearly useless: it is equally true of a bank fee, of a
+            # claw-back on last month's settlement, and of a chargeback against a credit
+            # sitting in this batch's own exception list. Three different next steps.
+            for cat, n in sorted(sc.debits_by_category.items(), key=lambda kv: -kv[1]):
+                add(f"      {n:>3}  {cat}")
+            if sc.declines_expected:
+                add(f"    correctly declined     {sc.declines_correct}"
+                    f"/{sc.declines_expected}"
+                    f"   wrongly tied {len(sc.declines_wrong)}"
+                    f"   miscategorised {len(sc.declines_miscategorised)}")
+                add("    Declining is the CORRECT output for these -- and it only counts")
+                add("    because the category is scored too. An engine that answered")
+                add("    'cannot say' to every debit would pass a decline-only check.")
         add("    A reversal does NOT undo the assignment it reverses: both events")
         add("    happened, so the batch reports gross reconciled and net separately.")
 

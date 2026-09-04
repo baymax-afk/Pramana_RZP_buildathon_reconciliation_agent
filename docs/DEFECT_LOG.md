@@ -2232,3 +2232,119 @@ author, not on the problem, and it is worth asking which one you have.*
 bound of **two** and every test would still have passed. The four-way split now in the
 batch is what makes the arity a measurement rather than a claim, and it is the case that
 would have been refused under the old bound.
+
+---
+
+## 2026-09-04-11 — two "model limitations" that were a reporting problem, and a fourth generator self-inflicted wound
+
+**Timestamp:** 2026-09-04, working the three successors O10 had named: a claw-back against
+a settlement in an earlier batch, a partial chargeback whose settlement the engine refused,
+and grouping an ambiguous credit.
+
+**What was found: none of the three was a matching problem.**
+
+Two of them ended, correctly, as "unexplained debit" — a settlement from last month is not
+in this batch, and a credit the engine refused must not be resolved by a later claw-back.
+Both were listed in `ARCHITECTURE.md` as *not modelled*, which invited the reading that
+the engine was one feature away from handling them. It is not, and it never was.
+
+**What was actually wrong is that every unresolvable debit carried the same sentence:**
+
+    money left the account and this engine cannot say against what
+
+Honest, and nearly useless. It is equally true of a bank fee, of a claw-back on an earlier
+statement, and of a chargeback against a credit sitting in this batch's own exception
+list — three situations with three different next steps, reported identically. The engine
+already held the evidence to tell them apart (the reference resolves to a refused credit /
+to nothing / to several things); it simply was not saying so.
+
+**Fixed by classification, not by matching.** Four `DebitCategory` values on the same
+doctrine as `RefusalCategory`, each routed to a desk, each scored. And
+`SETTLEMENT_REFUSED` carries **`depends_on`** — the first dependency between exceptions
+this engine reports: *clear that one and this clears with it.* Deliberately a dependency
+rather than a resolution, because using a claw-back to decide which decomposition was
+right would let a later event pick between candidates the evidence did not separate.
+
+**The scoring detail that makes it worth anything:** the category is scored, not just the
+decline. Ground truth marks both new debits `refuse` — declining IS correct — so an engine
+that answered "cannot say" to every debit would pass a decline-only check with full marks.
+`declines_miscategorised` is what stops that.
+
+---
+
+### The third successor was not a gap, and closing it would have been wrong
+
+Grouping an ambiguous credit is what produced the engine's only wrong assignment
+(2026-09-04-10). The fix at the time was an eligibility filter — a list of refusal
+categories that may not be grouped — which worked and read like a special case bolted on
+after a defect.
+
+It is not a special case. Layer 2 posts a decomposition when exactly one subset accounts
+for a credit; Layer 2b posts a grouping when exactly one grouping balances. Stated
+separately those two rules leave a hole between them: **a credit can have three
+single-credit explanations and one group explanation, and each layer sees a unique answer
+inside its own hypothesis space while the credit has four.** That hole is the defect.
+
+The rule is one rule — *count every explanation across both models, and post only when
+there is exactly one* — and the eligibility filter is what it reduces to when evaluated in
+advance, because a credit with `n` viable decompositions already has `n` explanations and
+any group makes `n+1`.
+
+**This admits nothing new, and saying so precisely matters.** It is provably the same set,
+not measured-to-be: the list names every refusal category except `no_subset_fits`. What it
+buys is a guarantee rather than a behaviour — the partition is asserted **exhaustive**, so
+a new refusal category has to be classified or the suite fails, instead of becoming
+groupable by default. *Defaulting to groupable is exactly how the wrong assignment
+happened*, and the second time would have looked just as reasonable as the first.
+
+---
+
+### The fourth time the generator destroyed something and the engine was scored for it
+
+Adding `chargeback_out_of_batch` shifted the RNG stream. The duplicate-UTR defect — which
+clones one credit's reference onto another — landed on a different credit, and that credit
+happened to be the settlement a **partial chargeback depended on**. Its reference gone,
+the debit resolved to nothing, the engine classified it as out-of-batch (correct, on what
+it could see) and the scorer recorded a miss against a link marked `reverse`.
+
+This is the shape `DEFECT_LOG` already records three times over: `refund_netted` hiding
+money, `_protect_ambiguity_window` moving a payment out of reach, and a narration
+contradicting its own decomposition. Each was found by reading. **This one was found by
+adding a defect and watching a number move**, which is only marginally better.
+
+Two fixes, and the second is the one that matters:
+
+1. The duplicate-UTR defect no longer overwrites a reference a reversal link depends on.
+2. **`assert_truth_is_satisfiable` now checks reversal links**: a `reverse` link whose
+   debit's reference matches no credit in the batch fails the build. So does a `reverse`
+   link on a credit. The next one of these fails at generation rather than surfacing as a
+   coverage number three commits later.
+
+The reachability check has now grown a fourth clause for a fourth shape of the same
+mistake. **That is the argument for having it at all:** every clause was added after
+being caught by measurement, and each one converts a class of silent scoring error into a
+build failure.
+
+---
+
+### And a test that had started silently skipping
+
+`test_absence_from_the_register_is_declined_with_a_caveat` read *"if no payer is absent
+from the register, skip"*. That was fine while the batch happened to leave one uncovered.
+The generator changes here covered them all, and the test became a pass that exercised
+nothing — the assertion that stops the agent treating a gap in reference data as disproof.
+
+It now prunes the register itself, so the case is constructed rather than hoped for. **This
+is the second silently-skipping test found in two days** (the first was an API route
+reading a payload key that had stopped carrying rows). A skip is not a pass, and a suite
+reporting "1 skipped" is reporting that something is not being tested — which is worth
+reading rather than scrolling past.
+
+**Cost.** About two hours, most of it in the generator rather than the engine.
+
+**The lesson.** *"Not modelled"* is a stronger claim than most of the things it gets
+attached to, and it is worth checking which kind you have. Two of these three were
+labelled as gaps in the model when the model was already right — the engine could see
+everything it needed and was declining to say it. **A limitation that is really a
+reporting failure is the more expensive of the two, because writing it down as a
+limitation is what stops anyone looking at it again.**

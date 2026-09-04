@@ -13,13 +13,14 @@ correct behaviour is a refusal, that is asserted as correct rather than tolerate
 from __future__ import annotations
 
 import pytest
+from pathlib import Path
 
 import config as cfg
 from recon.engine import fees as engine_fees
 from recon.engine import tier2_amount_date as t2
 from recon.engine import tier3_subsetsum as t3
 from recon.engine.match import match_once
-from recon.engine.results import RefusalCategory
+from recon.engine.results import DebitCategory, RefusalCategory
 from recon.generator import build
 
 
@@ -357,7 +358,26 @@ def test_the_statement_now_contains_debits(batch):
 
 
 def test_a_chargeback_carries_the_reference_of_the_credit_it_reverses(batch):
-    debits = [t for t in batch.inputs.bank_txns if t.debit and "CHARGEBACK" in t.narration]
+    """
+    A chargeback identifies its settlement by carrying that settlement's reference.
+    Without it the debit is unattributable, which is what makes reference agreement
+    admissible evidence rather than a coincidence.
+
+    **Except the out-of-batch one, deliberately.** A claw-back on last month's settlement
+    carries a perfectly good reference that this batch simply does not contain — that is
+    the defect, not a malformed line — so it is excluded here by its truth label rather
+    than by its shape. Ground truth for it expects a decline, and
+    `test_a_clawback_on_an_earlier_statement_is_named_not_lumped` checks the category.
+    """
+    out_of_batch = {
+        l.bank_txn_id
+        for l in batch.truth
+        if "chargeback_out_of_batch" in l.defect_labels
+    }
+    debits = [
+        t for t in batch.inputs.bank_txns
+        if t.debit and "CHARGEBACK" in t.narration and t.id not in out_of_batch
+    ]
     assert debits, "no chargebacks in this batch"
     credit_refs = {t.ref_no for t in batch.inputs.bank_txns if t.is_credit}
     for d in debits:
@@ -455,9 +475,14 @@ def test_the_metrics_block_discloses_what_it_did_not_examine(batch):
     # that disappears the moment it reads zero is one nobody can check.
     assert "NOT EXAMINED" in text
     assert "REVERSAL LEDGER" in text
-    assert f"{len(debits)}/{len(debits)}" in text, (
-        "the reversal ledger should account for every chargeback in the batch"
+    # Every debit reaches a verdict: tied to a settlement, or declined WITH a reason.
+    # Asserting "N of N tied" would now be asserting that the engine ties debits it is
+    # right to decline -- a claw-back on an earlier statement has nothing here to tie to.
+    assert sc.reversals_found + sc.unexplained_debits == len(debits), (
+        "every debit must be either tied to a settlement or classified as unresolvable"
     )
+    assert "NOT TIED TO A SETTLEMENT" in text
+    assert f"correctly declined     {sc.declines_correct}/{sc.declines_expected}" in text
 
 
 @pytest.mark.parametrize("seed", [20260905, 77771, 44444])
@@ -564,3 +589,111 @@ def test_no_payment_is_reversed_twice(batch):
             f"{seen & set(r.payment_ids)}"
         )
         seen.update(r.payment_ids)
+
+
+def test_every_refusal_category_is_classified_as_explained_or_not():
+    """
+    The partition is what makes "only unexplained credits may be grouped" a guarantee
+    rather than a list someone maintains.
+
+    Layer 2b's eligibility is stated as a NEGATIVE — every credit that is not ambiguous —
+    so a refusal category nobody classified becomes groupable by default. Defaulting to
+    groupable is exactly how the engine's only wrong assignment happened
+    (`DEFECT_LOG` 2026-09-04-10), and a new category is the most likely way for it to
+    happen again.
+
+    So this asserts the partition is exhaustive: every `RefusalCategory` is either listed
+    as explained-by-a-single-credit, or is `no_subset_fits`. Adding one without deciding
+    fails here.
+    """
+    from recon.engine import match as match_mod
+
+    src = Path(match_mod.__file__).read_text(encoding="utf-8")
+    block = src.split("_explained_by_a_single_credit = {", 1)[1].split("}", 1)[0]
+    listed = {
+        c for c in RefusalCategory if f"RefusalCategory.{c.name}.value" in block
+    }
+    unlisted = set(RefusalCategory) - listed
+    assert unlisted == {RefusalCategory.NO_SUBSET_FITS}, (
+        f"these refusal categories are neither listed as explained-by-a-single-credit "
+        f"nor the one that means nothing fits, so they are groupable by default: "
+        f"{sorted(c.value for c in unlisted - {RefusalCategory.NO_SUBSET_FITS})}"
+    )
+
+
+def test_grouping_an_ambiguous_credit_is_refused_by_construction(batch):
+    """
+    The rule, exercised on the case that broke it rather than asserted.
+
+    Uniqueness is counted over the UNION of the hypothesis spaces: a credit with n
+    viable single-credit decompositions already has n explanations before a group is
+    considered, so any group it joins makes n+1 and only n = 0 can ever reach one. This
+    walks the batch's own ambiguous credits and confirms none reached a group.
+    """
+    out = match_once(batch.inputs)
+    grouped = out.grouped_txn_ids
+    ambiguous = {
+        r.bank_txn_id
+        for r in out.refusals
+        if r.category is not RefusalCategory.NO_SUBSET_FITS
+    }
+    assert not (grouped & ambiguous), (
+        f"credits with a viable single-credit explanation were grouped anyway: "
+        f"{sorted(grouped & ambiguous)}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Debits the engine is RIGHT not to tie
+# --------------------------------------------------------------------------
+def test_a_clawback_on_an_earlier_statement_is_named_not_lumped(batch):
+    """
+    A statement period is a window, not the world. A settlement disputed a month after it
+    was made produces a debit whose reference this batch does not contain — real money,
+    unreconcilable HERE by construction.
+
+    Declining is correct. Declining with a REASON is the point: every unresolvable debit
+    used to carry the same sentence, which is equally true of a bank fee and of a
+    claw-back on last month's settlement, and those are different next steps.
+    """
+    link = next(
+        (l for l in batch.truth if "chargeback_out_of_batch" in l.defect_labels), None
+    )
+    assert link, "no out-of-batch chargeback in this batch"
+    assert link.expected_verdict == "refuse", (
+        "ground truth must not ask the engine to tie a settlement that is not here"
+    )
+
+    out = match_once(batch.inputs)
+    assert link.bank_txn_id not in {r.bank_txn_id for r in out.reversals}
+    row = next(
+        u for u in out.unexplained_debits if u.bank_txn_id == link.bank_txn_id
+    )
+    assert row.category is DebitCategory.OUT_OF_BATCH
+    assert "earlier statement" in row.reason
+
+
+def test_a_chargeback_against_a_refused_settlement_names_what_it_waits_on(batch):
+    """
+    The reference resolves to a credit right here — and the engine refused to post it.
+
+    The debit must NOT be resolved: using a claw-back to decide which decomposition was
+    right would let a later event pick between candidates the evidence did not separate,
+    which is the engine declining a match and then making it through a side door. What it
+    can say is that the two are linked, which is the only dependency between exceptions
+    this engine reports.
+    """
+    link = next(
+        (l for l in batch.truth if "chargeback_on_refused" in l.defect_labels), None
+    )
+    assert link, "no chargeback against a refused settlement in this batch"
+
+    out = match_once(batch.inputs)
+    row = next(
+        u for u in out.unexplained_debits if u.bank_txn_id == link.bank_txn_id
+    )
+    assert row.category is DebitCategory.SETTLEMENT_REFUSED
+    assert row.depends_on, "the dependency must name the exception it waits on"
+    assert row.depends_on in {r.bank_txn_id for r in out.refusals}, (
+        "a dependency must point at an exception that actually exists in this run"
+    )

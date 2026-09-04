@@ -32,6 +32,22 @@ const TIER_LABEL = {
   layer2b_group: "grouped credits",
 };
 
+/*
+ * Why a debit could not be tied to a settlement.
+ *
+ * These were one bucket reading "not examined", and the label was equally true of a bank
+ * fee, of a claw-back on last month's settlement, and of a chargeback against a credit
+ * sitting in this page's own exception list. Three different next steps behind one
+ * sentence, which is a worse failure on this page than in the metrics block: the metrics
+ * block is read by whoever builds the engine, and this is read by whoever acts on it.
+ */
+const DEBIT_LABEL = {
+  reverses_a_settlement_outside_this_batch: "reverses an earlier statement",
+  reverses_a_settlement_this_engine_refused: "reverses a refused settlement",
+  ambiguous_reversal: "several settlements match",
+  no_settlement_named: "no settlement named — fee, payout or transfer",
+};
+
 const CATEGORY_LABEL = {
   order_dependent_assignment: "Order-dependent",
   multiple_candidates: "Ambiguous — several fit",
@@ -116,7 +132,10 @@ function DebitLedger({ data }) {
                         )}
                       </>
                     ) : (
-                      <span className="muted">unexplained</span>
+                      <span className="muted">
+                        {DEBIT_LABEL[l.category] ?? "not tied to a settlement"}
+                        {l.depends_on ? ` — waits on ${l.depends_on}` : ""}
+                      </span>
                     )}
                   </td>
                   <td className="num">{RUPEES.format(l.rupees)}</td>

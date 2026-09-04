@@ -150,7 +150,14 @@ def build(
         }
         for r in out.reversals
     }
-    _unexplained_by_txn = {u.bank_txn_id: u.reason for u in out.unexplained_debits}
+    _unexplained_by_txn = {
+        u.bank_txn_id: {
+            "reason": u.reason,
+            "category": u.category.value,
+            "depends_on": u.depends_on,
+        }
+        for u in out.unexplained_debits
+    }
     # Lines that reached no verdict at all, by subtraction. See the `not_examined` block.
     _seen = (
         {a.bank_txn_id for a in out.assignments}
@@ -286,15 +293,23 @@ def build(
             "reversals_partial": sum(1 for r in out.reversals if r.partial),
             "rupees_reversed": round(out.reversed_paise / 100, 2),
             "unexplained": len(out.unexplained_debits),
+            "unexplained_by_category": {
+                k: sum(
+                    1 for u in out.unexplained_debits if u.category.value == k
+                )
+                for k in sorted({u.category.value for u in out.unexplained_debits})
+            },
             "rupees_unexplained": round(
                 sum(u.debit_paise for u in out.unexplained_debits) / 100, 2
             ),
             "reason": (
                 "Money leaving the account. Each debit is tied to the settlement it "
                 "reverses -- same amount, carrying that settlement's reference, dated "
-                "after it, and uniquely so -- or reported as unexplained. A reversal "
-                "does not undo the settlement it reverses: both events happened, so "
-                "the reconciled total is reported gross and net."
+                "after it, and uniquely so -- or classified as one of four kinds of "
+                "unresolvable, because 'cannot say' is equally true of a bank fee and "
+                "of a claw-back on last month's settlement and those are different "
+                "next steps. A reversal does not undo the settlement it reverses: both "
+                "events happened, so the reconciled total is reported gross and net."
             ),
             "rows": [
                 {
@@ -316,7 +331,11 @@ def build(
                     ),
                     "detail": (
                         _reversal_by_txn.get(t.id, {}).get("reason")
-                        or _unexplained_by_txn.get(t.id, "")
+                        or _unexplained_by_txn.get(t.id, {}).get("reason", "")
+                    ),
+                    "category": _unexplained_by_txn.get(t.id, {}).get("category", ""),
+                    "depends_on": _unexplained_by_txn.get(t.id, {}).get(
+                        "depends_on", ""
                     ),
                 }
                 for t in sorted(debits, key=lambda x: -x.debit)[:50]

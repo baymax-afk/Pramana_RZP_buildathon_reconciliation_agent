@@ -208,21 +208,61 @@ class Reversal:
     partial: bool = False
 
 
+class DebitCategory(str, Enum):
+    """
+    Why a debit could not be tied to a settlement, in the same spirit as
+    `RefusalCategory`: "unexplained" is not actionable, "reverses a settlement from an
+    earlier statement" is.
+
+    **These were one bucket, and collapsing them was costing an operator the answer.**
+    Every debit the engine could not resolve carried the same sentence -- *"money left
+    the account and this engine cannot say against what"* -- which is honest and nearly
+    useless. It is true of a bank fee, of a claw-back on last month's settlement, and of
+    a chargeback against a credit sitting in this batch's own exception list. Those are
+    three different next steps: ignore it, go to the prior period, or work the linked
+    exception and this one resolves with it.
+    """
+
+    # The reference names a settlement this batch does not contain. A claw-back on an
+    # earlier statement -- real, unreconcilable HERE, and the operator's next step is a
+    # different period rather than a different search.
+    OUT_OF_BATCH = "reverses_a_settlement_outside_this_batch"
+    # The reference names a credit in this batch that the engine REFUSED to post. The
+    # debit is not independently resolvable and must not be used to justify the match
+    # the engine declined -- but the two items are linked, and saying so gives an
+    # ordering: clear the exception and this resolves with it.
+    SETTLEMENT_REFUSED = "reverses_a_settlement_this_engine_refused"
+    # Several posted settlements answer to the same reference and amount, or several
+    # subsets of one settlement settled for this amount. Same doctrine as Layer 2: the
+    # evidence identified more than one answer, so it identified none.
+    AMBIGUOUS = "ambiguous_reversal"
+    # No reference in the debit resolves to anything in the batch. A bank fee, a payout,
+    # a transfer -- money leaving for a reason that is not a reversal at all.
+    NO_SETTLEMENT_NAMED = "no_settlement_named"
+
+
 @dataclass(frozen=True, slots=True)
 class UnexplainedDebit:
     """
-    A debit the engine could not tie to anything it had posted.
+    A debit the engine could not tie to a settlement it had posted.
 
-    Reported rather than dropped. A bank fee, a payout, or a chargeback against a
-    settlement outside this batch all land here, and the honest statement is "money left
-    the account and this engine cannot say against what" -- not silence. `candidates`
-    carries whatever it did consider, on the same principle as `Refusal`.
+    Reported rather than dropped, and now CLASSIFIED rather than lumped. `category` says
+    which of the four situations this is and `candidates` carries whatever was
+    considered, on the same principle as `Refusal`. `depends_on` names the exception this
+    debit is waiting behind, when there is one -- the only place in this engine where one
+    item's resolution is stated to unblock another.
     """
 
     bank_txn_id: str
     debit_paise: int
     reason: str
     candidates: tuple[str, ...] = ()
+    category: DebitCategory = DebitCategory.NO_SETTLEMENT_NAMED
+    depends_on: str = ""
+
+    @property
+    def rupees(self) -> float:
+        return self.debit_paise / 100.0
 
 
 @dataclass(frozen=True, slots=True)

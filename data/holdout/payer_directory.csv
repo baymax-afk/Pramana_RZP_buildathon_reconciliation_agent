@@ -1,13 +1,13 @@
 payer_name,authorised_for_customer,relationship,on_record_since
-Deccan Pharma Distributors,Pinnacle Steel Traders,affiliate_decoy,2025-04-01
-Greenfield Organics Private Limited,Meridian Logistics LLP,group_treasury,2025-04-01
-Harbour Marine Supplies,Acme Industrial Supplies Private Limited,parent,2025-04-01
-Meridian Logistics LLP,Lotus Paper Mills Limited,affiliate_decoy,2025-04-01
-Nova Chemicals India Private Limited,Quantum Instruments Private Limited,parent,2025-04-01
-Pinnacle Steel Traders,Meridian Logistics LLP,group_treasury,2025-04-01
-Quantum Instruments Private Limited,Sunline Textiles Limited,affiliate_decoy,2025-04-01
-Silverline Packaging LLP,Deccan Pharma Distributors,affiliate_decoy,2025-04-01
-Sunrise Textiles Limited,Acme Industrial Supplies Private Limited,affiliate_decoy,2025-04-01
-Sunrise Textiles Limited,Harbour Marine Supplies,group_treasury,2025-04-01
+Acme Industrial Supplies Private Limited,Sunrise Textiles Limited,affiliate_decoy,2025-04-01
+Acme Retail Private Limited,Kaveri Agro Exports,affiliate_decoy,2025-04-01
+Deccan Pharma Distributors,Bharat Traders and Co,affiliate_decoy,2025-04-01
+Greenfield Organics Private Limited,Acme Industrial Supplies Private Limited,parent,2025-04-01
+Greenfield Organics Private Limited,Bharat Traders and Co,affiliate,2025-04-01
+Greenfield Organics Private Limited,Meridian Logistics LLP,affiliate,2025-04-01
+Lotus Paper Mills Limited,Quantum Instruments Private Limited,affiliate_decoy,2025-04-01
+Nova Chemicals India Private Limited,Orchid Foods Private Limited,affiliate_decoy,2025-04-01
+Nova Chemicals India Private Limited,Quantum Instruments Private Limited,group_treasury,2025-04-01
+Pinnacle Steel Traders,Meridian Logistics LLP,parent,2025-04-01
+Sunrise Textiles Limited,Kaveri Agro Exports,affiliate_decoy,2025-04-01
 Sunrise Textiles Limited,Quantum Instruments Private Limited,parent,2025-04-01
-Vertex Engineering Works,Bharati Traders LLP,affiliate_decoy,2025-04-01

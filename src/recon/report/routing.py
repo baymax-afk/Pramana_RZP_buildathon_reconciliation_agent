@@ -146,6 +146,24 @@ _ROUTE: dict[str, str] = {
     RefusalCategory.AMBIGUOUS_GROUPING.value: "treasury_confirm",
     # The third verdict, not a refusal category. Routed deliberately -- see above.
     "no_candidate": "investigations",
+    # ---- debits the engine could not tie to a settlement ----
+    #
+    # Routed for the same reason refusals are: an unresolvable item still belongs on
+    # somebody's desk, and which desk depends on what kind of unresolvable it is. This is
+    # the payoff of classifying them -- one bucket could only ever go to one queue.
+    #
+    # Out-of-batch goes to treasury: the answer is in the prior period's statement, which
+    # is a lookup rather than an investigation.
+    "reverses_a_settlement_outside_this_batch": "treasury_confirm",
+    # Against a refused settlement: no separate work. It resolves when the exception it
+    # depends on resolves, and that exception is already routed. Sent to the same desk
+    # that handles ambiguity so the pair lands together.
+    "reverses_a_settlement_this_engine_refused": "treasury_confirm",
+    # Several settlements or subsets answer to it -- the debit form of MULTIPLE_CANDIDATES.
+    "ambiguous_reversal": "treasury_confirm",
+    # Money leaving for something that is not a reversal: a fee, a payout, a transfer.
+    # Nobody can match it because it is not a match; it is a ledger question.
+    "no_settlement_named": "investigations",
 }
 
 

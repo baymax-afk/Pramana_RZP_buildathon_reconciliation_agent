@@ -44,8 +44,14 @@ looks like."* It is the line that separates this from a demo that quotes 100% an
 And read the amber line under it: **₹35,20,805.75 net** of seven chargebacks totalling
 ₹1,50,008.69. *"The matches stand — the settlements were correct and the money was clawed
 back afterwards. That is two facts, so we report two numbers."* Two of the seven are
-**partial** — one payment disputed inside a settlement batch of four, where the rest of
-the batch still stands.
+**partial** — one payment disputed inside a settlement batch, where the rest still stands.
+
+**If you have thirty seconds spare, open "Money out".** Nine debit lines; seven tied to
+the settlement they reverse, and the two that cannot be say *which kind* of untieable
+they are — one reverses an earlier statement, one reverses a credit this engine refused
+and **names the exception it waits on**. The line to land: *"declining is the right answer
+for both of these. Declining with a reason is the useful one, and we score the reason —
+otherwise an engine that said 'cannot say' to every debit would pass."*
 
 ## 2 · One concrete before → after — 90 s
 

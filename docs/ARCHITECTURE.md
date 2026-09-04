@@ -508,6 +508,57 @@ than resolving one.** Only `no_subset_fits` and `no_candidate` credits — the o
 accounted for at all — may enter a group. Found by the density sweep, like the last one
 (`DEFECT_LOG` 2026-09-04-10).
 
+### The three successors, and what a limitation turns into when you take it seriously
+
+The previous version of this section named three: a claw-back against a settlement in an
+earlier batch, a partial chargeback whose settlement the engine refused, and grouping an
+ambiguous credit. **None of the three was a matching problem, and that is the finding.**
+
+**Two of them were a reporting problem wearing a modelling problem's clothes.** Neither
+can be reconciled — a settlement from last month is not in this batch, and a credit the
+engine refused must not be resolved by a later claw-back — so both correctly ended as
+"unexplained debit". What was wrong is that *everything* ended there, under one sentence:
+*"money left the account and this engine cannot say against what."* True, honest, and
+equally true of a bank fee, a claw-back on an earlier statement, and a chargeback against
+a credit sitting in this batch's own exception list. **Three situations, three different
+next steps, one message.** They are now four named categories, on the same doctrine as
+`RefusalCategory`: an unresolvable item still belongs on somebody's desk, and which desk
+depends on what kind of unresolvable it is.
+
+| category | what it means | next step |
+|---|---|---|
+| `reverses_a_settlement_outside_this_batch` | carries a settlement reference no credit here answers to | the prior period's statement |
+| `reverses_a_settlement_this_engine_refused` | names a credit in this batch that was not posted | clear that exception; this clears with it |
+| `ambiguous_reversal` | several settlements, or several subsets, answer to it | remittance advice |
+| `no_settlement_named` | nothing resolves; not a reversal at all | a fee, a payout, a transfer |
+
+`SETTLEMENT_REFUSED` carries `depends_on` — the only place in this engine where one item's
+resolution is stated to unblock another. It is deliberately a dependency rather than a
+resolution: using a claw-back to decide which decomposition was right would let a later
+event pick between candidates the evidence did not separate, which is the engine declining
+a match and then making it through a side door.
+
+**The third was not a gap at all, and the right move was to state the rule properly rather
+than close it.** Grouping an ambiguous credit is what produced the engine's only wrong
+assignment, and the fix at the time was an eligibility filter — a list of refusal
+categories that may not be grouped. That worked and read like a special case bolted on
+after a defect. It is not one.
+
+Layer 2 posts a decomposition when exactly one subset accounts for a credit. Layer 2b
+posts a grouping when exactly one grouping balances. Stated separately, those leave a hole
+between them: a credit can have three single-credit explanations and one group explanation,
+and each layer sees a unique answer inside its own hypothesis space while the credit has
+four. **The rule is one rule — count every explanation across both models and post only
+when there is exactly one** — and the eligibility filter is what that reduces to when you
+evaluate it in advance, because a credit with *n* viable decompositions already has *n*
+explanations and any group makes *n+1*.
+
+This admits nothing the filter refused; it is provably the same set, since the list names
+every refusal category except `no_subset_fits`. What it buys is the guarantee: the
+partition is asserted **exhaustive**, so a new refusal category has to be classified or the
+suite fails, rather than becoming groupable by default. Defaulting to groupable is exactly
+how the wrong assignment happened.
+
 ### What remains outside the model
 
 | | bound | what happens past it |
@@ -515,17 +566,23 @@ accounted for at all — may enter a group. Found by the density sweep, like the
 | credits per settlement group | `MAX_GROUP_CREDITS = 6` | refused, visibly |
 | days a group may span | `GROUP_SPAN_DAYS = 2` | not grouped |
 | unsettled credits before the search declines | `MAX_GROUP_RESIDUE = 40` | grants nothing, discloses |
-| grouping an *ambiguous* credit | deliberately not done | stays refused, with its own reason |
-| a claw-back against a settlement in an earlier batch | not modelled | reported as an unexplained debit |
-| a partial chargeback whose settlement the engine refused | not modelled | reported as an unexplained debit |
-| a chargeback whose reference no longer resolves | unrecoverable | reported as an unexplained debit |
+| grouping an *ambiguous* credit | deliberately not done, and now provably so | stays refused, with its own reason |
+| resolving a claw-back on an earlier statement | needs the prior period's data | classified `out_of_batch`, routed to treasury |
+| resolving a chargeback against a refused settlement | must not be resolved here | classified, with `depends_on` naming the blocker |
+| a chargeback whose reference no longer resolves | unrecoverable | classified `out_of_batch`, counted by the holdout |
 
-The last of those is not a limitation so much as a demonstration: the shifted holdout
-overwrites references across days, and one partial chargeback there points at a settlement
-whose reference the shift destroyed. There is no evidence path left, the engine reports it
-unexplained, and the holdout's own report counts it — **4 of 5 reversals identified on
-that batch, and the fifth named as deliberately unreachable** rather than left looking
-like an engine failure.
+The last is a demonstration rather than a limitation: the shifted holdout overwrites
+references across days, and a partial chargeback there points at a settlement whose
+reference the shift destroyed. No evidence path remains, the engine classifies it
+out-of-batch — which is the correct reading of what it can see — and the holdout's own
+report counts it. **4 of 5 reversals identified on that batch, and the fifth named as
+deliberately unreachable** rather than left looking like an engine failure.
+
+**A real limitation of the first two, stated plainly:** classifying is not resolving. An
+engine with the prior period's statement could tie the out-of-batch claw-back to a real
+settlement, and this one cannot. What it does is stop reporting a solvable problem and an
+unsolvable one with the same sentence. That is worth doing and it is not the same as
+having solved either.
 
 ---
 

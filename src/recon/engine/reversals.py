@@ -52,7 +52,13 @@ from datetime import date
 
 from ..schemas import BankTxn, Invoice, Payment
 from . import fees, tier3_subsetsum
-from .results import Assignment, Reversal, SettlementGroup, UnexplainedDebit
+from .results import (
+    Assignment,
+    DebitCategory,
+    Reversal,
+    SettlementGroup,
+    UnexplainedDebit,
+)
 
 # Alphanumeric runs of six or more: UTRs, ARNs, RRNs and settlement ids all take this
 # shape, and shorter runs collide with dates, amounts and branch codes.
@@ -76,6 +82,7 @@ def resolve(
     groups: tuple[SettlementGroup, ...],
     by_id: dict[str, Payment],
     invoices_by_no: dict[str, Invoice] | None = None,
+    refused: dict[str, str] | None = None,
 ) -> tuple[list[Reversal], list[UnexplainedDebit]]:
     """
     Tie each debit to the settlement it reverses, or report it as unexplained.
@@ -211,6 +218,7 @@ def resolve(
                                     p for sol in found.solutions
                                     for p in sol.payment_ids
                                 )),
+                                DebitCategory.AMBIGUOUS,
                             )
                         )
                         continue
@@ -228,25 +236,103 @@ def resolve(
                     "reference and ordering. The evidence does not identify which one "
                     "was reversed, so none is",
                     tuple(sorted(c.id for c in matched)),
+                    DebitCategory.AMBIGUOUS,
                 )
             )
             continue
 
-        near = tuple(sorted(c.id for c in by_amount)[:5])
-        unexplained.append(
-            UnexplainedDebit(
-                d.id,
-                d.debit,
-                (
-                    f"{len(by_amount)} posted settlements share this debit's amount but "
-                    "none carries a reference tying it to this line"
-                    if by_amount
-                    else "no posted settlement in this batch matches this debit's "
-                    "amount, so the money left against something the engine did not "
-                    "reconcile -- a bank fee, a payout, or a claw-back on an earlier "
-                    "statement"
-                ),
-                near,
-            )
-        )
+        unexplained.append(_classify(d, by_txn, by_amount, refused or {}))
     return reversals, unexplained
+
+
+def _classify(
+    d: BankTxn,
+    by_txn: dict[str, BankTxn],
+    by_amount: list[BankTxn],
+    refused: dict[str, str],
+) -> UnexplainedDebit:
+    """
+    Say WHICH kind of unresolvable this debit is, and what to do about it.
+
+    Every branch here used to be one sentence -- *"money left the account and this engine
+    cannot say against what"* -- which is honest and nearly useless. It was true of a bank
+    fee, of a claw-back on last month's settlement, and of a chargeback against a credit
+    sitting in this batch's own exception list. Three situations, three different next
+    steps, one message.
+
+    The reference is what separates them, and the engine already has it. A debit carrying
+    a well-formed settlement reference that resolves to NOTHING in this batch is not the
+    same object as one carrying no resolvable reference at all: the first names a
+    settlement, and the operator's next step is a different statement period rather than
+    a different search here.
+    """
+    # Every credit in the batch whose reference this debit carries, posted or not.
+    named = sorted(
+        c.id
+        for c in by_txn.values()
+        if c.is_credit and c.ref_no and _refers_to(d, c.ref_no)
+    )
+
+    # ---- it names a settlement this engine refused ------------------------
+    #
+    # Reported as a DEPENDENCY, not resolved. Using the claw-back to decide which
+    # decomposition was right would be letting a later event pick between candidates the
+    # evidence did not separate -- the engine declined that match on purpose, and a
+    # chargeback is not evidence about which payments a settlement covered.
+    blocked = [c for c in named if c in refused]
+    if blocked:
+        return UnexplainedDebit(
+            d.id, d.debit,
+            f"reverses {blocked[0]}, which this engine refused to post "
+            f"({refused[blocked[0]]}). The two are linked: resolve that exception and "
+            f"this debit resolves with it. It is not resolved here, because using a "
+            f"claw-back to choose between decompositions the evidence did not separate "
+            f"would be deciding the match on the wrong evidence",
+            tuple(blocked),
+            DebitCategory.SETTLEMENT_REFUSED,
+            depends_on=blocked[0],
+        )
+
+    # ---- it names a settlement that is not in this batch -------------------
+    if not named and _reference_tokens(d):
+        return UnexplainedDebit(
+            d.id, d.debit,
+            "carries a settlement reference that no credit in this batch answers to, so "
+            "it reverses a settlement from an earlier statement. Real money, "
+            "unreconcilable HERE by construction -- the next step is the prior period, "
+            "not a wider search in this one",
+            _reference_tokens(d)[:3],
+            DebitCategory.OUT_OF_BATCH,
+        )
+
+    # ---- it names nothing, or names something with the wrong amount --------
+    near = tuple(sorted(c.id for c in by_amount)[:5])
+    return UnexplainedDebit(
+        d.id,
+        d.debit,
+        (
+            f"{len(by_amount)} posted settlement(s) share this debit's amount but none "
+            "carries a reference tying it to this line"
+            if by_amount
+            else "no reference on this line resolves to a settlement in this batch and "
+            "no posted settlement shares its amount. Money leaving for a reason that is "
+            "not a reversal -- a bank fee, a payout, or a transfer"
+        ),
+        near,
+        DebitCategory.NO_SETTLEMENT_NAMED,
+    )
+
+
+def _reference_tokens(d: BankTxn) -> tuple[str, ...]:
+    """
+    Reference-shaped tokens on the line: alphanumeric runs of 6+ carrying both letters
+    and digits, which is what a UTR, ARN or RRN looks like and what a date or an amount
+    does not.
+    """
+    return tuple(
+        sorted(
+            t
+            for t in _tokens(d.ref_no, d.narration)
+            if any(ch.isdigit() for ch in t) and any(ch.isalpha() for ch in t)
+        )
+    )

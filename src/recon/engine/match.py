@@ -551,30 +551,67 @@ def match_once(
     # accounted for rather than the whole statement. See `engine/groups.py` for why the
     # claim unit is a group of credits and not the (payment, fraction) pair
     # ARCHITECTURE.md predicted.
-    # ---- who is ELIGIBLE for grouping, and it is not "everything unsettled" ----
+    # ---- UNIQUENESS OVER THE UNION, which is what eligibility really is ----
     #
-    # Only credits nothing accounted for AT ALL: refused as `no_subset_fits`, or with no
-    # candidate. A credit refused for any other reason has a viable single-credit
-    # decomposition -- the question about it is WHICH one, or whether the names agree --
-    # and grouping is not evidence about that.
+    # Layer 2 posts a decomposition only when exactly one subset of payments accounts for
+    # a credit. Layer 2b posts a grouping only when exactly one grouping balances. Stated
+    # separately, those two rules leave a hole between them: a credit can have several
+    # single-credit explanations AND one group explanation, and each layer sees a unique
+    # answer inside its own hypothesis space while the credit has four.
     #
-    # This is a fix, not a precaution. Letting `multiple_candidates` credits group
-    # produced the only wrong assignment this engine has ever posted: at seed 55555,
-    # ppw=24, two genuine many-to-one settlements were each refused because three
-    # decompositions fitted them, and group resolution then found a sixth-payment subset
-    # summing to their combined total and posted it. Precision 0.9963. Grouping an
-    # ambiguous credit does not resolve the ambiguity, it adds a possibility -- and the
-    # irreducibility check cannot catch it, because it tests sub-groups against the
-    # GROUP's payments and the coincidental set is a different set entirely.
+    # That hole cost the only wrong assignment this engine has posted. At seed 55555,
+    # ppw=24, two genuine many-to-one settlements were each refused because THREE
+    # decompositions fitted them; group resolution then found a six-payment subset
+    # summing to their combined total and posted it. Precision 0.9963. The irreducibility
+    # check could not catch it and was right not to -- it tests sub-groups against the
+    # GROUP's payments, and the coincidental set was a different set entirely.
+    #
+    # **The rule is one rule: count every explanation, across BOTH models, and post only
+    # when there is exactly one.** A credit with n viable single-credit decompositions
+    # already has n explanations before grouping is considered, so any group it joins
+    # makes n+1. Only n = 0 can ever reach one, which is why the eligible set below is
+    # "nothing accounted for it at all" -- `no_subset_fits`, or no candidate.
+    #
+    # So this is not a special case bolted on after a defect. It is Layer 2's own
+    # uniqueness test, stated over the union of the hypothesis spaces instead of once per
+    # space, and the eligibility filter is what that test reduces to when you evaluate it
+    # in advance. Every other refusal category means "a single-credit explanation exists,
+    # and the question is which one or whether to trust it" -- grouping adds to that
+    # count rather than resolving it.
+    #
+    # **This admits nothing the previous filter refused, and that is provable rather
+    # than measured.** The set below names every refusal category except
+    # `no_subset_fits`, so "not ambiguous" and "no_subset_fits or no candidate" are the
+    # same set by construction -- a better statement of the same behaviour, not a new
+    # capability. The partition is what carries the guarantee, so
+    # `tests/test_new_defects.py` asserts it is EXHAUSTIVE: a new refusal category must
+    # be classified here or the test fails, rather than becoming groupable by default
+    # because nobody listed it. Defaulting to groupable is exactly how the wrong
+    # assignment happened.
     #
     # `DEFECT_LOG` 2026-09-04-10. Found by the density sweep, like the last one.
-    _groupable = {
-        RefusalCategory.NO_SUBSET_FITS.value,
+    _explained_by_a_single_credit = {
+        # Every category below means at least one subset of payments accounts for this
+        # credit on its own. `no_subset_fits` is the only refusal that means none does.
+        RefusalCategory.MULTIPLE_CANDIDATES.value,
+        RefusalCategory.SOLUTION_CAP_REACHED.value,
+        RefusalCategory.POOL_EXCEEDED.value,
+        RefusalCategory.NARRATION_COUNT_CONFLICT.value,
+        RefusalCategory.CONTESTED_PAYMENT.value,
+        RefusalCategory.AMOUNT_NAME_CONFLICT.value,
+        RefusalCategory.UNEXPLAINED_RESIDUAL.value,
+        RefusalCategory.ORDER_DEPENDENT.value,
+        RefusalCategory.AMBIGUOUS_GROUPING.value,
     }
-    eligible = {
-        r.bank_txn_id for r in refusals if r.category.value in _groupable
-    } | set(no_candidate)
-    residue = [t for t in credits if t.id not in settled and t.id in eligible]
+    ambiguous = {
+        r.bank_txn_id
+        for r in refusals
+        if r.category.value in _explained_by_a_single_credit
+    }
+    residue = [
+        t for t in credits
+        if t.id not in settled and t.id not in ambiguous
+    ]
     group_list, group_refusals, group_truncated = groups.resolve(
         residue, payments, claimed, invoices_by_no, by_id
     )
@@ -609,7 +646,8 @@ def match_once(
 
     # ---- Reversals: the debit half of the statement ------------------------
     reversal_list, unexplained = reversals.resolve(
-        inputs.bank_txns, tuple(assignments), tuple(group_list), by_id, invoices_by_no
+        inputs.bank_txns, tuple(assignments), tuple(group_list), by_id, invoices_by_no,
+        refused={r.bank_txn_id: r.category.value for r in refusals},
     )
 
     unassigned = tuple(

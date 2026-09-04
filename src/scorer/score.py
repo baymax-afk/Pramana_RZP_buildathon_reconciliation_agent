@@ -155,6 +155,12 @@ class Scorecard:
     # terms, or ignored, without either number contaminating the other.
     reversals_found: int = 0
     reversals_partial: int = 0
+    # Debits the engine correctly declined to tie, and whether it said which kind.
+    declines_expected: int = 0
+    declines_correct: int = 0
+    declines_wrong: tuple[str, ...] = ()
+    declines_miscategorised: tuple[str, ...] = ()
+    debits_by_category: dict[str, int] = field(default_factory=dict)
     reversals_expected: int = 0
     reversals_correct: int = 0
     reversals_wrong: tuple[str, ...] = ()
@@ -223,6 +229,22 @@ def clopper_pearson_lower(successes: int, trials: int, alpha: float = 0.05) -> f
         else:
             hi = mid
     return lo
+
+
+# Which classification each labelled debit defect should receive. Kept beside the
+# scorer rather than inside the engine: it is a statement about what the RIGHT answer is,
+# and the engine must not be able to read it.
+_DEBIT_CATEGORY_FOR = {
+    "chargeback_out_of_batch": "reverses_a_settlement_outside_this_batch",
+    "chargeback_on_refused": "reverses_a_settlement_this_engine_refused",
+}
+
+
+def _expected_debit_category(labels: tuple[str, ...]) -> str:
+    for label in labels:
+        if label in _DEBIT_CATEGORY_FOR:
+            return _DEBIT_CATEGORY_FOR[label]
+    return ""
 
 
 def _safe(n: int, d: int) -> float:
@@ -310,6 +332,35 @@ def score(
             if l.expected_verdict == "reverse" and l.bank_txn_id in unexplained_debit_ids
         )
     )
+
+    # ---- debits the engine is RIGHT not to tie ----
+    #
+    # A claw-back on an earlier statement, or one against a settlement this engine
+    # refused, cannot be resolved here and ground truth says so with `refuse` on a
+    # `reversal` link. Declining them is the correct output -- but declining is only
+    # worth anything if the engine also says WHICH kind of unresolvable it is, so the
+    # category is scored, not just the decline. An engine that reported every debit as
+    # "cannot say" would pass a decline-only check with full marks.
+    by_debit_cat = {u.bank_txn_id: u.category.value for u in out.unexplained_debits}
+    declines_expected = sum(
+        1 for l in links if l.relation == "reversal" and l.expected_verdict == "refuse"
+    )
+    declines_correct = 0
+    declines_wrong: list[str] = []
+    declines_miscategorised: list[str] = []
+    for link in links:
+        if link.relation != "reversal" or link.expected_verdict != "refuse":
+            continue
+        if link.bank_txn_id not in by_debit_cat:
+            # The engine tied it to a settlement. That is a wrong reversal, and the
+            # worst outcome available here: money reported as clawed back against a
+            # receivable it has nothing to do with.
+            declines_wrong.append(link.bank_txn_id)
+            continue
+        declines_correct += 1
+        expected_cat = _expected_debit_category(link.defect_labels)
+        if expected_cat and by_debit_cat[link.bank_txn_id] != expected_cat:
+            declines_miscategorised.append(link.bank_txn_id)
 
     # ---- refusals ----
     # A refusal ground truth AGREES with is correct. A refusal ground truth wanted
@@ -566,6 +617,14 @@ def score(
         unexamined_paise=unexamined[1],
         reversals_found=len(out.reversals),
         reversals_partial=sum(1 for r in out.reversals if r.partial),
+        declines_expected=declines_expected,
+        declines_correct=declines_correct,
+        declines_wrong=tuple(sorted(declines_wrong)),
+        declines_miscategorised=tuple(sorted(declines_miscategorised)),
+        debits_by_category={
+            k: sum(1 for v in by_debit_cat.values() if v == k)
+            for k in sorted(set(by_debit_cat.values()))
+        },
         reversals_expected=reversals_expected,
         reversals_correct=reversals_correct,
         reversals_wrong=tuple(reversals_wrong),

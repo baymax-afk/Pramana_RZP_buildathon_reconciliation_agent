@@ -307,6 +307,8 @@ DEFECT_LABELS = (
     "split_settlement",
     "split_settlement_wide",
     "partial_chargeback",
+    "chargeback_out_of_batch",
+    "chargeback_on_refused",
     "chargeback_debit",
     "mdr_fee",
     "tds_deduction",

@@ -971,8 +971,115 @@ def generate(
             )
         )
 
+    # ---- chargeback_out_of_batch: a claw-back on an EARLIER statement ----
+    #
+    # A statement period is a window, not the world. A settlement made last month can be
+    # disputed this month, and the debit lands here carrying a reference to a credit this
+    # batch does not contain. Real money, unreconcilable in this batch by construction --
+    # and the correct output is not silence but a classification: "this reverses a
+    # settlement outside this batch, go to the prior period".
+    #
+    # Ground truth expects `refuse`, not `reverse`. There is nothing here to tie it to,
+    # so asserting `reverse` would be the automatic-false-negative shape this project has
+    # shipped three times. What IS asserted is that the engine declines to tie it AND
+    # says why -- `tests/test_new_defects.py` checks the category, not just the decline.
+    txn_seq += 1
+    orphan_date = START_DATE + timedelta(days=rng.randint(20, 40))
+    orphan_amount = rng.randrange(50_000, 400_000, 100)
+    balance -= orphan_amount
+    orphan_id = f"bank_txn_{txn_seq:04d}"
+    orphan_ref = defects.make_utr(rng)
+    bank_txns.append(
+        BankTxn(
+            id=orphan_id,
+            txn_date=orphan_date.isoformat(), value_date=orphan_date.isoformat(),
+            narration=f"CHARGEBACK REV {orphan_ref} DISPUTE",
+            ref_no=orphan_ref, credit=0, debit=orphan_amount, balance=balance,
+        )
+    )
+    truth.append(
+        TruthLink(
+            bank_txn_id=orphan_id,
+            payment_ids=(),
+            invoice_nos=(),
+            defect_labels=("chargeback_debit", "chargeback_out_of_batch"),
+            relation="reversal",
+            expected_verdict="refuse",
+        )
+    )
+
+    # ---- chargeback_on_refused: the settlement it reverses was NOT posted ----
+    #
+    # The reference resolves to a credit that is right here in the batch -- and the
+    # engine refused to post it. The debit cannot be resolved either: using a claw-back
+    # to decide which decomposition was right would let a later event pick between
+    # candidates the evidence did not separate, which is the engine declining a match and
+    # then making it anyway through a side door.
+    #
+    # What the engine CAN say is that the two are linked, which is the first dependency
+    # between exceptions this project has: clear the credit and the debit clears with it.
+    refused_credit = next(
+        (
+            by_txn_id[l.bank_txn_id]
+            for l in truth
+            if l.expected_verdict == "refuse"
+            and l.relation != "reversal"
+            and l.bank_txn_id in by_txn_id
+            and by_txn_id[l.bank_txn_id].is_credit
+        ),
+        None,
+    )
+    if refused_credit is not None:
+        txn_seq += 1
+        dep_date = date.fromisoformat(refused_credit.txn_date) + timedelta(
+            days=rng.randint(3, 9)
+        )
+        balance -= refused_credit.credit
+        dep_id = f"bank_txn_{txn_seq:04d}"
+        bank_txns.append(
+            BankTxn(
+                id=dep_id,
+                txn_date=dep_date.isoformat(), value_date=dep_date.isoformat(),
+                narration=f"CHARGEBACK REV {refused_credit.ref_no} DISPUTE",
+                ref_no=refused_credit.ref_no, credit=0,
+                debit=refused_credit.credit, balance=balance,
+            )
+        )
+        truth.append(
+            TruthLink(
+                bank_txn_id=dep_id,
+                payment_ids=(),
+                invoice_nos=(),
+                defect_labels=("chargeback_debit", "chargeback_on_refused"),
+                relation="reversal",
+                expected_verdict="refuse",
+            )
+        )
+
     # ---- duplicate UTR: clone one existing credit's reference onto another ----
-    credits = [t for t in bank_txns if t.is_credit]
+    #
+    # The overwritten credit (`b`) must not be one a REVERSAL link depends on. A
+    # chargeback identifies its settlement by carrying that settlement's reference, so
+    # clobbering the reference destroys the evidence path and makes a link marked
+    # `reverse` unsatisfiable at any tolerance -- the automatic-false-negative shape this
+    # project has shipped three times, arriving a fourth way.
+    #
+    # Found by adding a defect, not by reading: `chargeback_out_of_batch` shifted the RNG
+    # stream, this defect landed on a different credit, and a partial chargeback that had
+    # been resolving started reporting as out-of-batch. `assert_truth_is_satisfiable` now
+    # checks reversal links too, so the next one fails the build instead of the metrics.
+    # Rebuilt here rather than reusing `by_txn_id` from further up: debits have been
+    # appended since that map was made, and a stale map would miss exactly the reversal
+    # links this guard exists for.
+    txn_now = {t.id: t for t in bank_txns}
+    reversal_refs = {
+        txn_now[l.bank_txn_id].ref_no
+        for l in truth
+        if l.expected_verdict == "reverse" and l.bank_txn_id in txn_now
+    }
+    credits = [
+        t for t in bank_txns if t.is_credit and t.ref_no not in reversal_refs
+    ]
     if len(credits) >= 2:
         a, b = rng.sample(credits, 2)
         idx = bank_txns.index(b)
@@ -1646,6 +1753,41 @@ def assert_truth_is_satisfiable(batch: GeneratedBatch) -> int:
                 f"settled interval [{interval.lo}, {interval.hi}]p of its {len(group)} "
                 f"payment(s) at tolerance {tol}p -- money is unaccounted for across the "
                 f"group, so no grouping could close this"
+            )
+
+    # ---- reversals: the evidence path must still exist -----------------------
+    #
+    # A chargeback identifies the settlement it reverses by carrying that settlement's
+    # reference. If nothing in the batch answers to that reference any more -- because a
+    # later defect overwrote it -- then a link marked `reverse` is unsatisfiable at any
+    # tolerance, and the engine will correctly report the debit as reversing something
+    # outside this batch while the scorer records a miss.
+    #
+    # This check was added AFTER that happened. `chargeback_out_of_batch` shifted the RNG
+    # stream, the duplicate-UTR defect landed on a different credit, and a partial
+    # chargeback that had been resolving silently stopped. Four times now the generator
+    # has destroyed something and the engine has been scored for it; this is the fourth
+    # shape, and it is checked rather than remembered.
+    credit_refs = {t.ref_no for t in batch.inputs.bank_txns if t.is_credit and t.ref_no}
+    for link in batch.truth:
+        if link.expected_verdict != "reverse" or not link.bank_txn_id:
+            continue
+        checked += 1
+        d = txn.get(link.bank_txn_id)
+        if d is None:
+            continue
+        if d.is_credit:
+            problems.append(
+                f"{link.bank_txn_id}: ground truth marks this a reversal, but it is a "
+                f"CREDIT -- money arriving cannot reverse a settlement"
+            )
+            continue
+        if d.ref_no not in credit_refs:
+            problems.append(
+                f"{link.bank_txn_id}: ground truth says this debit reverses a settlement "
+                f"in this batch, but its reference {d.ref_no!r} matches no credit here. "
+                f"The evidence path is gone, so the engine can only report it as "
+                f"out-of-batch and the link is unsatisfiable"
             )
 
     if problems:

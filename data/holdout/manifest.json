@@ -2,6 +2,6 @@
  "seed": 8080808,
  "payments_per_window": 12,
  "payments": 200,
- "bank_txns": 135,
+ "bank_txns": 137,
  "invoices": 192
 }

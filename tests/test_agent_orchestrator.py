@@ -156,15 +156,30 @@ def test_absence_from_the_register_is_declined_with_a_caveat(batch):
     is unauthorised". An investigator that treated absence as disproof would manufacture
     confident wrong conclusions out of a gap in reference data.
     """
-    run = orchestrate(batch.inputs, RecordedInvestigator(), batch.payer_directory)
-    absent = [t for t in run.traces if "no register entry" in t.note]
-    if not absent:
-        import pytest
+    # The register is PRUNED here rather than used as it comes, and that is the fix to a
+    # test that had started silently skipping. It read "if no payer is absent, skip" --
+    # which was fine while the batch happened to leave one uncovered, and became a pass
+    # that tested nothing the moment a generator change covered them all. A skip is not a
+    # pass, and this is the assertion that stops the agent treating a gap in reference
+    # data as disproof.
+    #
+    # Emptying the register is a different test (`..._with_no_register_declines_
+    # everything`); the interesting case is a register that HAS entries and does not have
+    # this one, because that is when absence is most easily mistaken for evidence.
+    full = tuple(batch.payer_directory)
+    assert len(full) > 1, "a register of one cannot be pruned to make this case"
+    pruned = full[1:]
 
-        pytest.skip("every payer was on the register at this seed")
+    run = orchestrate(batch.inputs, RecordedInvestigator(), pruned)
+    absent = [t for t in run.traces if "no register entry" in t.note]
+    assert absent, (
+        "pruning the register produced no 'no register entry' decline, so this test is "
+        "no longer exercising the path it was written for"
+    )
     for t in absent:
         assert t.outcome == "insufficient_evidence"
         assert "not exhaustive" in t.note
+        assert not t.proposals, "absence from the register is not evidence either way"
 
 
 def test_an_investigator_with_no_register_declines_everything(batch):

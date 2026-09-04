@@ -245,7 +245,7 @@ would be worth less than an accurate account of what is real.
 | **R2 — settlements simulated on real orders** | Real orders created through the API — genuine Razorpay-issued IDs, receipts, notes and server timestamps. **The orders were never completed, so the capture, `fee` and `tax` are SYNTHESISED** from the rate model measured on R1, and the records enter the batch `captured`. Real identity, modelled money. | **12** |
 | **S — synthetic** | Schema-conformant records generated locally, carrying the injected defects. | **164** |
 
-Total batch: **200 payments**, 151 bank transactions, 187 invoices, across 34
+Total batch: **200 payments**, 153 bank transactions, 187 invoices, across 34
 settlement windows.
 
 The R1 slice spans **7 distinct payer contacts**, **7 banks** (BARB_R, CNRB, DEUT,
@@ -287,7 +287,7 @@ No real card, account, or credential was used at any point.
 
 ### Injected defects
 
-**Eighteen categories**, all carrying a ground-truth label. `chargeback_debit`
+**Twenty categories**, all carrying a ground-truth label. `chargeback_debit`
 deliberately carried none until 2026-09-04, because the engine structurally could not
 produce a verdict for a debit and inventing one would have scored it against a permanent,
 unclosable miss. Layer 2c reads debits and ties each to the settlement it reverses, so
@@ -326,11 +326,20 @@ to hide behind a correct-looking refusal.
 
 The statement contained **zero debits** until `chargeback_debit` existed, which is
 exactly why that blind spot went unnoticed — the engine had never been shown the half of
-a bank statement it ignored by construction. It reads them now: **6 of 6** chargebacks on
-the reported batch are tied to the settlement they reverse, on amount, carried reference
-and ordering, uniquely or not at all. A reversal does not undo the settlement it reverses
-— both events happened — so the batch reports reconciled **gross and net** rather than
-silently as one number.
+a bank statement it ignored by construction. It reads them now: **7 of 9** debits on the
+reported batch are tied to the settlement they reverse, on amount, carried reference and
+ordering, uniquely or not at all — two of those being *partial*, one payment disputed
+inside a settlement batch where the rest still stands. A reversal does not undo the
+settlement it reverses — both events happened — so the batch reports reconciled **gross
+and net** rather than silently as one number.
+
+**The other two cannot be tied, and they say which kind of untieable they are.** One
+reverses a settlement from an earlier statement; one reverses a credit this engine
+refused, and names it — the only place here where one exception's resolution is stated to
+unblock another. Both used to read *"money left the account and this engine cannot say
+against what"*, which is honest and equally true of a bank fee. Declining is the correct
+output for both; declining with a reason is the useful one, and the reason is scored so
+an engine answering "cannot say" to everything could not pass by declining.
 
 **On `third_party_payer`, a claim was made and then withdrawn.** An earlier version of
 this README said the payments that reconcile are the ones quoting an invoice reference.
@@ -573,7 +582,7 @@ would be worse than none.
 pytest tests/
 ```
 
-530 tests, including the end-to-end isolation test — which deletes the ground-truth
+534 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,

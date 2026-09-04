@@ -547,6 +547,70 @@ harder. The number it produced was worse, not better.
 batch, a partial chargeback whose settlement the engine refused, and grouping an ambiguous
 credit — the last of which is deliberately not done rather than not yet done.
 
+### ~~S1–S3. The three successors O10 named~~ — **all three addressed, 2026-09-04**
+
+**None of the three turned out to be a matching problem, and that is the finding.**
+
+**Two were a reporting problem wearing a modelling problem's clothes.** Neither the
+earlier-statement claw-back nor the chargeback-against-a-refused-settlement can be
+reconciled here, and both correctly ended as "unexplained debit". What was wrong is that
+*everything* ended there under one sentence — *"money left the account and this engine
+cannot say against what"* — which is equally true of a bank fee, of a claw-back on last
+month's settlement, and of a chargeback against a credit sitting in this batch's own
+exception list. Three situations, three different next steps, one message.
+
+Four named categories now, on the same doctrine as `RefusalCategory`, each routed to a
+desk. `reverses_a_settlement_this_engine_refused` carries **`depends_on`** — the only
+place in this engine where one item's resolution is stated to unblock another. It is a
+dependency and not a resolution on purpose: using a claw-back to decide which
+decomposition was right would let a later event pick between candidates the evidence did
+not separate.
+
+**The third was not a gap, and the right move was to state the rule properly rather than
+close it.** Layer 2 posts a decomposition when exactly one subset accounts for a credit;
+Layer 2b posts a grouping when exactly one grouping balances. Separately, those leave a
+hole: a credit can have three single-credit explanations and one group explanation, and
+each layer sees a unique answer in its own space while the credit has four. That hole cost
+the wrong assignment. **It is one rule — count every explanation across both models, post
+only when there is exactly one** — and the eligibility filter added after the defect is
+what that reduces to when evaluated in advance.
+
+It admits nothing new; it is provably the same set. What it buys is the guarantee, and the
+guarantee is the point: the partition is asserted **exhaustive**, so a new refusal category
+must be classified or the suite fails rather than becoming groupable by default. Defaulting
+to groupable is exactly how the wrong assignment happened.
+
+| | after O10 | after S |
+|---|--:|--:|
+| match rate (primary / holdout) | 89.69% / 86.60% | **89.69% / 86.60%** |
+| match precision | 1.0000 | **1.0000** (both, zero wrong) |
+| assignments behind it | 133 / 112 | **133 / 112** |
+| debits reaching a verdict | 7 of 9 tied, 2 unclassified | **7 tied, 2 classified and routed** |
+| debits correctly declined with a reason | — | **2 of 2, 0 miscategorised** |
+| defect categories in the batch | 18 | **20** |
+
+**The headline numbers did not move, and they should not have.** Nothing here reconciles a
+record that was not reconciled before. What changed is that two exceptions stopped being
+indistinguishable from a bank fee.
+
+**A generator defect fell out of the work, and it is the fourth of its shape.** Adding
+`chargeback_out_of_batch` shifted the RNG stream; the duplicate-UTR defect landed on a
+different credit and overwrote a reference a partial chargeback depended on, making a
+`reverse` link unsatisfiable — the engine reported the debit as out-of-batch, correctly,
+and the scorer recorded a miss. Four times now the generator has destroyed something and
+the engine has been scored for it. `assert_truth_is_satisfiable` now checks reversal links,
+so the fifth fails the build rather than the metrics.
+
+**And a test that had started silently skipping**, found the same way: `test_absence_from_
+the_register_is_declined_with_a_caveat` read *"if no payer is absent, skip"*, which was
+fine while the batch left one uncovered and became a pass testing nothing the moment a
+generator change covered them all. It now prunes the register itself.
+
+**Real limitation, stated plainly: classifying is not resolving.** An engine with the prior
+period's statement could tie the out-of-batch claw-back to a real settlement; this one
+cannot. It has stopped reporting a solvable problem and an unsolvable one with the same
+sentence, which is worth doing and is not the same as having solved either.
+
 ### ~~O9. `third_party_payer` refusals are correct but expensive~~ — **closed, and measured on two batches**
 The original entry, kept: *"an investigating agent checking whether a payer is an
 authorised group entity is exactly the evidence that would close it."* It was written as

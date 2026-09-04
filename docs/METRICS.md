@@ -98,7 +98,16 @@ claims it can do.
 | 95% Clopper–Pearson lower bound | 97.26% | 96.76% |
 | settlement groups resolved | 3 (one four-way) | 3 (one four-way) |
 | reversals identified | 7 of 7 (2 partial) | **4 of 5** (1 partial) |
-| unexplained debits | 0 | **1** |
+| debits correctly declined, with a reason | 2 of 2 | 2 of 2 |
+| miscategorised | 0 | 0 |
+
+**Not every debit can be tied, and the ones that cannot are now four named categories
+rather than one bucket.** A claw-back on an earlier statement and a chargeback against a
+settlement this engine refused are both unresolvable *here* — declining is the correct
+output — so ground truth marks them `refuse` and what is scored is whether the engine says
+**which kind** of unresolvable it is. An engine answering *"cannot say"* to every debit
+would pass a decline-only check with full marks, which is why the category is scored and
+not just the decline.
 
 **The holdout's fifth reversal is a real miss, and it is named rather than absorbed.**
 The shift overwrites references across days, and one partial chargeback there points at a
@@ -317,7 +326,7 @@ Mean over five held-out seeds, disjoint from both reported runs:
 | 3 | 8.8 | 86.5% | **1.0000** | 6.7% |
 | 6 | 15.0 | 88.4% | **1.0000** | 7.4% |
 | 12 | 27.8 | 88.5% | **1.0000** | 8.2% |
-| 24 | 52.8 | 73.9% | **1.0000** | 16.2% |
+| 24 | 52.8 | 73.9% | **1.0000** | 15.7% |
 
 **The curve got steeper, and that is the batch getting harder rather than the engine
 getting worse.** Two defect categories were added in O10 — a four-way split settlement

@@ -1,11 +1,11 @@
 {
  "seed": 8080808,
- "ambiguity_bank_txn_id": "bank_txn_0071",
+ "ambiguity_bank_txn_id": "bank_txn_0072",
  "stats": {
   "seed": 8080808,
   "payments": 200,
   "captured": 194,
-  "bank_txns": 135,
+  "bank_txns": 137,
   "invoices": 192,
   "windows": 17,
   "payments_per_window": 12,
@@ -32,10 +32,12 @@
    "refund_netted": 8,
    "bank_charge": 4,
    "duplicate_utr": 1,
-   "chargeback_debit": 5,
-   "partial_chargeback": 2
+   "chargeback_debit": 7,
+   "partial_chargeback": 2,
+   "chargeback_out_of_batch": 1,
+   "chargeback_on_refused": 1
   },
-  "refusals_expected": 10,
+  "refusals_expected": 12,
   "payer_directory": {
    "relationships_created": 10,
    "on_the_register": 6,
@@ -657,7 +659,7 @@
    "expected_verdict": "refuse"
   },
   {
-   "bank_txn_id": "bank_txn_0048",
+   "bank_txn_id": "bank_txn_0049",
    "payment_ids": [
     "pay_R2XTWezgoQXbP9bak"
    ],
@@ -673,7 +675,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0049",
+   "bank_txn_id": "bank_txn_0050",
    "payment_ids": [
     "pay_SYN000656627"
    ],
@@ -690,7 +692,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0050",
+   "bank_txn_id": "bank_txn_0051",
    "payment_ids": [
     "pay_SYN000686664"
    ],
@@ -707,7 +709,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0051",
+   "bank_txn_id": "bank_txn_0052",
    "payment_ids": [
     "pay_SYN000632283"
    ],
@@ -739,7 +741,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0052",
+   "bank_txn_id": "bank_txn_0053",
    "payment_ids": [
     "pay_SYN000717929"
    ],
@@ -754,7 +756,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0053",
+   "bank_txn_id": "bank_txn_0054",
    "payment_ids": [
     "pay_TWercCkkQwdC7l"
    ],
@@ -771,7 +773,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0047",
+   "bank_txn_id": "bank_txn_0048",
    "payment_ids": [
     "pay_SYN000725129"
    ],
@@ -796,7 +798,8 @@
    ],
    "defect_labels": [
     "mdr_fee",
-    "tds_deduction"
+    "tds_deduction",
+    "duplicate_utr"
    ],
    "relation": "one_to_one",
    "expected_verdict": "assign"
@@ -818,7 +821,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0054",
+   "bank_txn_id": "bank_txn_0055",
    "payment_ids": [
     "pay_SYN000643903"
    ],
@@ -849,7 +852,7 @@
    "expected_verdict": "refuse"
   },
   {
-   "bank_txn_id": "bank_txn_0055",
+   "bank_txn_id": "bank_txn_0056",
    "payment_ids": [
     "pay_SYN000816126",
     "pay_SYN000758076",
@@ -869,7 +872,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0056",
+   "bank_txn_id": "bank_txn_0057",
    "payment_ids": [
     "pay_SYN000789358"
    ],
@@ -883,7 +886,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0057",
+   "bank_txn_id": "bank_txn_0058",
    "payment_ids": [
     "pay_SYN000802796"
    ],
@@ -897,7 +900,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0059",
+   "bank_txn_id": "bank_txn_0060",
    "payment_ids": [
     "pay_SYN000829039",
     "pay_SYN000835512",
@@ -922,7 +925,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0058",
+   "bank_txn_id": "bank_txn_0059",
    "payment_ids": [
     "pay_SYN000731755"
    ],
@@ -931,14 +934,13 @@
    ],
    "defect_labels": [
     "mdr_fee",
-    "settlement_drift",
-    "duplicate_utr"
+    "settlement_drift"
    ],
    "relation": "one_to_one",
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0060",
+   "bank_txn_id": "bank_txn_0061",
    "payment_ids": [
     "pay_SYN000775790"
    ],
@@ -954,7 +956,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0061",
+   "bank_txn_id": "bank_txn_0062",
    "payment_ids": [
     "pay_SYN000965609"
    ],
@@ -969,7 +971,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0062",
+   "bank_txn_id": "bank_txn_0063",
    "payment_ids": [
     "pay_SYN000948366"
    ],
@@ -985,7 +987,7 @@
    "expected_verdict": "refuse"
   },
   {
-   "bank_txn_id": "bank_txn_0063",
+   "bank_txn_id": "bank_txn_0064",
    "payment_ids": [
     "pay_SYN000879042",
     "pay_SYN000898628"
@@ -1003,7 +1005,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0085",
+   "bank_txn_id": "bank_txn_0086",
    "payment_ids": [
     "pay_SYN000912382"
    ],
@@ -1017,7 +1019,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0066",
+   "bank_txn_id": "bank_txn_0067",
    "payment_ids": [
     "pay_R2XTWf0WFGa87HEom"
    ],
@@ -1032,7 +1034,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0067",
+   "bank_txn_id": "bank_txn_0068",
    "payment_ids": [
     "pay_SYN000881316"
    ],
@@ -1047,7 +1049,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0068",
+   "bank_txn_id": "bank_txn_0069",
    "payment_ids": [
     "pay_SYN000857266"
    ],
@@ -1063,7 +1065,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0064",
+   "bank_txn_id": "bank_txn_0065",
    "payment_ids": [
     "pay_SYN000862165"
    ],
@@ -1076,7 +1078,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0079",
+   "bank_txn_id": "bank_txn_0080",
    "payment_ids": [
     "pay_SYN000924700"
    ],
@@ -1093,7 +1095,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0069",
+   "bank_txn_id": "bank_txn_0070",
    "payment_ids": [
     "pay_SYN000901121"
    ],
@@ -1109,7 +1111,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0065",
+   "bank_txn_id": "bank_txn_0066",
    "payment_ids": [
     "pay_SYN000953186"
    ],
@@ -1123,7 +1125,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0070",
+   "bank_txn_id": "bank_txn_0071",
    "payment_ids": [
     "pay_AMBIG0168629",
     "pay_AMBIG1399835",
@@ -1144,7 +1146,7 @@
    "expected_verdict": "refuse"
   },
   {
-   "bank_txn_id": "bank_txn_0071",
+   "bank_txn_id": "bank_txn_0072",
    "payment_ids": [
     "pay_SYN900006854"
    ],
@@ -1158,7 +1160,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0072",
+   "bank_txn_id": "bank_txn_0073",
    "payment_ids": [
     "pay_SYN900016512"
    ],
@@ -1172,7 +1174,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0073",
+   "bank_txn_id": "bank_txn_0074",
    "payment_ids": [
     "pay_SYN900024332"
    ],
@@ -1186,7 +1188,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0074",
+   "bank_txn_id": "bank_txn_0075",
    "payment_ids": [
     "pay_SYN900031763"
    ],
@@ -1200,7 +1202,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0075",
+   "bank_txn_id": "bank_txn_0076",
    "payment_ids": [
     "pay_SYN900042300"
    ],
@@ -1214,7 +1216,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0076",
+   "bank_txn_id": "bank_txn_0077",
    "payment_ids": [
     "pay_SYN900052367"
    ],
@@ -1228,7 +1230,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0077",
+   "bank_txn_id": "bank_txn_0078",
    "payment_ids": [
     "pay_SYN900064856"
    ],
@@ -1242,7 +1244,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0078",
+   "bank_txn_id": "bank_txn_0079",
    "payment_ids": [
     "pay_SYN900075349"
    ],
@@ -1256,7 +1258,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0083",
+   "bank_txn_id": "bank_txn_0084",
    "payment_ids": [
     "pay_SYN001084555",
     "pay_SYN000972652",
@@ -1281,7 +1283,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0080",
+   "bank_txn_id": "bank_txn_0081",
    "payment_ids": [
     "pay_SYN001013784",
     "pay_SYN001002439"
@@ -1298,7 +1300,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0081",
+   "bank_txn_id": "bank_txn_0082",
    "payment_ids": [
     "pay_SYN001042578"
    ],
@@ -1314,7 +1316,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0084",
+   "bank_txn_id": "bank_txn_0085",
    "payment_ids": [
     "pay_SYN001058319"
    ],
@@ -1329,7 +1331,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0082",
+   "bank_txn_id": "bank_txn_0083",
    "payment_ids": [
     "pay_SYN001061750",
     "pay_SYN001077105",
@@ -1349,7 +1351,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0087",
+   "bank_txn_id": "bank_txn_0088",
    "payment_ids": [
     "pay_SYN001113043"
    ],
@@ -1365,7 +1367,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0088",
+   "bank_txn_id": "bank_txn_0089",
    "payment_ids": [
     "pay_SYN001157540"
    ],
@@ -1380,7 +1382,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0086",
+   "bank_txn_id": "bank_txn_0087",
    "payment_ids": [
     "pay_SYN001162551",
     "pay_SYN001094865",
@@ -1400,7 +1402,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0089",
+   "bank_txn_id": "bank_txn_0090",
    "payment_ids": [
     "pay_SYN001188518"
    ],
@@ -1417,7 +1419,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0090",
+   "bank_txn_id": "bank_txn_0091",
    "payment_ids": [
     "pay_SYN001138495"
    ],
@@ -1432,7 +1434,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0091",
+   "bank_txn_id": "bank_txn_0092",
    "payment_ids": [
     "pay_SYN001126853"
    ],
@@ -1447,7 +1449,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0092",
+   "bank_txn_id": "bank_txn_0093",
    "payment_ids": [
     "pay_SYN001145387"
    ],
@@ -1465,7 +1467,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0093",
+   "bank_txn_id": "bank_txn_0094",
    "payment_ids": [
     "pay_SYN001194750"
    ],
@@ -1481,7 +1483,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0094",
+   "bank_txn_id": "bank_txn_0095",
    "payment_ids": [
     "pay_SYN001209991"
    ],
@@ -1497,7 +1499,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0095",
+   "bank_txn_id": "bank_txn_0096",
    "payment_ids": [
     "pay_R2XTWezvJtsDu6wUk"
    ],
@@ -1513,7 +1515,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0096",
+   "bank_txn_id": "bank_txn_0097",
    "payment_ids": [
     "pay_SYN001305047",
     "pay_SYN001255396",
@@ -1534,7 +1536,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0097",
+   "bank_txn_id": "bank_txn_0098",
    "payment_ids": [
     "pay_SYN001229875",
     "pay_SYN001319600"
@@ -1552,7 +1554,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0099",
+   "bank_txn_id": "bank_txn_0100",
    "payment_ids": [
     "pay_SYN001326052"
    ],
@@ -1568,7 +1570,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0120",
+   "bank_txn_id": "bank_txn_0122",
    "payment_ids": [
     "pay_SYN001243246"
    ],
@@ -1583,7 +1585,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0098",
+   "bank_txn_id": "bank_txn_0099",
    "payment_ids": [
     "pay_SYN001298256"
    ],
@@ -1598,7 +1600,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0102",
+   "bank_txn_id": "bank_txn_0103",
    "payment_ids": [
     "pay_SYN001265154"
    ],
@@ -1614,7 +1616,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0100",
+   "bank_txn_id": "bank_txn_0101",
    "payment_ids": [
     "pay_SYN001231830"
    ],
@@ -1629,7 +1631,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0101",
+   "bank_txn_id": "bank_txn_0102",
    "payment_ids": [
     "pay_SYN001278713"
    ],
@@ -1644,7 +1646,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0103",
+   "bank_txn_id": "bank_txn_0104",
    "payment_ids": [
     "pay_SYN001404285"
    ],
@@ -1658,7 +1660,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0123",
+   "bank_txn_id": "bank_txn_0125",
    "payment_ids": [
     "pay_SYN001356490"
    ],
@@ -1674,7 +1676,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0107",
+   "bank_txn_id": "bank_txn_0109",
    "payment_ids": [
     "pay_SYN001347941",
     "pay_SYN001412622",
@@ -1697,7 +1699,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0104",
+   "bank_txn_id": "bank_txn_0105",
    "payment_ids": [
     "pay_R2XTWf0RhohFHzTTe"
    ],
@@ -1713,7 +1715,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0105",
+   "bank_txn_id": "bank_txn_0106",
    "payment_ids": [
     "pay_SYN001399674",
     "pay_SYN001381163"
@@ -1729,7 +1731,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0106",
+   "bank_txn_id": "bank_txn_0107",
    "payment_ids": [
     "pay_SYN001435787"
    ],
@@ -1744,7 +1746,7 @@
    "expected_verdict": "refuse"
   },
   {
-   "bank_txn_id": "bank_txn_0124",
+   "bank_txn_id": "bank_txn_0126",
    "payment_ids": [
     "pay_SYN001423413"
    ],
@@ -1760,7 +1762,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0108",
+   "bank_txn_id": "bank_txn_0110",
    "payment_ids": [
     "pay_SYN001364908"
    ],
@@ -1776,7 +1778,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0112",
+   "bank_txn_id": "bank_txn_0114",
    "payment_ids": [
     "pay_R2XTWf0C6cAlonQiD",
     "pay_SYN001517883",
@@ -1801,7 +1803,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0109",
+   "bank_txn_id": "bank_txn_0111",
    "payment_ids": [
     "pay_SYN001564141"
    ],
@@ -1829,7 +1831,7 @@
    "expected_verdict": "refuse"
   },
   {
-   "bank_txn_id": "bank_txn_0113",
+   "bank_txn_id": "bank_txn_0115",
    "payment_ids": [
     "pay_SYN001546280"
    ],
@@ -1845,7 +1847,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0114",
+   "bank_txn_id": "bank_txn_0116",
    "payment_ids": [
     "pay_R2XTWf0F3FTnj0xHu"
    ],
@@ -1862,7 +1864,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0110",
+   "bank_txn_id": "bank_txn_0112",
    "payment_ids": [
     "pay_SYN001534288"
    ],
@@ -1878,7 +1880,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0115",
+   "bank_txn_id": "bank_txn_0117",
    "payment_ids": [
     "pay_SYN001559059"
    ],
@@ -1893,7 +1895,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0111",
+   "bank_txn_id": "bank_txn_0113",
    "payment_ids": [
     "pay_SYN001503382"
    ],
@@ -1907,7 +1909,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0121",
+   "bank_txn_id": "bank_txn_0123",
    "payment_ids": [
     "pay_SYN001583186"
    ],
@@ -1923,7 +1925,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0116",
+   "bank_txn_id": "bank_txn_0118",
    "payment_ids": [
     "pay_SYN001683851",
     "pay_SYN001611037",
@@ -1944,7 +1946,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0118",
+   "bank_txn_id": "bank_txn_0120",
    "payment_ids": [
     "pay_SYN001656785",
     "pay_SYN001602023",
@@ -1966,7 +1968,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0117",
+   "bank_txn_id": "bank_txn_0119",
    "payment_ids": [
     "pay_SYN001666800"
    ],
@@ -1982,7 +1984,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0119",
+   "bank_txn_id": "bank_txn_0121",
    "payment_ids": [
     "pay_SYN001635351",
     "pay_SYN001679226",
@@ -2004,7 +2006,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0125",
+   "bank_txn_id": "bank_txn_0127",
    "payment_ids": [
     "pay_SYN001765255"
    ],
@@ -2020,7 +2022,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0126",
+   "bank_txn_id": "bank_txn_0128",
    "payment_ids": [
     "pay_SYN001803182"
    ],
@@ -2051,7 +2053,7 @@
    "expected_verdict": "refuse"
   },
   {
-   "bank_txn_id": "bank_txn_0127",
+   "bank_txn_id": "bank_txn_0129",
    "payment_ids": [
     "pay_SYN001788294"
    ],
@@ -2066,7 +2068,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0129",
+   "bank_txn_id": "bank_txn_0131",
    "payment_ids": [
     "pay_SYN001747624"
    ],
@@ -2083,7 +2085,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0122",
+   "bank_txn_id": "bank_txn_0124",
    "payment_ids": [
     "pay_SYN001703295",
     "pay_SYN001777167",
@@ -2108,7 +2110,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0130",
+   "bank_txn_id": "bank_txn_0132",
    "payment_ids": [
     "pay_SYN001735738"
    ],
@@ -2125,7 +2127,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0128",
+   "bank_txn_id": "bank_txn_0130",
    "payment_ids": [
     "pay_SYN001793013"
    ],
@@ -2140,7 +2142,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0131",
+   "bank_txn_id": "bank_txn_0133",
    "payment_ids": [
     "pay_SYN001831755",
     "pay_SYN001843926",
@@ -2164,7 +2166,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0133",
+   "bank_txn_id": "bank_txn_0135",
    "payment_ids": [
     "pay_SYN001824076"
    ],
@@ -2179,7 +2181,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0132",
+   "bank_txn_id": "bank_txn_0134",
    "payment_ids": [
     "pay_SYN001874306"
    ],
@@ -2195,7 +2197,7 @@
    "expected_verdict": "assign"
   },
   {
-   "bank_txn_id": "bank_txn_0134",
+   "bank_txn_id": "bank_txn_0136",
    "payment_ids": [
     "pay_SYN001863334"
    ],
@@ -2323,7 +2325,7 @@
    "expected_verdict": "reverse"
   },
   {
-   "bank_txn_id": "bank_txn_0135",
+   "bank_txn_id": "bank_txn_0137",
    "payment_ids": [
     "pay_SYN001747624"
    ],
@@ -2365,6 +2367,28 @@
    ],
    "relation": "reversal",
    "expected_verdict": "reverse"
+  },
+  {
+   "bank_txn_id": "bank_txn_0108",
+   "payment_ids": [],
+   "invoice_nos": [],
+   "defect_labels": [
+    "chargeback_debit",
+    "chargeback_out_of_batch"
+   ],
+   "relation": "reversal",
+   "expected_verdict": "refuse"
+  },
+  {
+   "bank_txn_id": "bank_txn_0047",
+   "payment_ids": [],
+   "invoice_nos": [],
+   "defect_labels": [
+    "chargeback_debit",
+    "chargeback_on_refused"
+   ],
+   "relation": "reversal",
+   "expected_verdict": "refuse"
   }
  ]
 }

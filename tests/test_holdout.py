@@ -218,8 +218,21 @@ def test_the_holdout_lives_outside_the_reported_batch():
 # Content hash of the frozen holdout. Deliberately a literal: a digest computed at
 # runtime would pass no matter what the set contained.
 #
-# CHANGED TWICE, both on 2026-09-04. Recorded here rather than only in commit messages,
-# because this is the line a reader checks.
+# CHANGED THREE TIMES, all on 2026-09-04. Recorded here rather than only in commit
+# messages, because this is the line a reader checks.
+#
+# THIRD CHANGE, for S1 -- classifying the debits the engine cannot resolve. The generator
+# gained two more debit shapes: a claw-back on an EARLIER statement (its reference names
+# no credit here) and a chargeback against a settlement this engine REFUSED. Neither is
+# resolvable, and ground truth says `refuse` for both -- what is scored is whether the
+# engine says WHICH kind of unresolvable it is, because an engine answering "cannot say"
+# to every debit would pass a decline-only check with full marks.
+#
+# Same discipline as the second change: decided before scoring, and it makes the set
+# harder rather than easier. It also surfaced a generator defect on the way in -- the
+# duplicate-UTR defect was overwriting a reference a partial chargeback depended on,
+# making a `reverse` link unsatisfiable, which is the fourth shape of that mistake this
+# project has made. `assert_truth_is_satisfiable` now checks reversal links too.
 #
 # SECOND CHANGE, for O10 -- the two limitations O8 named in place of the two it closed.
 # The generator gained a FOUR-way split settlement and a PARTIAL chargeback, so this
@@ -261,4 +274,4 @@ def test_the_holdout_lives_outside_the_reported_batch():
 # decided before the holdout was scored, and it makes the engine's job no easier -- the
 # same four credits must now be grouped correctly to earn the same credit they used to
 # earn by being refused.
-FROZEN_DIGEST = "a2b35d587f69c8f114fdf7be773a7e6f5bb2d7975b61f8ac819b4155fd03d5d1"
+FROZEN_DIGEST = "b97130f754bbc70d13aca50eec61b4b5daa1702d68a72ce5287aacb120be8c94"
