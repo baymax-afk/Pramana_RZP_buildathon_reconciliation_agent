@@ -83,11 +83,23 @@ def render(
             f"assigned, {other.correct_assignments}/{other.total_assignments} "
             f"assignments correct, "
             f"{other.total_refusals}/{other.credits_with_candidates} refused")
+        # The bound belongs on BOTH headline branches. It first went only on the
+        # single-density one, which is the branch the default invocation does not take --
+        # so the figure a reader actually sees was the unqualified one.
+        add(f"      precision 95% CI >= {sc.precision_ci_lower:.2%} at ppw="
+            f"{payments_per_window} (exact, Clopper-Pearson, n={sc.total_assignments}); "
+            f">= {other.precision_ci_lower:.2%} at ppw={other_ppw} "
+            f"(n={other.total_assignments}). Neither sample can support more.")
     else:
         add(f"    match rate            {_pct(sc.match_rate)}"
             f"     {sc.payments_assigned}/{sc.captured_payments} captured payments assigned")
         add(f"    match precision       {_pct(sc.match_precision)}"
             f"     {sc.correct_assignments}/{sc.total_assignments} assignments correct")
+        # The bound, printed with the number rather than under it. 1.0000 on 126 and
+        # 1.0000 on 126,000 are the same figure and not the same claim.
+        add(f"      95% CI >= {sc.precision_ci_lower:.2%} (exact, Clopper-Pearson, "
+            f"n={sc.total_assignments}). {sc.total_assignments} observations cannot "
+            f"support more.")
         add(f"    refusal rate          {_pct(sc.refusal_rate)}"
             f"     {sc.total_refusals}/{sc.credits_with_candidates} credits with candidates")
         add(f"    refusal correctness   {_pct(sc.refusal_correctness)}"

@@ -25,6 +25,7 @@ project exists to argue against.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -90,6 +91,8 @@ class Scorecard:
     correct_assignments: int
     match_precision: float
     wrong_assignments: tuple[str, ...]
+    # `precision_ci_lower` qualifies `match_precision` and lives with the other
+    # defaulted fields below, because dataclass ordering requires it.
 
     # Refusal behaviour
     credits_with_candidates: int
@@ -119,6 +122,12 @@ class Scorecard:
     # represent (a split settlement) is refused correctly. Reporting the gap to the
     # ceiling instead says how much of the shortfall is the engine's, which is the
     # number worth arguing about.
+    # Exact two-sided 95% Clopper-Pearson lower bound on `match_precision`. Reported
+    # because 1.0000 on 126 assignments and 1.0000 on 126,000 are the same number and
+    # not the same claim -- and this project cites the 99.9% automated-matching standard
+    # while supporting about 97.1%. An external reviewer did that arithmetic before we
+    # did, which is the reason it is now in the report rather than in their notes.
+    precision_ci_lower: float = 0.0
     reachable_payments: int = 0
     ceiling: float = 0.0
     short_of_ceiling: int = 0
@@ -134,6 +143,61 @@ class Scorecard:
     unexamined_lines: int = 0
     unexamined_paise: int = 0
     notes: tuple[str, ...] = field(default_factory=tuple)
+
+
+def clopper_pearson_lower(successes: int, trials: int, alpha: float = 0.05) -> float:
+    """
+    Exact lower bound of a two-sided `1 - alpha` Clopper-Pearson interval.
+
+    **Why this is here at all.** This project reports `match precision 1.0000` beside
+    `ARCHITECTURE.md`'s citation of the industry 99.9% standard for fully automated
+    matching, and until now said nothing about how little 126 observations can support. An
+    external reviewer did the arithmetic instead: zero errors in 127 gives a 95% lower
+    bound of **97.14%**, not 99.9%. They were right, and the number belongs in the report
+    rather than in a reviewer's notes.
+
+    **Exact, not normal-approximate.** A Wald interval on a proportion of 1.0 has zero
+    width -- it would print `1.0000 +/- 0.0000` and say the opposite of the truth. Clopper-
+    Pearson inverts the binomial test and stays correct at the boundary, which is the only
+    place this project's numbers ever sit.
+
+    **Stdlib only.** The engine has no dependencies and this must not add one, so the
+    bound is found by bisecting the exact binomial tail rather than by calling a Beta
+    quantile. At n in the hundreds that is instant and there is no approximation to
+    disclose.
+
+    For all-successes the closed form is `(alpha/2) ** (1/n)`, and the bisection is
+    asserted against it in `tests/test_confidence_interval.py` -- a check on the search,
+    not a shortcut around it.
+    """
+    if trials <= 0:
+        return 0.0
+    if successes <= 0:
+        return 0.0
+    if successes > trials:
+        raise ValueError(f"{successes} successes in {trials} trials")
+
+    target = alpha / 2.0
+
+    def tail_at_least(p: float) -> float:
+        """P(X >= successes | trials, p) -- the probability of a result this good."""
+        if p <= 0.0:
+            return 0.0
+        if p >= 1.0:
+            return 1.0
+        return sum(
+            math.comb(trials, k) * (p**k) * ((1.0 - p) ** (trials - k))
+            for k in range(successes, trials + 1)
+        )
+
+    lo, hi = 0.0, successes / trials
+    for _ in range(200):
+        mid = (lo + hi) / 2.0
+        if tail_at_least(mid) < target:
+            lo = mid
+        else:
+            hi = mid
+    return lo
 
 
 def _safe(n: int, d: int) -> float:
@@ -372,6 +436,7 @@ def score(
         total_assignments=len(out.assignments),
         correct_assignments=len(correct),
         match_precision=_safe(len(correct), len(out.assignments)),
+        precision_ci_lower=clopper_pearson_lower(len(correct), len(out.assignments)),
         wrong_assignments=tuple(wrong),
         credits_with_candidates=credits_with_candidates,
         total_refusals=len(out.refusals),

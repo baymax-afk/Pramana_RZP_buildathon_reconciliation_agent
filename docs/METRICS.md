@@ -121,6 +121,26 @@ or superset is wrong, not partially right.
 
 Refusals are **not** in either term. They are scored separately, below.
 
+**And the bound on it, because 1.0000 is not self-explanatory.** A precision of 1.0000 on
+126 assignments and one on 126,000 are the same figure and not the same claim. The exact
+two-sided 95% Clopper–Pearson lower bound is what the sample actually supports:
+
+| assignments | precision | 95% CI lower bound |
+|---|--:|--:|
+| 126/126 (reported batch) | 1.0000 | **97.11%** |
+| 104/104 (shifted holdout) | 1.0000 | **96.52%** |
+
+`ARCHITECTURE.md` cites the industry standard of **99.9%** precision for fully automated
+matching. **This batch cannot reach it**, however clean the result, and the report prints
+the bound beside the headline rather than leaving a reader to work it out. An external
+reviewer computed it before this project did, which is why it is here.
+
+Clopper–Pearson rather than a normal approximation: a Wald interval on a proportion of
+exactly 1.0 has zero width and would print `1.0000 ± 0.0000`, asserting the opposite of
+the truth. The bound is computed by bisecting the exact binomial tail — stdlib only, no
+new dependency — and `tests/test_confidence_interval.py` checks that search against the
+closed form `(α/2)^(1/n)` that exists for the zero-error case.
+
 ### Refusal rate
 
 ```

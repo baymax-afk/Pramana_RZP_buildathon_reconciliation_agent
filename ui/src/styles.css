@@ -454,3 +454,10 @@ dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
   .queue-head { grid-template-columns: 22px 46px 1fr; }
   .queue-count, .queue-money { grid-column: 3; text-align: left; }
 }
+
+/* The confidence bound under a precision figure. Deliberately not muted into
+   invisibility: it is the qualification that makes the number above it honest. */
+.ceiling-facts .ci {
+  font-size: 11.5px; color: var(--warn); margin-top: 3px;
+  border-left: 2px solid #f0dfbe; padding-left: 7px;
+}

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T02:20:55.878359+00:00",
+  "generated_at": "2026-09-04T06:42:02.524832+00:00",
   "seed": 8080808,
   "density": 12,
   "llm_tier": "disabled",
@@ -1262,8 +1262,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer '*HDFCN00458156263* ACME RETAIL'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -1298,7 +1298,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: partial (+0.73 bits) - partial name agreement: bank 'HDFCN00458156263 ACME RETAIL' vs ledger ['ACME RETAIL'] (field truncation or alias spelling)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.39 (1 in 22 payments in the window would match by chance)\n  TOTAL: -3.66 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: absent (+0.00 bits) - no payer name in narration (settlement batch covers many payers)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.39 (1 in 22 payments in the window would match by chance)\n  TOTAL: no comparable field",
           "evidence": []
         },
         {
@@ -2395,8 +2395,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer '*KKBKH10657014511* GREENFIELD ORGANIC'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -2431,7 +2431,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: partial (+0.73 bits) - partial name agreement: bank 'KKBKH10657014511 GREENFIELD ORGANIC' vs ledger ['GREENFIELD ORGANICS'] (field truncation or alias spelling)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.52 (1 in 24 payments in the window would match by chance)\n  TOTAL: -3.79 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: absent (+0.00 bits) - no payer name in narration (settlement batch covers many payers)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.52 (1 in 24 payments in the window would match by chance)\n  TOTAL: no comparable field",
           "evidence": []
         },
         {
@@ -4494,8 +4494,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'THIS CREDIT MATCHES pay_OVERRIDE0000001'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -4603,8 +4603,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer '*UTIBP93296696806* PINNACLE STEEL TRA'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -4639,7 +4639,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: partial (+0.73 bits) - partial name agreement: bank 'UTIBP93296696806 PINNACLE STEEL TRA' vs ledger ['PINNACLE STEEL TRADERS'] (field truncation or alias spelling)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.32 (1 in 21 payments in the window would match by chance)\n  TOTAL: -3.59 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: absent (+0.00 bits) - no payer name in narration (settlement batch covers many payers)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.32 (1 in 21 payments in the window would match by chance)\n  TOTAL: no comparable field",
           "evidence": []
         },
         {
@@ -5633,8 +5633,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer '*AXISP60745250488* SUNRISE TEXTILES'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -5669,7 +5669,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: partial (+0.73 bits) - partial name agreement: bank 'AXISP60745250488 SUNRISE TEXTILES' vs ledger ['SUNRISE TEXTILES'] (field truncation or alias spelling)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.81 (1 in 29 payments in the window would match by chance)\n  TOTAL: -4.08 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: absent (+0.00 bits) - no payer name in narration (settlement batch covers many payers)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.81 (1 in 29 payments in the window would match by chance)\n  TOTAL: no comparable field",
           "evidence": []
         },
         {
@@ -6268,8 +6268,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer '*HDFCN73697257712* QUANTUM INSTRUMENT'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -6304,7 +6304,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: partial (+0.73 bits) - partial name agreement: bank 'HDFCN73697257712 QUANTUM INSTRUMENT' vs ledger ['QUANTUM INSTRUMENTS'] (field truncation or alias spelling)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.64 (1 in 26 payments in the window would match by chance)\n  TOTAL: -3.91 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: absent (+0.00 bits) - no payer name in narration (settlement batch covers many payers)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.64 (1 in 26 payments in the window would match by chance)\n  TOTAL: no comparable field",
           "evidence": []
         },
         {
@@ -7589,8 +7589,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer '*KKBKH13966411856* QUANTUM INST'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -7625,7 +7625,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: partial (+0.73 bits) - partial name agreement: bank 'KKBKH13966411856 QUANTUM INST' vs ledger ['QUANTUM INSTRUMENTS'] (field truncation or alias spelling)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.52 (1 in 24 payments in the window would match by chance)\n  TOTAL: -3.79 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: absent (+0.00 bits) - no payer name in narration (settlement batch covers many payers)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.52 (1 in 24 payments in the window would match by chance)\n  TOTAL: no comparable field",
           "evidence": []
         },
         {
@@ -10538,8 +10538,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer '*UTIBP83665852425* SUNRISE TEXT'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -10574,7 +10574,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: partial (+0.73 bits) - partial name agreement: bank 'UTIBP83665852425 SUNRISE TEXT' vs ledger ['SUNRISE TEXTILES'] (field truncation or alias spelling)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.52 (1 in 24 payments in the window would match by chance)\n  TOTAL: -3.79 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: absent (+0.00 bits) - no payer name in narration (settlement batch covers many payers)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.52 (1 in 24 payments in the window would match by chance)\n  TOTAL: no comparable field",
           "evidence": []
         },
         {
@@ -15140,8 +15140,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer '*PUNBR43408773998* NOVA CHEMICALS IND'.",
+          "headline": "Nothing usable in the narration.",
+          "detail": "No payer name, reference or transaction count could be read from the text.",
           "evidence": []
         },
         {
@@ -15176,7 +15176,7 @@
           "seq": 6,
           "stage": "layer3",
           "headline": "Weighed the name and reference evidence. The non-amount evidence does not contradict the amount evidence.",
-          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: partial (+0.73 bits) - partial name agreement: bank 'PUNBR43408773998 NOVA CHEMICALS IND' vs ledger ['NOVA CHEMICALS INDIA'] (field truncation or alias spelling)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.39 (1 in 22 payments in the window would match by chance)\n  TOTAL: -3.66 bits",
+          "detail": "Fellegi-Sunter match weight, in bits. Positive supports the match, negative opposes it; the two thresholds are 4.0 and 7.0.\n  name: absent (+0.00 bits) - no payer name in narration (settlement batch covers many payers)\n  reference: absent (+0.00 bits) - no merchant reference quoted in the remittance\n  prior from the blocking pool: -4.39 (1 in 22 payments in the window would match by chance)\n  TOTAL: no comparable field",
           "evidence": []
         },
         {
@@ -16416,7 +16416,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16450,7 +16450,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-04T14:20:55+00:00",
+        "due_at": "2026-09-04T18:42:02+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -16484,7 +16484,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-04T14:20:55+00:00",
+        "due_at": "2026-09-04T18:42:02+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -16507,7 +16507,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16541,7 +16541,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-04T14:20:55+00:00",
+        "due_at": "2026-09-04T18:42:02+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -16575,7 +16575,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-04T14:20:55+00:00",
+        "due_at": "2026-09-04T18:42:02+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -16609,7 +16609,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-04T14:20:55+00:00",
+        "due_at": "2026-09-04T18:42:02+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -16643,7 +16643,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16666,7 +16666,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16702,7 +16702,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16738,7 +16738,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16772,7 +16772,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-04T14:20:55+00:00",
+        "due_at": "2026-09-04T18:42:02+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -16806,7 +16806,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16840,7 +16840,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-04T14:20:55+00:00",
+        "due_at": "2026-09-04T18:42:02+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -16874,7 +16874,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T02:20:55+00:00",
+        "due_at": "2026-09-06T06:42:02+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16897,7 +16897,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T02:20:55+00:00",
+        "due_at": "2026-09-06T06:42:02+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16920,7 +16920,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T02:20:55+00:00",
+        "due_at": "2026-09-06T06:42:02+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -16954,7 +16954,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": false,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -16989,7 +16989,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T02:20:55+00:00",
+        "due_at": "2026-09-06T06:42:02+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17023,7 +17023,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": false,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17069,7 +17069,7 @@
         "owner": "Treasury analyst",
         "action": "Obtain the remittance advice and confirm which payments this credit covers.",
         "sla_hours": 8,
-        "due_at": "2026-09-04T10:20:55+00:00",
+        "due_at": "2026-09-04T14:42:02+00:00",
         "material": false,
         "rationale": "The engine found more than one arithmetically valid answer and refused to choose. A remittance advice settles it in one lookup, so this is the fastest queue on the board."
       }
@@ -17103,7 +17103,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T02:20:55+00:00",
+        "due_at": "2026-09-05T06:42:02+00:00",
         "material": false,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17126,7 +17126,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T02:20:55+00:00",
+        "due_at": "2026-09-06T06:42:02+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17890,10 +17890,10 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -4.077,
+      "fs_weight": null,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
       "bank_txn_id": "bank_txn_0124",
@@ -18244,10 +18244,10 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.793,
+      "fs_weight": null,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
       "bank_txn_id": "bank_txn_0095",
@@ -18316,10 +18316,10 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.793,
+      "fs_weight": null,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
       "bank_txn_id": "bank_txn_0045",
@@ -18550,10 +18550,10 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.591,
+      "fs_weight": null,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
       "bank_txn_id": "bank_txn_0065",
@@ -18586,10 +18586,10 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.913,
+      "fs_weight": null,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
       "bank_txn_id": "bank_txn_0014",
@@ -18928,10 +18928,10 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.662,
+      "fs_weight": null,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
       "bank_txn_id": "bank_txn_0116",
@@ -19142,10 +19142,10 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.662,
+      "fs_weight": null,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
       "bank_txn_id": "bank_txn_0081",
@@ -19178,10 +19178,10 @@
       "residual_paise": 0,
       "residual_tightness": 1.0,
       "uniqueness_margin": 1.0,
-      "fs_weight": -3.793,
+      "fs_weight": null,
       "certain_fee": true,
       "permutation_stability": 1.0,
-      "confidence": 0.9241
+      "confidence": 0.9627
     },
     {
       "bank_txn_id": "bank_txn_0018",
@@ -19281,5 +19281,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 410
+  "throughput_records_per_s": 381
 }

@@ -612,6 +612,15 @@ function Ceiling() {
               {p.correct_assignments}/{p.total_assignments} assignments correct
               {p.wrong_assignments.length === 0 && " · nothing posted wrongly"}
             </span>
+            {/* The bound belongs beside the number, not in a footnote. 1.0000 on 126
+                assignments and 1.0000 on 126,000 are the same figure and not the same
+                claim, and this project cites the 99.9% automated-matching standard. */}
+            {p.precision_ci_lower != null && (
+              <div className="ci" title={p.precision_ci_note}>
+                95% CI ≥ {pct(p.precision_ci_lower)} · {p.total_assignments} observations
+                cannot support more
+              </div>
+            )}
           </dd>
         </div>
       </dl>

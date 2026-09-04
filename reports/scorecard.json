@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T02:20:54+00:00",
+  "generated_at": "2026-09-04T06:43:12+00:00",
   "dataset": "primary",
   "seed": 20260905,
   "provenance": "Scored against ground truth the engine never received. The engine's own output is in run_output.json and contains none of this; ground-truth isolation is enforced by an audit hook over the recon package, not by convention.",
@@ -25,6 +25,8 @@
     "total_assignments": 126,
     "correct_assignments": 126,
     "match_precision": 1.0,
+    "precision_ci_lower": 0.971148,
+    "precision_ci_note": "exact two-sided 95% Clopper-Pearson lower bound on 126/126. A proportion of 1.0 has no normal-approximate interval, and this many observations cannot support a stronger claim however clean they are.",
     "wrong_assignments": []
   },
   "refusals": {

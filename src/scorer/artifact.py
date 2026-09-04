@@ -71,6 +71,13 @@ def build(sc: Scorecard, *, seed: int, dataset: str) -> dict:
             "total_assignments": sc.total_assignments,
             "correct_assignments": sc.correct_assignments,
             "match_precision": sc.match_precision,
+            "precision_ci_lower": round(sc.precision_ci_lower, 6),
+            "precision_ci_note": (
+                f"exact two-sided 95% Clopper-Pearson lower bound on "
+                f"{sc.correct_assignments}/{sc.total_assignments}. A proportion of 1.0 "
+                f"has no normal-approximate interval, and this many observations cannot "
+                f"support a stronger claim however clean they are."
+            ),
             "wrong_assignments": list(sc.wrong_assignments),
         },
         "refusals": {
