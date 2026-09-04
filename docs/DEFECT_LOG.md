@@ -1841,3 +1841,39 @@ doc numbers drifting and had no coverage of provenance. It now asserts the tier 
 against a live `load_inputs()`, and separately that a tier the README calls uncaptured is
 uncaptured in the batch — the half that actually drifted, and the half a count check alone
 would have missed. Verified by reintroducing the old wording and watching it fail.
+
+## 2026-09-04-06 — the code stopped using the two-threshold band; four documents went on advertising it
+
+**The claim.** `ARCHITECTURE.md` described Layer 3 as *"Fellegi–Sunter evidence weights
+with a two-threshold band"*, and said of the middle band: *"That middle band is a
+formalised 'I don't know' with fifty years of provenance, and **it is what populates the
+exception list**."* `README.md`'s four-layer table, `FLOWCHARTS.md`'s diagram and
+`AGENTIC.md` all repeated it.
+
+**It has not been true since the band was measured and rejected.** `Evidence.band`
+computes `match` / `review` / `non_match` and **nothing in the matcher reads it**;
+`match.py` gates on `Evidence.contradicts` alone. The exception list is populated by
+contradiction and by the other layers, not by a review band. The two refusal categories
+that would have carried it were deleted on 2026-09-03 after measuring that wiring them
+would refuse **78 of 126 correct assignments** and save zero wrong ones.
+
+**How it was found, and the part worth writing down.** An external reviewer flagged it as
+one of two critical findings: *"the advertised Fellegi–Sunter two-threshold decision band
+is not enforced… `FS_BELOW_THRESHOLD` and `FS_REVIEW_BAND` exist as enums/docs/UI concepts
+but are never emitted."* The first response to that was **wrong**: the enum members had
+been deleted the day before, so the finding was filed as stale and the review moved on.
+
+The enums were stale. **The documentation was not**, and the documentation is what a judge
+reads. Deleting dead code and leaving the prose that advertised it is a worse state than
+either — the repository now disagrees with itself, and only the half nobody greps is
+visible from outside.
+
+**Corrected in all four documents**, with the measurement rather than by quietly rewording:
+Layer 3 is a contradiction veto and a contest tie-break, the weight is still computed and
+still reported, and the reason the band is not wired is a number and not a preference.
+
+**The lesson.** "Fixed in code" and "no longer claimed" are different states, and a
+find-and-grep on the identifier misses the second every time — the prose said
+"two-threshold band" while the code said `contradicts`, and they share no token. When a
+mechanism is removed, the check is a grep for what it was *called in English*, not for
+what it was named in Python.

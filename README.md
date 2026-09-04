@@ -44,8 +44,16 @@ Four layers, none of which require labels:
 |---|---|---|
 | **1** | Metamorphic relations (MR1–MR6) | Does the output change when it provably shouldn't? |
 | **2** | Uniqueness testing + principled refusal | Is this *an* answer, or *the* answer? |
-| **3** | Fellegi–Sunter evidence weights, two-threshold band | How strong is the non-amount evidence? |
+| **3** | Fellegi–Sunter evidence weights, gated on contradiction | Does the non-amount evidence *argue against* this match? |
 | **4** | Materiality stratification (PCAOB AS 2315) | What can be claimed about the rows nobody checked? |
+
+**Three of the four verify at runtime; the fourth produces the plan an auditor works.**
+Projection needs an observed error rate and observing errors needs a human, so Layer 4's
+runtime output is a *verification plan* — which items require full checking, which sample
+stands for the rest, and what the projection would be for any error rate that sample
+turns up. Computing a projected error from zero actual verification would be inventing
+assurance. `src/recon/verify/materiality.py` has always said this; the summary above did
+not.
 
 **MR1 is not only a test — it is a runtime refusal gate.** The engine runs the
 matcher over 8 shuffled input orderings. Any assignment that isn't stable across all
@@ -505,7 +513,7 @@ would be worse than none.
 pytest tests/
 ```
 
-475 tests, including the end-to-end isolation test — which deletes the ground-truth
+476 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,
@@ -529,7 +537,7 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 4** — scorer, metrics harness, isolation test  ← **metrics block lands here**
 - [x] **Block 5** — metamorphic harness + runtime permutation gate (MR1–MR6 all pass)
 - [x] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal *(86.1% at the time)*
-- [x] **Block 7** — Layer 3 Fellegi–Sunter (two-threshold band, unsupervised `u`)
+- [x] **Block 7** — Layer 3 Fellegi–Sunter (contradiction veto, unsupervised `u`)
 - [x] **Block 8** — Layer 4 materiality (AS 2315) + composite confidence
 - [ ] **Block 8b** — BenchRec calibration fit (weights currently UNCALIBRATED)
 - [x] **Block 9** — LLM tier — changes reasons, and now one decision; see `DEFECT_LOG` 2026-09-03-01

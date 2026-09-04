@@ -221,7 +221,7 @@ producing weaker answers.
 graph TB
     A["Layer 1 · Metamorphic<br/>MR1-MR6 + runtime gate<br/>reasons over EXECUTIONS"]
     B["Layer 2 · Uniqueness<br/>enumerate ALL subsets<br/>reasons over AMOUNTS"]
-    C["Layer 3 · Fellegi-Sunter<br/>two-threshold band<br/>reasons over NAMES + REFS"]
+    C["Layer 3 · Fellegi-Sunter<br/>contradiction veto<br/>reasons over NAMES + REFS"]
     D["Layer 4 · Materiality<br/>PCAOB AS 2315<br/>reasons over EXPOSURE"]
 
     A --> S["Composite confidence"]

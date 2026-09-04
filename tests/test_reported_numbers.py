@@ -754,3 +754,57 @@ def test_the_provenance_table_describes_the_batch_and_not_the_source_files():
                 f"its records enter the batch captured and count toward the match-rate "
                 f"denominator"
             )
+
+
+def test_no_document_advertises_a_decision_mechanism_the_matcher_does_not_use():
+    """
+    "Fixed in code" and "no longer claimed" are different states.
+
+    The two-threshold Fellegi-Sunter band was measured, rejected and its refusal
+    categories deleted on 2026-09-03. Four documents went on describing it as the rule
+    that "populates the exception list" — and a grep for the identifiers found nothing,
+    because the prose said *"two-threshold band"* while the code said `contradicts`. They
+    share no token. An external reviewer found it; this suite did not.
+
+    So the check is on the ENGLISH, not the identifier: no document may claim the band
+    decides anything while `match.py` gates on `contradicts`.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+
+    matcher = (root / "src" / "recon" / "engine" / "match.py").read_text(encoding="utf-8")
+    gates_on_contradiction = "contradicts" in matcher
+    gates_on_band = re.search(r"\.band\s*(==|!=|in)\s", matcher)
+    assert gates_on_contradiction and not gates_on_band, (
+        "the matcher's Layer 3 gate changed; this test encodes the current rule and must "
+        "be updated deliberately alongside it"
+    )
+
+    # DEFECT_LOG and OUTSTANDING_TASKS are append-only records of what WAS claimed and
+    # are meant to keep the old wording. Everything a reader is pointed at must not.
+    claims = re.compile(
+        r"two[- ]threshold (band|rule|decision)|band .{0,40}populates the exception",
+        re.IGNORECASE,
+    )
+    for name in ("README.md", "docs/ARCHITECTURE.md", "docs/FLOWCHARTS.md",
+                 "docs/AGENTIC.md", "docs/METRICS.md"):
+        text = (root / name).read_text(encoding="utf-8")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if not claims.search(line):
+                continue
+            # A line that names the band while saying it is NOT the gate is the correction
+            # itself, and must be allowed to say so.
+            context = "\n".join(text.splitlines()[max(0, line_no - 6):line_no + 6])
+            recanted = re.search(
+                r"not (the gate|enforced|wired|used)|used to claim|contradiction veto|"
+                r"nothing in the matcher reads it|would have refused",
+                context,
+                re.IGNORECASE,
+            )
+            assert recanted, (
+                f"{name}:{line_no} advertises the two-threshold band as a decision rule, "
+                f"and the matcher gates on `contradicts`. Deleting the code and leaving "
+                f"the prose is worse than either: only the half nobody greps is visible "
+                f"from outside.\n    {line.strip()}"
+            )

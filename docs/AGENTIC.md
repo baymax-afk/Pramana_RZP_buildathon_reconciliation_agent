@@ -63,7 +63,7 @@ record. The field itself is an enum, so a channel the engine never agreed to wei
 refused loudly instead of accepted and ignored.
 
 The evidence enters Layer 3 as one named Fellegi–Sunter comparison and the existing
-two-threshold rule decides. A credit refused on the arithmetic stays refused no matter
+contradiction gate decides. A credit refused on the arithmetic stays refused no matter
 what is asserted about names.
 
 ---

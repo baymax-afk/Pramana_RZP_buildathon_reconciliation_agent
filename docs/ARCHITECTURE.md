@@ -220,7 +220,7 @@ arithmetic quoted there — 38,760 and 376,740 — is C(n, 6), i.e. bounded enum
 the reasoning holds and only the label was wrong. The entry is left as written because
 that log is append-only; the correction lives here.)*
 
-### Layer 3 — Fellegi–Sunter evidence weights with a two-threshold band
+### Layer 3 — Fellegi–Sunter evidence weights, gated on contradiction
 
 Hand-tuned similarity scores are replaced with the classical probabilistic record
 linkage model — the statistical foundation under Splink and fastLink. It computes a
@@ -232,11 +232,31 @@ M = log₂(λ / (1 − λ)) + Σᵢ log₂(mᵢ / uᵢ)
 Pr(match | observation) = 2^M / (1 + 2^M)
 ```
 
-The decision rule uses **two thresholds, not one**: above the upper, declare a
-match; below the lower, declare a non-match; between them, route to clerical review.
-That middle band is a formalised "I don't know" with fifty years of provenance, and
-it is what populates the exception list. Thresholds are set at **weight 4 (≈95%) and
-weight 7 (≈99%)**, the published correspondences from the Splink theory guide.
+**The decision rule is a contradiction veto, and this paragraph used to claim otherwise.**
+It said the rule used *"two thresholds, not one… and it is what populates the exception
+list"*. It does not. `Evidence.band` computes `match` / `review` / `non_match` against
+Splink's weight-4 and weight-7 correspondences, and **nothing in the matcher reads it**:
+`match.py` gates on `Evidence.contradicts` alone — at least one field actively DISAGREE
+*and* the field evidence netting negative. Absence never vetoes; weak-but-positive
+evidence never vetoes.
+
+That is not a threshold left unwired by accident. It was measured before being decided:
+
+> Wiring the two-threshold band would have refused **78 of 126 assignments on the
+> reported batch and 63 of 104 on the holdout — every one of them CORRECT, and zero
+> wrong ones saved.**
+
+4.0/7.0 are record-linkage conventions from a setting where names and references *are*
+the evidence. Here the amount channel is primary and Fellegi–Sunter corroborates it, so a
+correct match routinely sits below +4 bits on names alone — **39.7% of correct assignments
+score `non_match` on non-amount evidence and are right anyway.** The two refusal
+categories that would have carried the band (`FS_BELOW_THRESHOLD`, `FS_REVIEW_BAND`) were
+deleted rather than left as unreachable enum members.
+
+The weight is still computed, still reported per assignment, and still breaks contests
+between equally-good candidates. It is corroboration and a tie-break, not a clerical-review
+gate, and an external reviewer was right to catch the documentation claiming otherwise
+after the code had stopped. See `DEFECT_LOG` 2026-09-04-06.
 
 On estimating the parameters without breaching the boundary:
 
@@ -275,7 +295,8 @@ confidence = permutation_gate × σ( w₁·z(residual_tightness)
 - `permutation_gate ∈ {0, 1}` — **hard, not a discount.** Order-dependence refuses.
 - `residual_tightness` — how close conservation holds (Layer 1, MR4).
 - `uniqueness_margin` — gap to the next-best candidate subset (Layer 2).
-- `fs_weight_scaled` — the match weight through the two-threshold band (Layer 3).
+- `fs_weight_scaled` — the Fellegi-Sunter match weight, scaled (Layer 3). Corroboration
+  and a contest tie-break; the gate is `contradicts`, not a threshold band.
 
 Weights and the calibration map are **fitted on BenchRec and evaluated on the
 reported run** — held out by construction, and fitted on real Tier-1 bank data rather
