@@ -174,3 +174,73 @@ def test_the_page_says_the_engine_is_erp_agnostic_without_claiming_integrations(
         "naming ERPs without saying they are unbuilt reads as a claim that they exist"
     )
     assert "Implemented today" in erp
+
+
+# ---- the five outcome states ----------------------------------------------
+def test_every_outcome_state_is_named_on_the_page():
+    """
+    The page could say "reconciled" or "refused" and left the rest to be inferred: a
+    merged settlement looked like any other match, and a credit nothing could account for
+    looked like one the evidence merely failed to single out. Those are different facts
+    about the money and they now have different labels.
+    """
+    assert "const OUTCOME" in JSX
+    outcomes = JSX.split("const OUTCOME", 1)[1].split("\nfunction ", 1)[0]
+    for state in ("Reconciled", "Merged", "Verified", "Unresolved", "Refused"):
+        assert state in outcomes, f"the outcome model does not name {state!r}"
+    # Each must carry help text; a badge nobody can interpret is decoration.
+    assert outcomes.count("help:") == 5
+
+
+def test_an_empty_outcome_state_is_shown_at_zero_rather_than_omitted(payload):
+    """
+    `unresolved` is 0 on this batch. A state that disappears when empty makes the model
+    look smaller than it is, and a reader cannot tell "none today" from "not a thing this
+    engine reports".
+    """
+    _, p = payload
+    assert not [e for e in p["exceptions"] if e["category"] == "no_candidate"], (
+        "this batch now has unresolved credits; the test below has stopped exercising "
+        "the empty-state path and should be re-read"
+    )
+    legend = JSX.split("function OutcomeLegend", 1)[1].split("\nfunction ", 1)[0]
+    assert '"unresolved"' in legend and "none on this batch" in legend
+    assert "zero" in legend, "an empty state must still render, visibly muted"
+
+
+def test_the_legend_counts_come_from_the_run_not_from_prose():
+    legend = JSX.split("function OutcomeLegend", 1)[1].split("\nfunction ", 1)[0]
+    assert "assignments.filter" in legend and "exceptions.filter" in legend, (
+        "the legend hardcodes its counts; it must derive them from the run so it cannot "
+        "disagree with the rows beneath it"
+    )
+
+
+def test_reconciled_and_exception_rows_carry_their_state():
+    assert "<OutcomeBadge kind=\"merged\"" in JSX
+    assert "<OutcomeBadge kind=\"verified\"" in JSX
+    assert 'kind={row.category === "no_candidate" ? "unresolved" : "refused"}' in JSX, (
+        "an exception row does not distinguish 'nothing could account for this' from "
+        "'the evidence did not single one out'"
+    )
+
+
+# ---- the settings, said in words -------------------------------------------
+def test_the_footer_explains_its_settings_instead_of_listing_them():
+    """
+    It read "Tolerance 100p + 0bps · MDR band 0.018–0.025 · lookback 5d · pool ≤ 20 ·
+    materiality ₹5,000" — every value real and none of them self-explanatory.
+    """
+    footer = JSX.split("<footer>", 1)[1].split("</footer>", 1)[0]
+    assert "tol_abs_paise}p" not in footer, "the raw parameter dump is back"
+    for phrase in ("amounts may differ by", "gateway fee", "settles within",
+                   "searches up to", "audit threshold"):
+        assert phrase in footer, f"the footer does not say {phrase!r} in words"
+    assert footer.count("PARAM_HELP.") == 5, "not every setting carries hover help"
+
+
+def test_the_footer_values_still_come_from_the_run():
+    footer = JSX.split("<footer>", 1)[1].split("</footer>", 1)[0]
+    for key in ("tol_abs_paise", "mdr_rate_band", "lookback_days", "max_pool",
+                "materiality_rupees"):
+        assert key in footer, f"the footer hardcodes a value instead of reading {key!r}"

@@ -637,3 +637,38 @@ h1 .wordmark { font-weight: 400; color: var(--muted); font-size: 0.62em; }
 .erp-grid ul { margin: 0 0 8px; padding-left: 18px; font-size: 13px; line-height: 1.7; }
 .erp-grid .muted { font-size: 12.5px; margin: 0; line-height: 1.5; }
 .erp-note { font-size: 12.5px; margin: 14px 0 0; max-width: 88ch; }
+
+/* ---- outcome states ---- */
+.outcome {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  border-radius: 999px; padding: 2px 8px; white-space: nowrap; cursor: help;
+}
+.outcome-ok { background: #eaf5ee; color: #2c6b41; border: 1px solid #cfe6d8; }
+.outcome-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid #f0dfbe; }
+.badges { display: flex; gap: 5px; align-items: center; }
+
+.legend {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 16px; margin: 16px 0 6px;
+}
+.legend-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+}
+.legend ul {
+  list-style: none; margin: 9px 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 8px 22px;
+}
+.legend li { display: flex; align-items: baseline; gap: 7px; font-size: 12.5px; }
+.legend li.zero { opacity: 0.5; }
+.legend-n { font-weight: 700; font-variant-numeric: tabular-nums; }
+.legend-sub { color: var(--muted); }
+
+/* ---- the settings, said in words ---- */
+.params { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: baseline; }
+.params-lead { color: var(--muted); }
+.param {
+  font: inherit; font-size: 12px; cursor: help; background: #f5f5f3;
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; color: var(--ink);
+}
+.param:hover { background: #eceae5; }
+.param strong { font-variant-numeric: tabular-nums; }

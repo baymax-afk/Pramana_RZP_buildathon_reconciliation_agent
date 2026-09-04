@@ -208,6 +208,7 @@ function ExceptionCard({ row, rank }) {
         <span className="rank">{rank}</span>
         <span className="amount">{RUPEES.format(row.rupees_at_risk)}</span>
         <span className="meta">
+          <OutcomeBadge kind={row.category === "no_candidate" ? "unresolved" : "refused"} />
           <span className={`badge cat-${row.category}`}>
             {CATEGORY_LABEL[row.category] ?? row.category}
           </span>
@@ -552,6 +553,71 @@ function BeforeAfter({ row, evidence, plain }) {
   );
 }
 
+// --------------------------------------------------------------------------
+// The five outcome states, named
+//
+// The page could tell you a credit was reconciled or refused, and left the rest to be
+// inferred: a merged settlement looked like any other match, a credit nothing could
+// account for looked like a credit the evidence merely failed to single out, and
+// "verified" was a number in a panel rather than a property of a row.
+//
+// Every credit is in exactly one of these, and the counts are computed here from the run
+// rather than written down, so the legend cannot disagree with the rows beneath it.
+// `unresolved` is shown at zero rather than omitted: a state that disappears when it is
+// empty makes the model look smaller than it is, and a reader cannot tell "none today"
+// from "not a thing this engine reports".
+// --------------------------------------------------------------------------
+const OUTCOME = {
+  reconciled: { label: "Reconciled", tone: "ok",
+    help: "A bank credit matched to one or more payments, and posted." },
+  merged: { label: "Merged", tone: "ok",
+    help: "One bank credit covering several payments at once — the engine worked out which combination it was." },
+  verified: { label: "Verified", tone: "ok",
+    help: "The match came out the same on every pass with the records in a different order, so it was not decided by reading order." },
+  unresolved: { label: "Unresolved", tone: "warn",
+    help: "Nothing in the settlement window could account for this credit at all. Money arrived that no payment explains." },
+  refused: { label: "Refused", tone: "warn",
+    help: "Candidates existed, but the evidence did not identify one. The engine declined to post rather than guess." },
+};
+
+function OutcomeBadge({ kind }) {
+  const o = OUTCOME[kind];
+  if (!o) return null;
+  return (
+    <span className={`outcome outcome-${o.tone}`} title={o.help}>
+      {o.label}
+    </span>
+  );
+}
+
+function OutcomeLegend({ assignments, exceptions }) {
+  const merged = assignments.filter((a) => a.payment_ids.length > 1).length;
+  const verified = assignments.filter((a) => a.permutation_stability === 1).length;
+  const unresolved = exceptions.filter((e) => e.category === "no_candidate").length;
+  const refused = exceptions.length - unresolved;
+  const rows = [
+    ["reconciled", assignments.length, `${assignments.length - merged} single + ${merged} merged`],
+    ["merged", merged, `covering ${assignments.filter((a) => a.payment_ids.length > 1).reduce((s, a) => s + a.payment_ids.length, 0)} payments`],
+    ["verified", verified, `of ${assignments.length} postings`],
+    ["unresolved", unresolved, unresolved === 0 ? "none on this batch" : "no candidate at all"],
+    ["refused", refused, "evidence did not single one out"],
+  ];
+  return (
+    <div className="legend">
+      <span className="legend-title">Every bank credit ends in one of these:</span>
+      <ul>
+        {rows.map(([kind, n, sub]) => (
+          <li key={kind} className={n === 0 ? "zero" : ""}>
+            <OutcomeBadge kind={kind} />
+            <span className="legend-n">{n}</span>
+            <span className="legend-sub">{sub}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function MatchCard({ row, rank }) {
   const [open, setOpen] = useState(false);
   return (
@@ -563,6 +629,10 @@ function MatchCard({ row, rank }) {
           {row.payment_ids.length === 1
             ? row.payment_ids[0]
             : `${row.payment_ids.length} payments`}
+        </span>
+        <span className="badges">
+          {row.payment_ids.length > 1 && <OutcomeBadge kind="merged" />}
+          {row.permutation_stability === 1 && <OutcomeBadge kind="verified" />}
         </span>
         <span className={`tier tier-${row.tier}`}>{TIER_LABEL[row.tier] ?? row.tier}</span>
         <span className="resid">
@@ -1076,6 +1146,30 @@ function ReconciliationSummary({ reconciled: r, totals }) {
 // The values are still read from the payload rather than written here, so this page
 // cannot describe a threshold the engine is not using.
 // --------------------------------------------------------------------------
+// Hover text for the settings in the footer. The full explanations live in the glossary
+// tab; these are the one-liners that answer "what is this" without a click, which is what
+// a tooltip is for. Kept beside `Glossary` so the two cannot drift into disagreeing.
+const PARAM_HELP = {
+  tolerance:
+    "How far apart two amounts may be and still count as the same money. It is for " +
+    "rounding, not slack: GST and TDS are rounded to the paisa by different systems.",
+  mdr:
+    "The payment gateway keeps a percentage of every transaction, plus GST on it. Where " +
+    "the exact fee is on the payment record the engine uses it; where it is not, the " +
+    "credit may fall anywhere in this band.",
+  lookback:
+    "A payment reaches the bank a few days after the customer pays. Payments older than " +
+    "this are not considered for a given credit — a wider window means more unrelated " +
+    "payments available to coincide.",
+  pool:
+    "When one credit covers several payments the engine tries combinations. Beyond this " +
+    "many it stops and says so rather than searching part of the range and reporting the " +
+    "first fit.",
+  materiality:
+    "The audit threshold (PCAOB AS 2315). Items at or above it are verified in full and " +
+    "a sample stands for the rest; it also halves the turnaround time on an exception.",
+};
+
 function Term({ term, value, children }) {
   const [open, setOpen] = useState(false);
   return (
@@ -1423,6 +1517,10 @@ export default function App() {
 
       {tab === "reconciled" && (
         <>
+          <OutcomeLegend
+            assignments={run.data.assignments}
+            exceptions={run.data.exceptions}
+          />
           <p className="showing">
             {run.data.assignments.length} bank credits reconciled, largest first. Open one
             to see the records before and after.
@@ -1479,11 +1577,39 @@ export default function App() {
       )}
 
       <footer>
-        <p>
-          Tolerance {tolerances.tol_abs_paise}p + {tolerances.tol_rel_bps}bps · MDR band{" "}
-          {tolerances.mdr_rate_band.join("–")} · lookback {tolerances.lookback_days}d ·
-          pool ≤ {tolerances.max_pool} · materiality{" "}
-          {RUPEES.format(tolerances.materiality_rupees)}
+        {/* This line used to read "Tolerance 100p + 0bps · MDR band 0.018–0.025 ·
+            lookback 5d · pool ≤ 20 · materiality ₹5,000" and expect the reader to supply
+            the meaning. Each setting now says what it is in plain words, carries the
+            explanation on hover, and opens the full one. The values still come from the
+            run, so the footer cannot describe a threshold the engine is not using. */}
+        <p className="params">
+          <span className="params-lead">How careful it is being:</span>
+          <button className="param" title={PARAM_HELP.tolerance}
+                  onClick={() => setTab("glossary")}>
+            amounts may differ by{" "}
+            <strong>{RUPEES.format(tolerances.tol_abs_paise / 100)}</strong>
+          </button>
+          <button className="param" title={PARAM_HELP.mdr}
+                  onClick={() => setTab("glossary")}>
+            gateway fee{" "}
+            <strong>
+              {(tolerances.mdr_rate_band[0] * 100).toFixed(1)}–
+              {(tolerances.mdr_rate_band[1] * 100).toFixed(1)}%
+            </strong>
+          </button>
+          <button className="param" title={PARAM_HELP.lookback}
+                  onClick={() => setTab("glossary")}>
+            settles within <strong>{tolerances.lookback_days} days</strong>
+          </button>
+          <button className="param" title={PARAM_HELP.pool}
+                  onClick={() => setTab("glossary")}>
+            searches up to <strong>{tolerances.max_pool} payments</strong>
+          </button>
+          <button className="param" title={PARAM_HELP.materiality}
+                  onClick={() => setTab("glossary")}>
+            audit threshold{" "}
+            <strong>{RUPEES.format(tolerances.materiality_rupees)}</strong>
+          </button>
         </p>
         <p className="muted">
           Every threshold was fixed before the run and none is tuned per record. This
