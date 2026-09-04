@@ -157,26 +157,33 @@ MAX_SOLUTIONS = 8              # enumerate up to this many; reaching it means re
 # --------------------------------------------------------------------------
 # Layer 2b -- settlement groups: one payment settled across several credits.
 #
-# `MAX_GROUP_CREDITS` is the claim-unit bound, and it is the reason this is a bounded
-# lift rather than an open one. The engine's original claim unit was a single credit,
-# which is why `split_settlement` was outside the model entirely: there is no way to
-# ask "which subset of payments sums to this credit?" about a payment that arrived as
-# two. Raising the unit to a GROUP of up to this many credits makes the relation
-# expressible without introducing fractional claims -- see `engine/groups.py` for why
-# fractions turned out to be the wrong generalisation.
+# The engine's original claim unit was a single credit, which is why
+# `split_settlement` was outside the model entirely: there is no way to ask "which
+# subset of payments sums to this credit?" about a payment that arrived as two. Raising
+# the unit to a GROUP of up to this many credits makes the relation expressible without
+# introducing fractional claims -- see `engine/groups.py` for why fractions turned out
+# to be the wrong generalisation.
 #
-# Three, not more, and the number is a search bound rather than a belief about banks.
-# Group resolution examines combinations of unsettled credits, so the count grows as
-# C(residue, k); at k=3 over a residue of ~25 that is ~2,600 combinations per pass and
-# the permutation gate runs the whole matcher eight times. A bank that splits a
-# settlement four ways would be refused here, correctly and visibly, rather than
-# searched for at a cost the demo cannot pay.
-MAX_GROUP_CREDITS = 3
+# **Six, and the number moved from three for a reason worth recording.** It was three
+# because group resolution enumerated `combinations(residue, k)` over the whole residue:
+# at k<=3 over 40 credits that is 10,660 subsets, at k<=6 it is 4,598,438, and each one
+# ran a subset-sum search -- eight times over under the permutation gate. Three was not
+# a belief about how banks split settlements, it was the largest number that enumeration
+# could afford, and a four-way split was refused for the engine's convenience.
+#
+# The enumeration is now anchored on date windows, because a group's members must land
+# within GROUP_SPAN_DAYS of each other and the old loop generated every subset first and
+# discarded the spanning ones afterwards. On the reported batch that was 1,474 subsets
+# enumerated to keep one. Windowed, it is one. The bound is now what it should always
+# have been -- the same k as MAX_SUBSET_K, so a group is as expressible as a
+# decomposition -- and it costs nothing to raise it.
+MAX_GROUP_CREDITS = 6
 
 # Credits are only grouped when they land close together. A settlement split for an
 # on-demand payout arrives the same day or the next; two credits a fortnight apart that
 # happen to sum to a payment are a coincidence, and the wider the window the more
-# coincidences there are. This is the group analogue of LOOKBACK_DAYS.
+# coincidences there are. This is the group analogue of LOOKBACK_DAYS, and it is now
+# load-bearing for cost as well as correctness: it is what makes the enumeration small.
 GROUP_SPAN_DAYS = 2
 
 # Two bounds on group resolution, and what happens when either bites is the important
@@ -195,7 +202,7 @@ GROUP_SPAN_DAYS = 2
 # `no_candidate` verdicts with a worse one, and it reported a bound on the search as
 # though it were a finding about the money.
 MAX_GROUP_RESIDUE = 40         # unsettled credits; above this -> do not search at all
-MAX_GROUP_COMBOS = 20_000      # belt for the above; C(40,3) + C(40,2) = 10,660
+MAX_GROUP_COMBOS = 20_000      # belt for the above, on the windowed enumeration
 
 # Fixpoint bound for the matching loop. The loop stops as soon as a full round adds no
 # assignment, so this is a guard against non-termination, not a tuning parameter: a

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T16:03:23+00:00",
+  "generated_at": "2026-09-04T16:26:19+00:00",
   "dataset": "primary",
   "seed": 20260905,
   "provenance": "Scored against ground truth the engine never received. The engine's own output is in run_output.json and contains none of this; ground-truth isolation is enforced by an audit hook over the recon package, not by convention.",
@@ -22,23 +22,23 @@
     }
   },
   "precision": {
-    "total_assignments": 130,
-    "correct_assignments": 130,
+    "total_assignments": 133,
+    "correct_assignments": 133,
     "match_precision": 1.0,
-    "precision_ci_lower": 0.972023,
-    "precision_ci_note": "exact two-sided 95% Clopper-Pearson lower bound on 130/130. A proportion of 1.0 has no normal-approximate interval, and this many observations cannot support a stronger claim however clean they are.",
+    "precision_ci_lower": 0.972645,
+    "precision_ci_note": "exact two-sided 95% Clopper-Pearson lower bound on 133/133. A proportion of 1.0 has no normal-approximate interval, and this many observations cannot support a stronger claim however clean they are.",
     "wrong_assignments": []
   },
   "refusals": {
     "total": 11,
-    "rate": 0.07801418439716312,
+    "rate": 0.0763888888888889,
     "correct": 6,
     "conservative": 5,
     "correctness": 0.5454545454545454
   },
   "short_of_ceiling_txns": [
     {
-      "bank_txn_id": "bank_txn_0103",
+      "bank_txn_id": "bank_txn_0108",
       "payment_ids": [
         "pay_SYN001441035"
       ],
@@ -52,7 +52,7 @@
       "paise": 4802017
     },
     {
-      "bank_txn_id": "bank_txn_0031",
+      "bank_txn_id": "bank_txn_0038",
       "payment_ids": [
         "pay_SYN000458238"
       ],
@@ -67,7 +67,7 @@
       "paise": 4466848
     },
     {
-      "bank_txn_id": "bank_txn_0128",
+      "bank_txn_id": "bank_txn_0133",
       "payment_ids": [
         "pay_SYN001742843"
       ],
@@ -81,7 +81,7 @@
       "paise": 3997558
     },
     {
-      "bank_txn_id": "bank_txn_0112",
+      "bank_txn_id": "bank_txn_0117",
       "payment_ids": [
         "pay_SYN001461845"
       ],
@@ -95,7 +95,7 @@
       "paise": 947362
     },
     {
-      "bank_txn_id": "bank_txn_0027",
+      "bank_txn_id": "bank_txn_0033",
       "payment_ids": [
         "pay_TWdulPFK9A74yH"
       ],

@@ -305,6 +305,8 @@ class TruthLink:
 
 DEFECT_LABELS = (
     "split_settlement",
+    "split_settlement_wide",
+    "partial_chargeback",
     "chargeback_debit",
     "mdr_fee",
     "tds_deduction",

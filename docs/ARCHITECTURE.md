@@ -459,22 +459,73 @@ zero unexplained debits, ₹1,66,732.77 correctly attributed. The metrics block'
 derived by subtraction from what actually reached a verdict and is therefore what would
 surface the next blind spot without anyone having to suspect one.
 
-### What this cost, and what remains outside the model
+### The two limitations these left behind — also lifted, and one of them cost a wrong answer
 
-The lift is bounded, and the bounds are honest rather than incidental:
+The previous version of this section named two successors: a settlement split more than
+three ways, and a partial chargeback. Both are now in the model. Kept in this shape for
+the same reason as above — the reasoning is more useful than the conclusion.
+
+**A four-way split was refused for the engine's convenience, not on principle.**
+`MAX_GROUP_CREDITS = 3` was justified as a search bound, and it was one: group resolution
+enumerated `combinations(residue, k)` over the whole residue, which is 10,660 subsets at
+k≤3 over 40 credits and **4,598,438** at k≤6, each running its own subset-sum search,
+eight times over under the permutation gate. Three was the largest number that could be
+afforded.
+
+The enumeration was also almost entirely waste. A group's members must land within
+`GROUP_SPAN_DAYS` of each other — that is what a split settlement *is* — and the loop
+generated every subset first and discarded the spanning ones afterwards, having already
+paid to enumerate them. On the reported batch: **1,474 subsets enumerated at k≤6 to keep
+one.** The enumeration is now anchored on date windows (each subset yielded once, by its
+earliest member), which is exact rather than heuristic — every set pairwise within the
+span lies inside the window anchored at its earliest member, so no valid group can be
+missed. `MAX_GROUP_CREDITS` is now **6**, matching `MAX_SUBSET_K` so a group is as
+expressible as a decomposition, and raising it cost nothing measurable.
+
+**A partial chargeback is a subset-sum, and it was being answered with silence.** A
+chargeback is raised against a *transaction*; a settlement batch covers several. Disputing
+one payment out of four produces a debit for that payment's settled contribution carrying
+the batch's reference — and the first reversal ledger required `debit == credit` exactly,
+so every one of them was reported as an unexplained debit. "Money left the account and we
+cannot say against what" is an honest answer; it is a poor one when the statement says
+which settlement and the arithmetic says which payment. Identified by bounded subset-sum
+over the payments of the referenced settlement, unique or not at all, with no payment
+reversed twice. The rest of the batch still stands, which is what `partial` records.
+
+**And the correction that came with it, because this one was expensive.** Widening the
+model widened what could be grouped, and the eligibility rule turned out to be wrong:
+group resolution was offered every unsettled credit. At seed 55555, ppw=24, two genuine
+many-to-one settlements were each refused as `multiple_candidates` — three viable
+decompositions apiece — and grouping them found a six-payment subset summing to their
+combined total and **posted it**. Precision 0.9963: the only wrong assignment this engine
+has produced.
+
+The irreducibility check could not catch it, because it tests sub-groups against the
+*group's* payments and the coincidental set was a different set entirely. The right rule
+is about eligibility, not about the group: **a credit refused for having several viable
+decompositions is ambiguous, not unexplained, and grouping it adds a possibility rather
+than resolving one.** Only `no_subset_fits` and `no_candidate` credits — the ones nothing
+accounted for at all — may enter a group. Found by the density sweep, like the last one
+(`DEFECT_LOG` 2026-09-04-10).
+
+### What remains outside the model
 
 | | bound | what happens past it |
 |---|---|---|
-| credits per settlement group | `MAX_GROUP_CREDITS = 3` | refused, visibly |
+| credits per settlement group | `MAX_GROUP_CREDITS = 6` | refused, visibly |
 | days a group may span | `GROUP_SPAN_DAYS = 2` | not grouped |
 | unsettled credits before the search declines | `MAX_GROUP_RESIDUE = 40` | grants nothing, discloses |
-| partial chargebacks | not modelled | reported as an unexplained debit |
+| grouping an *ambiguous* credit | deliberately not done | stays refused, with its own reason |
 | a claw-back against a settlement in an earlier batch | not modelled | reported as an unexplained debit |
+| a partial chargeback whose settlement the engine refused | not modelled | reported as an unexplained debit |
+| a chargeback whose reference no longer resolves | unrecoverable | reported as an unexplained debit |
 
-A four-way split, or a chargeback for part of a settlement, is refused — correctly and
-visibly — rather than searched for at a cost this engine cannot justify. Those are the
-next two named limitations, and they are named here for the same reason the last two
-were.
+The last of those is not a limitation so much as a demonstration: the shifted holdout
+overwrites references across days, and one partial chargeback there points at a settlement
+whose reference the shift destroyed. There is no evidence path left, the engine reports it
+unexplained, and the holdout's own report counts it — **4 of 5 reversals identified on
+that batch, and the fifth named as deliberately unreachable** rather than left looking
+like an engine failure.
 
 ---
 

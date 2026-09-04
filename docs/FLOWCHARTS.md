@@ -158,6 +158,19 @@ debit rather than dropped. It is drawn separately because a debit asks a differe
 question — *which settlement is this money leaving against?* — and shares no machinery
 with the subset search above.
 
+A **partial** claw-back takes one more step: a chargeback is raised against a transaction
+and a settlement batch covers several, so the debit may be one payment's share rather than
+the whole credit. The reference narrows it to one settlement, and bounded subset-sum over
+*that settlement's payments* names which receivables reopened — the same uniqueness rule,
+over a pool the reference has already made small.
+
+**One credit is deliberately NOT offered to grouping**, and it belongs on this diagram
+because the omission is a decision rather than an oversight: a credit refused for having
+several viable decompositions. It is ambiguous, not unexplained. Grouping it would add a
+possibility rather than resolve one, and doing so posted the only wrong assignment this
+engine has produced (`DEFECT_LOG` 2026-09-04-10). Only credits nothing accounted for at
+all — `no_subset_fits`, or no candidate — reach Layer 2b.
+
 ---
 
 ## 3. Layer 1 — the permutation gate at runtime

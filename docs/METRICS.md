@@ -89,15 +89,24 @@ claims it can do.
 
 | | primary | shifted holdout |
 |---|---:|---:|
-| match rate | 89.69% | 85.57% |
+| match rate | 89.69% | 86.60% |
 | reachable ceiling | **92.27%** | **93.30%** |
-| short of the ceiling | **5** payments | **15** payments |
+| short of the ceiling | **5** payments | **13** payments |
 | unreachable by construction | 15 | 13 |
 | match precision | 1.0000 | 1.0000 |
-| assignments behind that precision | 130 | 108 |
-| 95% Clopper–Pearson lower bound | 97.20% | 96.64% |
-| settlement groups resolved | 2 | 2 |
-| reversals identified | 6 of 6 | 3 of 3 |
+| assignments behind that precision | 133 | 112 |
+| 95% Clopper–Pearson lower bound | 97.26% | 96.76% |
+| settlement groups resolved | 3 (one four-way) | 3 (one four-way) |
+| reversals identified | 7 of 7 (2 partial) | **4 of 5** (1 partial) |
+| unexplained debits | 0 | **1** |
+
+**The holdout's fifth reversal is a real miss, and it is named rather than absorbed.**
+The shift overwrites references across days, and one partial chargeback there points at a
+settlement whose reference that shift destroyed. No evidence path remains, so the engine
+reports the debit as unexplained — the correct output — and `run.py holdout` counts it
+under *"chargebacks whose reference was overwritten"*. Preventing the clobber would have
+made the number 5 of 5 by weakening the stress, which is the trade this artefact exists
+to refuse.
 
 The ceiling is derived from each batch's own truth links, not asserted — which is why
 the two columns differ, and `tests/test_ceiling.py` asserts that they must. A hardcoded
@@ -138,12 +147,18 @@ two-sided 95% Clopper–Pearson lower bound is what the sample actually supports
 
 | assignments | precision | 95% CI lower bound |
 |---|--:|--:|
-| 130/130 (reported batch) | 1.0000 | **97.20%** |
-| 108/108 (shifted holdout) | 1.0000 | **96.64%** |
+| 133/133 (reported batch) | 1.0000 | **97.26%** |
+| 112/112 (shifted holdout) | 1.0000 | **96.76%** |
 
-*(Both counts rose by four when Layer 2b landed — a settlement group is scored one entry
-per bank line, because an operator sees two rows on the statement and each is either right
-or wrong. The bound moved with the sample size, which is the only way it should move.)*
+*(Counts rise as settlement groups are scored one entry per bank line, because an operator
+sees each of those rows on the statement and each is either right or wrong. The bound
+moves with the sample size, which is the only way it should move.)*
+
+**This figure was 0.9963 for one afternoon**, at seed 55555 in the density sweep, and the
+cause is worth carrying next to the number: widening the group model widened what could
+be grouped, and two *ambiguous* credits were rolled into a coincidental grouping and
+posted. The engine's own sweep caught it before anything else did. `DEFECT_LOG`
+2026-09-04-10.
 
 `ARCHITECTURE.md` cites the industry standard of **99.9%** precision for fully automated
 matching. **This batch cannot reach it**, however clean the result, and the report prints
@@ -299,16 +314,18 @@ Mean over five held-out seeds, disjoint from both reported runs:
 
 | payments/window | realised pool | match rate | match precision | refusal rate |
 |---|---|---|---|---|
-| 3 | 8.8 | 87.0% | **1.0000** | 6.6% |
-| 6 | 15.0 | 88.9% | **1.0000** | 7.4% |
-| 12 | 27.8 | 89.0% | **1.0000** | 6.4% |
-| 24 | 52.8 | 76.6% | **1.0000** | 12.4% |
+| 3 | 8.8 | 86.5% | **1.0000** | 6.7% |
+| 6 | 15.0 | 88.4% | **1.0000** | 7.4% |
+| 12 | 27.8 | 88.5% | **1.0000** | 8.2% |
+| 24 | 52.8 | 73.9% | **1.0000** | 16.2% |
 
-Every refusal rate in this table fell by roughly 2.5pp when Layer 2b landed, and match
-rate did not move: part-settlements were being refused at every density, and resolving
-them converts a refusal into an assignment without adding a payment the sweep counts
-(the two halves settle one payment that the previous row already counted as unassigned).
-The shape of the curve is unchanged, which is the claim.
+**The curve got steeper, and that is the batch getting harder rather than the engine
+getting worse.** Two defect categories were added in O10 — a four-way split settlement
+and a partial chargeback — so every arm of this sweep is scored against a batch with more
+structure in it than the previous table saw. Refusal rate now rises **2.4x** across the
+density range where it rose 1.9x before, and match rate at `ppw=24` falls further.
+Precision is 1.0000 at every arm, before and after. That is the whole claim, and a
+harder batch is a better place to make it.
 
 As the candidate pool grows six-fold, **refusal rate rises while precision stays flat**
 and coverage is what degrades. That is the behaviour the architecture was built to

@@ -83,6 +83,10 @@ def cmd_holdout(args: argparse.Namespace) -> int:
             ("adversarial free text", info["adversarial_narrations"]),
             ("references duplicated across days", info["cross_day_duplicate_refs"]),
             ("drifted past the engine's lookback", info["drifted_past_lookback"]),
+            (
+                "chargebacks whose reference was overwritten",
+                info.get("reversals_orphaned_by_ref_shift", 0),
+            ),
         ],
     )
     _print_block(

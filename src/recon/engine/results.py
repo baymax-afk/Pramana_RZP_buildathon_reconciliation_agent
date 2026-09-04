@@ -198,6 +198,14 @@ class Reversal:
     debit_paise: int
     reason: str
     evidence: tuple[str, ...] = ()
+    # True when the debit claws back only PART of the settlement -- one or more of the
+    # payments inside a batch, rather than the whole credit.
+    #
+    # Worth its own flag rather than being derived from the amounts, because the two are
+    # different facts for an operator: a full reversal means the settlement is undone,
+    # a partial one means the rest of that batch still stands and only these receivables
+    # reopened. `payment_ids` says which.
+    partial: bool = False
 
 
 @dataclass(frozen=True, slots=True)

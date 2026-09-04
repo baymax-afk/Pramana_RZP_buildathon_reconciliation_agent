@@ -218,8 +218,29 @@ def test_the_holdout_lives_outside_the_reported_batch():
 # Content hash of the frozen holdout. Deliberately a literal: a digest computed at
 # runtime would pass no matter what the set contained.
 #
-# CHANGED ONCE, 2026-09-04, for O8 -- the settlement-group model. Recorded here rather
-# than only in a commit message, because this is the line a reader checks.
+# CHANGED TWICE, both on 2026-09-04. Recorded here rather than only in commit messages,
+# because this is the line a reader checks.
+#
+# SECOND CHANGE, for O10 -- the two limitations O8 named in place of the two it closed.
+# The generator gained a FOUR-way split settlement and a PARTIAL chargeback, so this
+# time the inputs genuinely changed: there are new bank lines that were not there
+# before. That is a bigger step than the first rebuild and it needs the stronger
+# justification, so here it is.
+#
+# The decision was made BEFORE the set was scored, and it makes the holdout strictly
+# harder: a four-way split is the case the engine refused until `MAX_GROUP_CREDITS` rose
+# from 3, and a partial chargeback is the case the reversal ledger reported as an
+# unexplained debit. Neither existed to be gamed. What the freeze forbids is rebuilding
+# in response to a NUMBER, and the number this rebuild produced was worse, not better:
+# the density sweep's refusal rate went from 1.9x to 2.4x across the range and match rate
+# at ppw=24 fell four points, because the batch now contains structure it did not before.
+#
+# A holdout that can never change is a holdout that stops testing anything the engine
+# learned to do after it was frozen. The discipline that matters is that the change is
+# declared, its direction is stated, and the numbers are republished whichever way they
+# went.
+#
+# FIRST CHANGE, for O8 -- the settlement-group model.
 #
 # What changed: **the labels only**. `split_settlement` links used to say
 # `expected_verdict="refuse"` because a part-settlement was outside the engine's model
@@ -240,4 +261,4 @@ def test_the_holdout_lives_outside_the_reported_batch():
 # decided before the holdout was scored, and it makes the engine's job no easier -- the
 # same four credits must now be grouped correctly to earn the same credit they used to
 # earn by being refused.
-FROZEN_DIGEST = "5f4e3f8593f0d3b8263ff3df88701a267231cff4dda9e8924e7db39b71a10571"
+FROZEN_DIGEST = "a2b35d587f69c8f114fdf7be773a7e6f5bb2d7975b61f8ac819b4155fd03d5d1"

@@ -481,6 +481,72 @@ work to keep the same distance from the ceiling.
    refused visibly rather than searched for; both are named in `ARCHITECTURE.md` so a
    correct-looking refusal still cannot hide an unmodelled relation.
 
+### ~~O10. The two limitations O8 left behind~~ — **both lifted, 2026-09-04**
+
+Named on the morning, closed on the afternoon, and the afternoon cost a wrong assignment.
+
+**A four-way split was refused for the engine's convenience.** `MAX_GROUP_CREDITS = 3` was
+justified as a search bound and it was one — `combinations(residue, k)` is 4,598,438
+subsets at k≤6 over 40 credits, each running a subset-sum search, eight times over under
+the permutation gate. It was also almost entirely waste: a group's members must land
+within `GROUP_SPAN_DAYS` of each other, and the loop enumerated every subset before
+discarding the spanning ones. On the reported batch, **1,474 subsets enumerated to keep
+one.** Anchored on date windows the enumeration is exact and small, and the bound rose to
+**6** at no measurable cost. *A bound that exists because of how a search is written is a
+bound on the author, not on the problem.*
+
+**A partial chargeback was being answered with silence.** A chargeback is raised against a
+transaction and a settlement batch covers several, so disputing one payment out of four
+produces a debit for that payment's share carrying the batch's reference. The first
+reversal ledger required `debit == credit` exactly and reported every one as an
+unexplained debit. It is a bounded subset-sum over the referenced settlement's payments —
+Layer 2's own machinery pointed at a smaller pool — unique or not at all, with no payment
+reversed twice.
+
+**And the wrong assignment.** Widening the model widened what could be grouped, and the
+eligibility rule was wrong: group resolution was offered *every* unsettled credit. Two
+genuine many-to-one settlements, each refused as `multiple_candidates` at ppw=24, were
+combined into a coincidental grouping and **posted**. Precision 0.9963 — the only wrong
+assignment this engine has produced. Caught by the density sweep, which is the second
+defect it has found that no reported run could reach.
+
+The fix is the eligibility rule, not the group test: a credit refused for having several
+viable decompositions is **ambiguous, not unexplained**, and grouping it adds a
+possibility rather than resolving one. Only `no_subset_fits` and `no_candidate` credits
+qualify. Re-measured across 4 densities × 5 seeds: **zero wrong assignments**.
+
+| | after O8 | after O10 |
+|---|--:|--:|
+| match rate (primary) | 89.69% | **89.69%** |
+| match rate (holdout) | 85.57% | **86.60%** |
+| match precision | 1.0000 | **1.0000** (both) |
+| assignments behind it | 130 / 108 | **133 / 112** |
+| 95% CI lower bound | 97.20% / 96.64% | **97.26% / 96.76%** |
+| settlement groups | 2 two-way | **3, one of them four-way** |
+| reversals identified | 6 of 6 / 3 of 3 | **7 of 7 / 4 of 5**, 2 partial / 1 partial |
+| defect categories in the batch | 16 | **18** |
+
+**The primary match rate did not move, and that is the honest reading.** The generator
+converts an already-matched credit into a split rather than adding coverage, so the batch
+got harder and the engine held. The density sweep says the same thing louder: refusal rate
+now rises **2.4×** across the density range where it rose 1.9× before, at precision 1.0000
+throughout.
+
+**The holdout's fifth reversal is a miss, and it is named.** The shift overwrites
+references across days; one partial chargeback there points at a settlement whose
+reference it destroyed. No evidence path remains, the engine reports the debit unexplained
+— correctly — and `run.py holdout` now counts it under *"chargebacks whose reference was
+overwritten"*. Preventing the clobber would have bought 5 of 5 by weakening the stress.
+
+**The holdout was rebuilt a second time, and this time the inputs genuinely changed** —
+new bank lines for the wide split and the partial chargeback. `FROZEN_DIGEST` carries the
+reasoning: the decision was made before the set was scored, and it made the set strictly
+harder. The number it produced was worse, not better.
+
+**Successors**, named for the same reason: a claw-back against a settlement in an earlier
+batch, a partial chargeback whose settlement the engine refused, and grouping an ambiguous
+credit — the last of which is deliberately not done rather than not yet done.
+
 ### ~~O9. `third_party_payer` refusals are correct but expensive~~ — **closed, and measured on two batches**
 The original entry, kept: *"an investigating agent checking whether a payer is an
 authorised group entity is exactly the evidence that would close it."* It was written as
@@ -491,23 +557,28 @@ interesting than the hypothesis.
 
 | | reported | shifted holdout |
 |---|--:|--:|
-| exceptions in the baseline | 11 | 19 |
-| evidence asserted | **3** | **1** |
-| declined — insufficient evidence | 8 | 18 |
-| match rate | 89.69% → **91.24%** | 85.57% → **86.08%** |
-| released | **₹66,357.55** | **₹872.74** |
+| exceptions in the baseline | 11 | 18 |
+| evidence asserted | **2** | **2** |
+| declined — insufficient evidence | 9 | 16 |
+| match rate | 89.69% → **90.72%** | 86.60% → **87.63%** |
+| released | **₹87,995.75** | **₹33,048.28** |
 | match precision | 1.0000 → **1.0000** | 1.0000 → **1.0000** |
 | wrong assignments | 0 → **0** | 0 → **0** |
 
-**Re-measured after O8, and the agent's own contribution did not move: still 3 and 1, still
-the same rupees.** The baselines fell — 15 exceptions to 11 on the reported batch, 23 to 19
-on the holdout — because Layer 2b resolved four part-settlements that used to be refused.
-Those were never exceptions the agent could close: it closes `amount_name_conflict`
-refusals with register evidence, and a split settlement is an arithmetic relation the
-register knows nothing about. **A deterministic fix absorbing work the agent was doing
-would have been the interesting result; this is the other one, and it is worth saying
-plainly because the reverse happened last time** (`DEFECT_LOG` 2026-09-04-04, where a
-parsing fix cut the agent's headline from 3 to 1 and we reported the smaller number).
+**Re-measured after O8 and again after O10, and the honest summary is that this number is
+not stable across engine changes — it is 2 or 3 depending on what the deterministic layers
+left behind.** After O8 it was 3 on the reported batch and 1 on the holdout; it is now 2
+and 2. The agent closes `amount_name_conflict` refusals with register evidence, and every
+change to the matching layers changes which credits are still carrying that category when
+the agent arrives.
+
+**Which is the finding, and it is a smaller claim than "our agent closes 3 exceptions".**
+The agent's contribution is a residue: what the deterministic engine could not settle AND
+the register happens to cover. On the holdout it doubled, not because the agent improved
+but because a harder batch left more name conflicts standing. The defensible sentence
+remains the one the per-source attribution supports — *a more complete authorised-payer
+register closes more exceptions at unchanged precision* — and it is worth noting that this
+figure has now moved for three different reasons, none of them the agent.
 
 **Reproduce with `--offline --no-llm`, and both flags matter.** Without `--no-llm` the
 engine selects a live `ClaudeTier` when a key is present in the environment, which resolves
@@ -602,7 +673,9 @@ assigns 126.
   independent ways: no Kaggle credentials (`~/.kaggle/kaggle.json` absent, `kaggle` not
   installed) and the proxy still refuses the host (`CONNECT tunnel failed, response 403`).
 - ~~**O8** — `split_settlement` and `chargeback_debit` remain outside the model by design.~~
-  **Both lifted 2026-09-04.** The successors are a >3-way split and a partial chargeback.
+  **Both lifted 2026-09-04**, and so were their two successors (**O10**): splits are now
+  resolved to six-way and a partial chargeback reverses the payment subset it names.
+  O10 also cost the engine's only wrong assignment, found and fixed the same afternoon.
 
 ---
 

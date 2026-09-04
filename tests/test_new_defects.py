@@ -16,6 +16,8 @@ import pytest
 
 import config as cfg
 from recon.engine import fees as engine_fees
+from recon.engine import tier2_amount_date as t2
+from recon.engine import tier3_subsetsum as t3
 from recon.engine.match import match_once
 from recon.engine.results import RefusalCategory
 from recon.generator import build
@@ -418,9 +420,19 @@ def test_a_chargeback_link_carries_only_its_own_defect_label(batch):
     `weekend_bunching`, and the generator's own well-formedness checks then tested a
     chargeback against the rules for a settlement credit and failed it.
     """
+    # Its OWN labels only. `partial_chargeback` is one of the claw-back's own -- it
+    # describes the debit line, not the settlement it reverses -- so the assertion is a
+    # subset check against the reversal vocabulary rather than an exact tuple. Pinning
+    # the exact tuple made adding a second kind of chargeback fail a test about
+    # inheritance, which is not what it is for.
+    reversal_labels = {"chargeback_debit", "partial_chargeback"}
     for l in batch.truth:
         if l.expected_verdict == "reverse":
-            assert l.defect_labels == ("chargeback_debit",), l.defect_labels
+            assert set(l.defect_labels) <= reversal_labels, l.defect_labels
+            assert "chargeback_debit" in l.defect_labels
+            # Nothing that describes the settlement rather than the claw-back.
+            assert not ({"weekend_bunching", "settlement_drift", "mdr_fee"}
+                        & set(l.defect_labels))
 
 
 def test_the_metrics_block_discloses_what_it_did_not_examine(batch):
@@ -454,3 +466,101 @@ def test_the_structural_defects_appear_at_every_seed(seed):
     seen = {lab for l in b.truth for lab in l.defect_labels}
     assert "split_settlement" in seen, f"no split settlement at seed {seed}"
     assert any(t.debit for t in b.inputs.bank_txns), f"no debit lines at seed {seed}"
+
+
+# --------------------------------------------------------------------------
+# O10 — arbitrary-arity splits and partial chargebacks
+# --------------------------------------------------------------------------
+def test_a_four_way_split_is_resolved_as_one_group(batch):
+    """
+    `MAX_GROUP_CREDITS` was 3 because group resolution enumerated every subset of the
+    residue, and three was the largest arity that enumeration could afford. The
+    generator only ever produced two-way splits, so the bound was never exercised: the
+    engine could have had a bound of two and nothing would have failed.
+
+    The wide split is here so the arity is measured rather than claimed.
+    """
+    out = match_once(batch.inputs)
+    wide = [g for g in out.groups if len(g.bank_txn_ids) >= 4]
+    assert wide, (
+        f"no group with four or more credits; sizes were "
+        f"{[len(g.bank_txn_ids) for g in out.groups]}"
+    )
+    for g in wide:
+        assert g.residual_paise == 0
+        links = [l for l in batch.truth if l.bank_txn_id in g.bank_txn_ids]
+        assert len(links) == len(g.bank_txn_ids)
+        for l in links:
+            assert l.relation == "split" and l.expected_verdict == "assign"
+            assert set(l.payment_ids) == set(g.payment_ids)
+
+
+def test_only_credits_nothing_accounts_for_may_be_grouped(batch):
+    """
+    THE regression, and it cost a wrong assignment -- the only one this engine has
+    posted. `DEFECT_LOG` 2026-09-04-10.
+
+    At seed 55555, ppw=24, two genuine many-to-one settlements were each refused as
+    `multiple_candidates` because three decompositions fitted them. Group resolution
+    then combined the pair, found a six-payment subset summing to their combined total,
+    and posted it. Precision 0.9963.
+
+    A credit refused for having SEVERAL viable decompositions is ambiguous, not
+    unexplained. Grouping it does not resolve the ambiguity; it adds a possibility. Only
+    credits nothing accounted for at all -- `no_subset_fits`, or no candidate -- are
+    eligible.
+    """
+    out = match_once(batch.inputs)
+    # Nothing in a group may have had a viable single-credit decomposition.
+    for g in out.groups:
+        for txn_id in g.bank_txn_ids:
+            txn = next(t for t in batch.inputs.bank_txns if t.id == txn_id)
+            pool = t2.candidate_pool(txn, batch.inputs.payments, claimed=set())
+            found = t3.search(
+                txn.credit, pool,
+                {i.invoice_no: i for i in batch.inputs.invoices},
+            )
+            assert not found.solutions, (
+                f"{txn_id} was grouped, but {len(found.solutions)} subset(s) account "
+                f"for it on its own -- it is ambiguous, not unexplained"
+            )
+
+
+def test_a_partial_chargeback_reverses_only_the_disputed_payment(batch):
+    """
+    A chargeback is raised against a TRANSACTION and a settlement batch covers several.
+    The first reversal ledger required `debit == credit` exactly and reported every one
+    of these as an unexplained debit.
+    """
+    links = {
+        l.bank_txn_id: l
+        for l in batch.truth
+        if "partial_chargeback" in l.defect_labels
+    }
+    assert links, "no partial chargebacks in this batch"
+
+    out = match_once(batch.inputs)
+    found = {r.bank_txn_id: r for r in out.reversals}
+    for txn_id, link in links.items():
+        assert txn_id in found, f"{txn_id} was not tied to any settlement"
+        r = found[txn_id]
+        assert r.partial, "a part-settlement claw-back must be flagged partial"
+        assert set(r.payment_ids) == set(link.payment_ids)
+        # The rest of that batch still stands: the reversal names fewer payments than
+        # the settlement it reverses.
+        settled = out.assignment_map.get(r.settled_by, frozenset())
+        assert set(r.payment_ids) < set(settled), (
+            "a partial reversal must claw back a PROPER subset of its settlement"
+        )
+
+
+def test_no_payment_is_reversed_twice(batch):
+    """Two chargebacks against one batch must not reopen the same receivable twice."""
+    out = match_once(batch.inputs)
+    seen: set[str] = set()
+    for r in out.reversals:
+        assert not (seen & set(r.payment_ids)), (
+            f"{r.bank_txn_id} reverses payments already clawed back: "
+            f"{seen & set(r.payment_ids)}"
+        )
+        seen.update(r.payment_ids)

@@ -752,23 +752,22 @@ def generate(
                 )
             )
 
-    # ---- split_settlement: one payment arriving as TWO credits ----
+    # ---- split_settlement: one payment arriving as SEVERAL credits ----
     #
     # Razorpay splits a settlement for on-demand payouts and when a batch crosses a
-    # limit, so one payment's net arrives as two separate credits. The engine cannot
-    # represent this: `claimed` is a set so a payment is taken once, and every tier asks
-    # which SUBSET OF PAYMENTS sums to a credit -- there is no way to express half a
-    # payment. Both credits are therefore labelled `refuse`.
+    # limit, so one payment's net arrives as separate credits. Layer 2b resolves these
+    # as a GROUP: the parts balance against the payment exactly, and neither part
+    # accounts for the money on its own.
     #
-    # Refusing is genuinely correct: posting a part-settlement against a whole payment
-    # would be a wrong answer, not a partial one. But the coverage it costs is real, so
-    # ARCHITECTURE.md names it as a limitation and the outcome-by-defect table shows it
-    # rather than letting a correct-looking refusal hide an unmodelled relation.
-    # Two, and not one drawn at random: a single instance of an unmodelled relation
-    # reads as an anomaly, and the point is that it is a category.
+    # **Three splits now, and one of them is FOUR-way on purpose.** The generator used
+    # to produce two-way splits only, which meant `MAX_GROUP_CREDITS` was never
+    # exercised above two -- the engine could have had a bound of two and nothing would
+    # have failed. A capability nothing tests is a claim, and this project's whole
+    # argument is against those. The wide split is the case that would have been refused
+    # under the previous bound of three, so it fails loudly if the arity ever regresses.
     split_candidates: list[TruthLink] = []
     for link in list(truth):
-        if len(split_candidates) >= 2:
+        if len(split_candidates) >= 3:
             break
         if (
             link.relation == "one_to_one"
@@ -779,29 +778,45 @@ def generate(
             split_candidates.append(link)
 
     by_txn_id = {t.id: t for t in bank_txns}
-    for link in split_candidates:
+    # Two-way, two-way, four-way. The arities are fixed rather than drawn, so the batch
+    # contains the wide case at every seed instead of usually.
+    for arity, link in zip((2, 2, 4), split_candidates):
         original = by_txn_id.get(link.bank_txn_id)
-        if original is None or original.credit < 2 * cfg.MIN_PAYMENT_PAISE:
+        if original is None or original.credit < arity * cfg.MIN_PAYMENT_PAISE:
             continue
-        first = int(original.credit * rng.uniform(0.4, 0.6))
-        second = original.credit - first
+        # Uneven parts, summing to the original to the paisa. Equal parts would let a
+        # matcher find the group by spotting N identical amounts, which is not the
+        # evidence the layer is meant to be using.
+        cuts = sorted(rng.uniform(0.15, 0.85) for _ in range(arity - 1))
+        bounds = [0.0, *cuts, 1.0]
+        parts = [
+            int(original.credit * (bounds[i + 1] - bounds[i])) for i in range(arity)
+        ]
+        parts[-1] = original.credit - sum(parts[:-1])
+        if any(pt < cfg.MIN_PAYMENT_PAISE // 4 for pt in parts):
+            continue
+
         idx = bank_txns.index(original)
         setl = defects.make_settlement_id(rng)
         bank_txns[idx] = BankTxn(
             id=original.id, txn_date=original.txn_date, value_date=original.value_date,
-            narration=f"RAZORPAY SETTLEMENT {setl} PART 1 OF 2",
-            ref_no=original.ref_no, credit=first, debit=0, balance=original.balance,
+            narration=f"RAZORPAY SETTLEMENT {setl} PART 1 OF {arity}",
+            ref_no=original.ref_no, credit=parts[0], debit=0, balance=original.balance,
         )
-        txn_seq += 1
-        second_id = f"bank_txn_{txn_seq:04d}"
-        bank_txns.append(
-            BankTxn(
-                id=second_id, txn_date=original.txn_date, value_date=original.value_date,
-                narration=f"RAZORPAY SETTLEMENT {setl} PART 2 OF 2",
-                ref_no=defects.make_utr(rng), credit=second, debit=0,
-                balance=original.balance,
+        part_ids = [original.id]
+        for n, amount in enumerate(parts[1:], start=2):
+            txn_seq += 1
+            part_id = f"bank_txn_{txn_seq:04d}"
+            part_ids.append(part_id)
+            bank_txns.append(
+                BankTxn(
+                    id=part_id,
+                    txn_date=original.txn_date, value_date=original.value_date,
+                    narration=f"RAZORPAY SETTLEMENT {setl} PART {n} OF {arity}",
+                    ref_no=defects.make_utr(rng), credit=amount, debit=0,
+                    balance=original.balance,
+                )
             )
-        )
         # Both halves expect ASSIGN, and they did not always. Until Layer 2b existed the
         # relation was outside the engine's model -- `claimed` is a set, so a payment is
         # taken once, and no tier could ask a question a half-settlement has an answer
@@ -815,14 +830,21 @@ def generate(
         # payments match, so the two links agree with one group rather than demanding
         # two assignments that would double-post the payment.
         labels = tuple(link.defect_labels) + ("split_settlement",)
+        if arity >= 4:
+            # Named separately so the outcome-by-defect table can show the wide case on
+            # its own. Lumped in with the two-way splits it would be invisible: a table
+            # reading "split_settlement 6 matched" says nothing about whether any of
+            # them had more than two parts.
+            labels += ("split_settlement_wide",)
         truth[truth.index(link)] = TruthLink(
             link.bank_txn_id, link.payment_ids, link.invoice_nos, labels,
             "split", "assign",
         )
-        truth.append(
-            TruthLink(second_id, link.payment_ids, link.invoice_nos, labels,
-                      "split", "assign")
-        )
+        for part_id in part_ids[1:]:
+            truth.append(
+                TruthLink(part_id, link.payment_ids, link.invoice_nos, labels,
+                          "split", "assign")
+            )
 
     # ---- chargeback_debit: money leaving, on a line the engine never reads ----
     #
@@ -878,6 +900,72 @@ def generate(
                 # generator's own well-formedness checks then tested a chargeback
                 # against the rules for a settlement credit and failed it.
                 defect_labels=("chargeback_debit",),
+                relation="reversal",
+                expected_verdict="reverse",
+            )
+        )
+
+    # ---- partial_chargeback: one payment disputed inside a settlement batch ----
+    #
+    # A chargeback is raised against a TRANSACTION, and a settlement batch covers
+    # several. Disputing one payment out of four produces a debit for that payment's
+    # settled contribution, carrying the batch's reference -- not a debit for the whole
+    # credit. The engine's first reversal ledger required `debit == credit` exactly and
+    # reported every one of these as an unexplained debit.
+    #
+    # Built from a `many_to_one` batch with NO netted refund, because a refund is
+    # deducted from the batch total without being attributable to a single payment's
+    # settled amount, so the arithmetic for one payment's share would not close. That is
+    # a real compound case and a different defect; conflating the two here would make
+    # this one unsatisfiable rather than hard.
+    inv_by_no = {i.invoice_no: i for i in invoices}
+    pay_by_id = {p.id: p for p in payments}
+    partial_targets = [
+        l for l in truth
+        if l.relation == "many_to_one"
+        and l.expected_verdict == "assign"
+        and len(l.payment_ids) >= 3
+        and "refund_netted" not in l.defect_labels
+        and l.bank_txn_id in by_txn_id
+    ]
+    for link in partial_targets[:2]:
+        original = by_txn_id[link.bank_txn_id]
+        disputed = pay_by_id.get(link.payment_ids[0])
+        if disputed is None or disputed.fee is None:
+            continue
+        # What that one payment actually settled for: gross less the gateway fee, less
+        # any TDS its own invoice carried. The same arithmetic the batch total was built
+        # from, applied to one member of it.
+        tds = sum(
+            inv.tds_amount
+            for no in _invoice_nos(disputed)
+            if (inv := inv_by_no.get(no)) is not None
+        )
+        amount = disputed.amount - disputed.fee - tds
+        if amount <= 0 or amount >= original.credit:
+            continue
+        txn_seq += 1
+        cb_date = date.fromisoformat(original.txn_date) + timedelta(days=rng.randint(4, 11))
+        balance -= amount
+        debit_id = f"bank_txn_{txn_seq:04d}"
+        bank_txns.append(
+            BankTxn(
+                id=debit_id,
+                txn_date=cb_date.isoformat(), value_date=cb_date.isoformat(),
+                narration=f"CHARGEBACK REV {original.ref_no} DISPUTE PARTIAL",
+                ref_no=original.ref_no, credit=0, debit=amount,
+                balance=balance,
+            )
+        )
+        truth.append(
+            TruthLink(
+                bank_txn_id=debit_id,
+                # ONE payment, not the batch. A reversal link naming the whole batch
+                # would score the engine correct for clawing back four receivables when
+                # one was disputed -- the opposite of what the line says.
+                payment_ids=(disputed.id,),
+                invoice_nos=tuple(_invoice_nos(disputed)),
+                defect_labels=("chargeback_debit", "partial_chargeback"),
                 relation="reversal",
                 expected_verdict="reverse",
             )

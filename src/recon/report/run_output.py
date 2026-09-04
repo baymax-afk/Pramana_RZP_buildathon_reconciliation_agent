@@ -146,6 +146,7 @@ def build(
             "settled_by": r.settled_by,
             "payment_ids": list(r.payment_ids),
             "reason": r.reason,
+            "partial": r.partial,
         }
         for r in out.reversals
     }
@@ -282,6 +283,7 @@ def build(
             "lines": len(debits),
             "rupees": round(sum(t.debit for t in debits) / 100, 2),
             "reversals_identified": len(out.reversals),
+            "reversals_partial": sum(1 for r in out.reversals if r.partial),
             "rupees_reversed": round(out.reversed_paise / 100, 2),
             "unexplained": len(out.unexplained_debits),
             "rupees_unexplained": round(
@@ -304,7 +306,13 @@ def build(
                     "reverses": _reversal_by_txn.get(t.id, {}).get("settled_by"),
                     "payment_ids": _reversal_by_txn.get(t.id, {}).get("payment_ids", []),
                     "status": (
-                        "reversal" if t.id in _reversal_by_txn else "unexplained"
+                        (
+                            "partial reversal"
+                            if _reversal_by_txn[t.id]["partial"]
+                            else "reversal"
+                        )
+                        if t.id in _reversal_by_txn
+                        else "unexplained"
                     ),
                     "detail": (
                         _reversal_by_txn.get(t.id, {}).get("reason")

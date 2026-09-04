@@ -29,21 +29,23 @@ and reproduces bit-for-bit; the live tier moves one assignment in nine runs out 
 
 The first screen is the reconciliation summary. Read the top line off it:
 
-> **₹36,70,814.44 reconciled and verified**, across **130 bank credits**, **174 payments**
-> and **162 invoices** — from **534 records** across three sources.
+> **₹36,70,814.44 reconciled and verified**, across **133 bank credits**, **174 payments**
+> and **162 invoices** — from **538 records** across three sources.
 
 Then the two numbers that qualify it, both on the same screen:
 
 - **Match rate 89.69%** — 174 of 194 settleable payments.
-- **Accuracy 100.00%** — 130 of 130 postings correct, **95% CI ≥ 97.20%**.
+- **Accuracy 100.00%** — 133 of 133 postings correct, **95% CI ≥ 97.26%**.
 
-Say the bound out loud. *"130 observations support a 95% floor of 97.2%, not 99.9%. We
+Say the bound out loud. *"133 observations support a 95% floor of 97.3%, not 99.9%. We
 report the floor because the point estimate on a sample this size doesn't mean what it
 looks like."* It is the line that separates this from a demo that quotes 100% and stops.
 
-And read the amber line under it: **₹35,04,081.67 net** of six chargebacks totalling
-₹1,66,732.77. *"The matches stand — the settlements were correct and the money was clawed
-back afterwards. That is two facts, so we report two numbers."*
+And read the amber line under it: **₹35,20,805.75 net** of seven chargebacks totalling
+₹1,50,008.69. *"The matches stand — the settlements were correct and the money was clawed
+back afterwards. That is two facts, so we report two numbers."* Two of the seven are
+**partial** — one payment disputed inside a settlement batch of four, where the rest of
+the batch still stands.
 
 ## 2 · One concrete before → after — 90 s
 
@@ -59,9 +61,11 @@ back afterwards. That is two facts, so we report two numbers."*
 Two things worth saying here:
 
 1. **This is the hard case, not the easy one.** A lump settlement that no single payment
-   explains. **20 of the 130** credits are like this, covering **66 payments** between
-   them — and two more are the mirror case: **one** payment that arrived across **two**
-   bank lines, matched as a group. Open the row marked **SPLIT** if there is time.
+   explains. **20 of the 133** credits are like this, covering **66 payments** between
+   them — and three more are the mirror case: **one** payment arriving across several
+   bank lines, matched as a group. Open the row marked **SPLIT** if there is time; one
+   of them is a **four-way** split, and it is the case the engine refused until a week
+   ago.
 2. **"And no other combination fits" is the claim that matters.** Finding *an* answer is
    easy; proving it is *the* answer is why this refuses anything at all.
 
@@ -70,7 +74,7 @@ uniqueness margin. Do not lead with it.
 
 ## 3 · It processes the batch, not a record — 30 s
 
-Scroll the Reconciled tab. 128 rows over 130 credits — a split settlement is one row,
+Scroll the Reconciled tab. 128 rows over 133 credits — a split settlement is one row,
 because the money moved once. Largest first. Then:
 
 ```bash
@@ -84,7 +88,7 @@ Under a second for 534 records with all four verification layers on.
 Bottom of the Reconciled tab, **Verification**:
 
 > **Every match held when the records were shuffled.** The batch was reconciled 8 times
-> over, each time with the bank lines in a different order, and all 130 matches came out
+> over, each time with the bank lines in a different order, and all 133 matches came out
 > the same.
 
 Then say why it is not a formality: *"a reconciler that works through records in file
@@ -92,7 +96,7 @@ order can hand the same money to whichever candidate it saw first, and the wrong
 looks exactly like the right one. Re-running in a different order is how that gets
 caught — and anything caught is refused, not posted."*
 
-Click **Show the raw metric** if they want `unstable 0/130, K=8`.
+Click **Show the raw metric** if they want `unstable 0/133, K=8`.
 
 ## 5 · What it refused, and why that is the point — 90 s
 
@@ -164,6 +168,15 @@ settlement. It does not — both events happened — so the assignment stands an
 reports reconciled gross and net. All **6 of 6** chargebacks are tied to the settlement
 they reverse, and the *not examined* line now reads **zero**.
 
-The cost, if asked: 15 exceptions became 11, match rate 88.66% → 89.69%, precision 1.0000
-unchanged with zero wrong assignments, and two *new* named limitations in their place — a
-settlement split more than three ways, and a partial chargeback.
+Those two limitations were themselves lifted the same day: splits resolve to six-way now
+and a partial chargeback reverses the payment subset it names. **That afternoon also
+produced the engine's only wrong assignment**, and it is the better half of the story:
+widening the model widened what could be grouped, two *ambiguous* credits got rolled into
+a coincidental group, and precision read 0.9963 at one density. The density sweep caught
+it; the fix was the eligibility rule, not the group test — a credit with several viable
+decompositions is ambiguous, not unexplained, and grouping it adds a possibility rather
+than resolving one. Zero wrong assignments across 4 densities × 5 seeds after.
+
+The cost, if asked: 15 exceptions became 11, precision 1.0000 throughout at a larger
+sample, and three *new* named limitations in place of the two — all in
+`ARCHITECTURE.md`.

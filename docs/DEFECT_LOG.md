@@ -2142,3 +2142,93 @@ what made the wrong half of the argument visible enough to overturn. **A limitat
 written down with its reasoning is a to-do item; a correct-looking refusal is nothing at
 all.** Two new ones are named in its place: a settlement split more than three ways, and
 a partial chargeback.
+
+---
+
+## 2026-09-04-10 — widening the model widened what could be grouped, and it posted a wrong answer
+
+**Timestamp:** 2026-09-04, working O10 — the two limitations O8 had named in place of the
+two it closed: a settlement split more than three ways, and a partial chargeback.
+
+**What broke.** `test_the_published_density_sweep_matches_a_live_run` failed on the one
+assertion in it that has no tolerance:
+
+    ppw=24: METRICS.md publishes precision 1.0000, live run gives 0.9963
+            -- a precision figure that drifts at all is the claim failing
+
+**The first wrong assignment this engine has ever posted.** Not a coverage miss, not a
+refusal — money posted to the wrong receivables, and the whole argument of the project is
+that this does not happen.
+
+**Diagnosis.** Seed 55555, `ppw=24`, two credits:
+
+    bank_txn_0041  ->  6 payments   truth says 5 entirely different ones
+    bank_txn_0046  ->  the same 6   truth says 3 entirely different ones
+
+Both were settled as one **settlement group**. Running the matcher with grouping disabled
+showed what it had said about them before:
+
+    bank_txn_0041  multiple_candidates   3 viable decompositions
+    bank_txn_0046  multiple_candidates   3 viable decompositions
+
+Both are genuine `many_to_one` settlements. At `ppw=24` the candidate pool is crowded
+enough that three subsets fitted each of them, so each was correctly refused as
+**ambiguous**. Group resolution was then offered every unsettled credit, combined the
+pair, found a six-payment subset summing to their combined total, and posted it.
+
+**Why the irreducibility check did not catch it, which is the interesting part.** Layer 2b
+already refuses a "group" that decomposes into two smaller balancing halves — precisely to
+stop one arbitrary carve-up of a larger coincidence being posted as a settlement. It tests
+every proper sub-group of the credits against every proper subset of **the group's own
+payments**. Here the coincidental payment set was a *different set entirely* from either
+credit's true one, so no sub-group balanced against a subset of those six, and the check
+passed while being exactly right about what it was asked.
+
+**Fix — the eligibility rule, not the group test.** A credit refused for having several
+viable decompositions is **ambiguous, not unexplained**. Grouping it does not resolve the
+ambiguity; it adds a possibility. Only credits nothing accounted for at all —
+`no_subset_fits`, or no candidate — are now offered to group resolution. A split
+settlement's parts qualify by construction: half a payment matches nothing.
+
+Everything else stays refused with the reason it already had, which is the more useful
+verdict anyway: *"three subsets fit this credit"* tells an operator what to go and check;
+*"this is part of a group"* would have told them something untrue.
+
+**Re-measured across the whole sweep after the fix: 4 densities x 5 seeds, zero wrong
+assignments.**
+
+**Cost.** About forty minutes, and it would have shipped without the sweep. The reported
+batch never showed it: at `ppw=6` the pool is not crowded enough to produce an ambiguous
+credit that also sits near another one. **This is the second defect the density sweep has
+caught that no reported run could** (`DEFECT_LOG` 2026-09-02-07 was the first, a crash in
+a path 203 passing tests did not reach). The sweep exists to argue that refusal rate rises
+with ambiguity while precision does not; it keeps paying for itself as a test.
+
+**The lesson, and it generalises past this engine.** Every capability added to a matcher
+widens the set of answers it can produce, and the guard that has to move is usually not
+the one nearest the new code. Layer 2b's own uniqueness and irreducibility checks were
+sound and stayed sound. What was wrong was *which credits were offered to them* — an
+input condition, one function upstream, written when the only credits in the residue were
+ones nothing could explain. **A new capability's blast radius is the set of inputs it can
+now reach, not the code that implements it**, and the place to look after widening a model
+is the eligibility rule rather than the algorithm.
+
+---
+
+### Two smaller findings from the same work, both worth recording
+
+**A bound justified as a search cost that was mostly waste.** `MAX_GROUP_CREDITS = 3`
+looked principled — `combinations(residue, k)` is 10,660 subsets at k<=3 over 40 credits
+and **4,598,438** at k<=6, each running a subset-sum search, eight times over under the
+permutation gate. But a group's members must land within `GROUP_SPAN_DAYS` of each other,
+and the loop generated every subset first and discarded the spanning ones afterwards. On
+the reported batch: **1,474 subsets enumerated at k<=6 to keep one.** Anchoring the
+enumeration on date windows made it exact and small; the bound rose to 6 with no
+measurable cost. *A bound that exists because of how a search is written is a bound on the
+author, not on the problem, and it is worth asking which one you have.*
+
+**A capability nothing tested.** The generator produced two-way splits only, so
+`MAX_GROUP_CREDITS` was never exercised above two — the engine could have shipped with a
+bound of **two** and every test would still have passed. The four-way split now in the
+batch is what makes the arity a measurement rather than a claim, and it is the case that
+would have been refused under the old bound.

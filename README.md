@@ -168,6 +168,7 @@ derived from ground truth rather than carried as a constant.
 match rate            89.69%     174/194 captured payments assigned
 reachable ceiling     92.27%     179/194 payments ground truth says CAN be matched
 short of the ceiling       5     payments the engine could have matched and did not
+match precision       1.0000     133/133 correct, 95% CI >= 97.26%
 ```
 
 **100% is not on offer, and saying so is not a hedge.** Of the 20 captured payments left
@@ -187,10 +188,10 @@ same distance from a target that just got harder.
 **The engine is 5 payments from the maximum this data permits, and all 5 share one
 cause** — `third_party_payer`, every one at residual `+0p` with a Fellegi–Sunter field
 weight of `-3.26`. The amount channel is exact; the name channel disagrees because a
-parent company settled a subsidiary's invoice. `run.py agent` closes 3 of them by
+parent company settled a subsidiary's invoice. `run.py agent` closes 2 of them by
 supplying the authorised-payer relationship as evidence and re-running the engine.
 
-On the shifted holdout the ceiling is **93.30%** and the engine reaches 85.57% — 15
+On the shifted holdout the ceiling is **93.30%** and the engine reaches 86.60% — 13
 short, which is what a distribution it was not built against costs.
 
 ---
@@ -208,11 +209,11 @@ rather than relabelled.
 
 | | primary | shifted holdout |
 |---|---:|---:|
-| match rate | 89.69% | **85.57%** |
+| match rate | 89.69% | **86.60%** |
 | match precision | **1.0000** | **1.0000** |
-| assignments behind it | 130 | **108** |
-| 95% CI lower bound | 97.20% | **96.64%** |
-| refusal rate | 7.80% | **14.96%** |
+| assignments behind it | 133 | **112** |
+| 95% CI lower bound | 97.26% | **96.76%** |
+| refusal rate | 7.64% | **13.85%** |
 
 **Coverage falls, correctness does not.** Under a distribution it was not built against
 the engine declines more work rather than getting more of it wrong. That is the whole
@@ -244,7 +245,7 @@ would be worth less than an accurate account of what is real.
 | **R2 — settlements simulated on real orders** | Real orders created through the API — genuine Razorpay-issued IDs, receipts, notes and server timestamps. **The orders were never completed, so the capture, `fee` and `tax` are SYNTHESISED** from the rate model measured on R1, and the records enter the batch `captured`. Real identity, modelled money. | **12** |
 | **S — synthetic** | Schema-conformant records generated locally, carrying the injected defects. | **164** |
 
-Total batch: **200 payments**, 147 bank transactions, 187 invoices, across 34
+Total batch: **200 payments**, 151 bank transactions, 187 invoices, across 34
 settlement windows.
 
 The R1 slice spans **7 distinct payer contacts**, **7 banks** (BARB_R, CNRB, DEUT,
@@ -286,7 +287,7 @@ No real card, account, or credential was used at any point.
 
 ### Injected defects
 
-**Sixteen categories**, all carrying a ground-truth label. `chargeback_debit`
+**Eighteen categories**, all carrying a ground-truth label. `chargeback_debit`
 deliberately carried none until 2026-09-04, because the engine structurally could not
 produce a verdict for a debit and inventing one would have scored it against a permanent,
 unclosable miss. Layer 2c reads debits and ties each to the settlement it reverses, so
@@ -519,10 +520,10 @@ shape of this feature:
 
 | | reported | shifted holdout |
 |---|--:|--:|
-| exceptions in the baseline | 11 | 19 |
-| closed by the register | **3** | **1** |
-| match rate | 89.69% → 91.24% | 85.57% → 86.08% |
-| released | ₹66,357.55 | ₹872.74 |
+| exceptions in the baseline | 11 | 18 |
+| closed by the register | **2** | **2** |
+| match rate | 89.69% → 90.72% | 86.60% → 87.63% |
+| released | ₹87,995.75 | ₹33,048.28 |
 | precision | 1.0000 → 1.0000 | 1.0000 → 1.0000 |
 | wrong assignments | 0 → 0 | 0 → 0 |
 
@@ -530,11 +531,17 @@ shape of this feature:
 without `--no-llm` the engine picks up a live model when a key is in the environment and
 reports a baseline nobody else can reproduce.)*
 
-Same code, same investigator, one-sixth the effectiveness — and 7 of the holdout's 10
-declines are *"no register entry"*. **The agent's value is mostly a property of how
-complete the merchant's register is.** "A better register closes more exceptions at
-unchanged precision" is a claim we can defend; "our agent closes exceptions" is a
-different sentence and we are not making it.
+Same code, same investigator, and most of the declines on both batches are *"no register
+entry"*. **The agent's value is mostly a property of how complete the merchant's register
+is.** "A better register closes more exceptions at unchanged precision" is a claim we can
+defend; "our agent closes exceptions" is a different sentence and we are not making it.
+
+**This figure has now moved three times, none of them because the agent changed.** It was
+3 and 1 before the settlement-group work, and it is 2 and 2 after — the agent closes name
+conflicts, and every change to the deterministic layers changes which credits are still
+carrying that category by the time it runs. Its contribution is a *residue*: what the
+engine could not settle and the register happens to cover. Worth stating because a number
+that moves when the thing it measures does not is a number to quote carefully.
 
 **Offline runs a deterministic stand-in, not an investigation.** `RecordedInvestigator`
 implements the decision procedure in code so the tools, the budget, the ledger, the
@@ -566,7 +573,7 @@ would be worse than none.
 pytest tests/
 ```
 
-526 tests, including the end-to-end isolation test — which deletes the ground-truth
+530 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,

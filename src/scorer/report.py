@@ -190,6 +190,12 @@ def render(
         add(f"    correct                {sc.reversals_correct}"
             f"   wrong {len(sc.reversals_wrong)}"
             f"   missed {len(sc.reversals_missed)}")
+        if sc.reversals_partial:
+            add(f"    of which PARTIAL       {sc.reversals_partial}"
+                f"   one or more payments inside a settlement batch,")
+            add("                           not the whole credit. Identified by bounded")
+            add("                           subset-sum over that batch's payments: the")
+            add("                           rest of the settlement still stands.")
         if sc.unexplained_debits:
             add(f"    unexplained debits     {sc.unexplained_debits}"
                 f"   Rs {sc.unexplained_debit_paise / 100:,.2f}")

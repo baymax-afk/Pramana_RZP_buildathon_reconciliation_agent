@@ -50,7 +50,8 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from ..schemas import BankTxn, Payment
+from ..schemas import BankTxn, Invoice, Payment
+from . import fees, tier3_subsetsum
 from .results import Assignment, Reversal, SettlementGroup, UnexplainedDebit
 
 # Alphanumeric runs of six or more: UTRs, ARNs, RRNs and settlement ids all take this
@@ -74,6 +75,7 @@ def resolve(
     assignments: tuple[Assignment, ...],
     groups: tuple[SettlementGroup, ...],
     by_id: dict[str, Payment],
+    invoices_by_no: dict[str, Invoice] | None = None,
 ) -> tuple[list[Reversal], list[UnexplainedDebit]]:
     """
     Tie each debit to the settlement it reverses, or report it as unexplained.
@@ -98,6 +100,9 @@ def resolve(
 
     reversals: list[Reversal] = []
     unexplained: list[UnexplainedDebit] = []
+    # Payments already clawed back, so two debits against one settlement batch cannot
+    # reverse the same receivable twice.
+    reversed_payments: set[str] = set()
 
     for d in debits:
         d_date = date.fromisoformat(d.txn_date)
@@ -112,6 +117,7 @@ def resolve(
 
         if len(matched) == 1:
             c = matched[0]
+            reversed_payments.update(posted[c.id])
             reversals.append(
                 Reversal(
                     bank_txn_id=d.id,
@@ -127,6 +133,87 @@ def resolve(
                 )
             )
             continue
+
+        # ---- PARTIAL: the debit claws back only part of a settlement -------
+        #
+        # A chargeback is raised against a TRANSACTION, and a settlement batch covers
+        # several. Disputing one payment inside a batch of four produces a debit for
+        # that payment's settled contribution, not for the whole credit -- and the
+        # previous version of this, which required `debit == credit` exactly, reported
+        # every one of them as an unexplained debit. "Money left the account and we
+        # cannot say against what" is an honest answer; it is a poor one when the
+        # statement says which settlement, and the arithmetic says which payment.
+        #
+        # Identified by bounded subset-sum over the payments in the referenced
+        # settlement, which is Layer 2's own machinery pointed at a smaller pool:
+        # exactly one subset whose expected settled amounts sum to the debit, or none is
+        # posted. The pool is small (the payments of one credit) and the reference has
+        # already narrowed it to one settlement, so this is cheap and strongly
+        # constrained -- the debit is not being matched against the whole batch.
+        if not matched and invoices_by_no is not None:
+            referenced = [
+                by_txn[tid]
+                for tid in sorted(posted)
+                if _refers_to(d, by_txn[tid].ref_no)
+                and date.fromisoformat(by_txn[tid].txn_date) <= d_date
+                and by_txn[tid].credit > d.debit
+            ]
+            if len(referenced) == 1:
+                c = referenced[0]
+                # Payments of that settlement not already clawed back by an earlier
+                # debit. Two chargebacks against one batch must not reverse the same
+                # receivable twice, and debits are walked in id order so this is
+                # deterministic.
+                pool = [
+                    by_id[pid]
+                    for pid in posted[c.id]
+                    if pid in by_id and pid not in reversed_payments
+                ]
+                if pool:
+                    found = tier3_subsetsum.search(
+                        d.debit, pool, invoices_by_no,
+                        tolerance=fees.tolerance_for(d.debit),
+                    )
+                    if len(found.solutions) == 1:
+                        ids = tuple(sorted(found.solutions[0].payment_ids))
+                        reversed_payments.update(ids)
+                        reversals.append(
+                            Reversal(
+                                bank_txn_id=d.id,
+                                settled_by=c.id,
+                                payment_ids=ids,
+                                debit_paise=d.debit,
+                                reason=(
+                                    f"reverses {len(ids)} of the {len(posted[c.id])} "
+                                    f"payment(s) settled by {c.id}: it carries that "
+                                    f"settlement's reference {c.ref_no}, is dated "
+                                    f"{d.txn_date} against its {c.txn_date}, and "
+                                    f"{d.debit}p is what exactly one subset of that "
+                                    f"batch settled for"
+                                ),
+                                evidence=(
+                                    "reference_carried",
+                                    "dated_after",
+                                    "unique_subset_of_the_settlement",
+                                ),
+                                partial=True,
+                            )
+                        )
+                        continue
+                    if len(found.solutions) > 1:
+                        unexplained.append(
+                            UnexplainedDebit(
+                                d.id, d.debit,
+                                f"{len(found.solutions)} different subsets of the "
+                                f"settlement {c.id} each settled for this amount, so "
+                                f"which receivable reopened is not identified",
+                                tuple(sorted(
+                                    p for sol in found.solutions
+                                    for p in sol.payment_ids
+                                )),
+                            )
+                        )
+                        continue
 
         if len(matched) > 1:
             # Two posted settlements answer to the same reference and amount -- which is

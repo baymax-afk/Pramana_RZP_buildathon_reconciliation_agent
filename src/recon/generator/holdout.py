@@ -184,6 +184,34 @@ def shift(batch: GeneratedBatch, seed: int) -> tuple[GeneratedBatch, dict]:
     keys = {old_by_id[i] for i in unreachable if i in old_by_id}
     unreachable = [t.id for t in txns if (t.txn_date, t.ref_no) in keys]
 
+    # ---- reversals whose evidence step 3 destroyed --------------------------
+    #
+    # A chargeback identifies the settlement it reverses by carrying that settlement's
+    # reference. Step 3 overwrites a credit's `ref_no` with another credit's, so a debit
+    # pointing at the overwritten credit now points at nothing -- the evidence path is
+    # gone, and no engine can recover it.
+    #
+    # This is a genuine and deliberate stress: reporting the debit as unexplained is the
+    # correct output, and it is what the engine does. But ground truth still says
+    # `reverse`, so without this the miss appears in the reversal ledger with no reason
+    # attached -- which is the shape this project has been bitten by three times, a
+    # generator destroying something and the engine being scored for it.
+    #
+    # Counted here rather than prevented. Not clobbering these references would weaken
+    # the shift to protect a number, which is the wrong trade in the one artefact whose
+    # job is to be hard.
+    credit_refs = {t.ref_no for t in txns if t.is_credit and t.ref_no}
+    by_id_now = {t.id: t for t in txns}
+    orphaned = [
+        l.bank_txn_id
+        for l in truth
+        if l.expected_verdict == "reverse"
+        and l.bank_txn_id in by_id_now
+        and by_id_now[l.bank_txn_id].ref_no not in credit_refs
+    ]
+    stats["reversals_orphaned_by_ref_shift"] = len(orphaned)
+    unreachable = sorted(set(unreachable) | set(orphaned))
+
     shifted = replace(batch.inputs, bank_txns=tuple(txns))
     out = GeneratedBatch(
         inputs=shifted,

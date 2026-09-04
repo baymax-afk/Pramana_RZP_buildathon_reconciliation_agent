@@ -121,6 +121,55 @@ def _is_reducible(
     return False
 
 
+def _candidate_groups(residue: list[BankTxn]):
+    """
+    Every subset of the residue that could possibly be one settlement, once each.
+
+    **This replaced a flat `combinations(residue, k)` over the whole residue, and the
+    reason is the bound it lifts.** That enumeration was the only thing forcing
+    `MAX_GROUP_CREDITS = 3`: at k<=3 over a residue of 40 it is 10,660 subsets, and at
+    k<=6 it is **4,598,438** -- each of which then ran a subset-sum search, eight times
+    over under the permutation gate. Three was not a belief about how banks split
+    settlements. It was the largest number the enumeration could afford.
+
+    The enumeration was also mostly waste. A group's members must land within
+    `GROUP_SPAN_DAYS` of each other -- that is what a split settlement IS, two transfers
+    of one batch -- and the old loop generated every subset first and threw the spanning
+    ones away afterwards, having already paid to enumerate them. On the reported batch:
+    1,474 subsets enumerated at k<=6, of which **one** survived the span check.
+
+    So the window comes first. Credits are date-sorted; each credit in turn anchors a
+    window of everything within `GROUP_SPAN_DAYS` after it, and this yields the subsets
+    of that window CONTAINING the anchor. Containing-the-anchor is what makes each subset
+    appear exactly once, by its earliest member, rather than once per member.
+
+    **Exact, not heuristic**, and the distinction matters more here than the speed: a
+    heuristic that skipped a subset could hide a rival grouping, and a hidden rival turns
+    a refusal into a confident wrong answer. Every set of credits pairwise within
+    `GROUP_SPAN_DAYS` lies entirely inside the window anchored at its earliest member, so
+    no valid group can be missed. What is skipped is exactly the sets that span too far,
+    which are not groups by definition.
+    """
+    n = len(residue)
+    days = [date.fromisoformat(t.txn_date) for t in residue]
+    for i in range(n):
+        # Everything close enough to the anchor to share a settlement with it. The
+        # residue is date-sorted, so this is a contiguous run.
+        j = i + 1
+        while j < n and (days[j] - days[i]).days <= cfg.GROUP_SPAN_DAYS:
+            j += 1
+        window = residue[i + 1 : j]
+        if not window:
+            continue
+        # Subsets of the window, paired with the anchor. Size is bounded by
+        # MAX_GROUP_CREDITS; the window itself is bounded by how many unexplained
+        # credits land within two days of each other, which on a healthy batch is one
+        # or two.
+        for size in range(1, min(cfg.MAX_GROUP_CREDITS, len(window) + 1)):
+            for rest in combinations(window, size):
+                yield [residue[i], *rest]
+
+
 def resolve(
     credits: list[BankTxn],
     payments: tuple[Payment, ...],
@@ -153,68 +202,64 @@ def resolve(
     if len(residue) < 2:
         return [], [], False
     if len(residue) > cfg.MAX_GROUP_RESIDUE:
-        # Declined to search at all. C(n,3) grows fast enough that enumerating a large
-        # residue would cost more than the whole rest of the match, and the answer would
-        # be discarded anyway under the truncation rule above.
+        # Declined to search at all. Even windowed, a residue this large means something
+        # is wrong with the batch rather than with the groupings in it, and the answer
+        # would be discarded anyway under the truncation rule above.
         return [], [], True
 
     candidates: list[tuple[SettlementGroup, list[Payment]]] = []
     combos = 0
 
-    for size in range(2, cfg.MAX_GROUP_CREDITS + 1):
-        for members in combinations(residue, size):
-            combos += 1
-            if combos > cfg.MAX_GROUP_COMBOS:
-                return [], [], True
-            group = list(members)
-            if _span_days(group) > cfg.GROUP_SPAN_DAYS:
-                continue
-            target = sum(t.credit for t in group)
-            pool = _pool_for(group, payments, claimed)
-            if not pool or len(pool) > cfg.MAX_POOL:
-                continue
+    for group in _candidate_groups(residue):
+        combos += 1
+        if combos > cfg.MAX_GROUP_COMBOS:
+            return [], [], True
+        target = sum(t.credit for t in group)
+        pool = _pool_for(group, payments, claimed)
+        if not pool or len(pool) > cfg.MAX_POOL:
+            continue
 
-            result = tier3_subsetsum.search(
-                target, pool, invoices_by_no, tolerance=fees.tolerance_for(target)
-            )
-            # More than one payment subset balances against this grouping: the grouping
-            # itself is not identified, so it is not a candidate at all. It is not an
-            # exception either -- an exception here would report a group the engine has
-            # no reason to believe in.
-            if len(result.solutions) != 1:
-                continue
+        result = tier3_subsetsum.search(
+            target, pool, invoices_by_no, tolerance=fees.tolerance_for(target)
+        )
+        # More than one payment subset balances against this grouping: the grouping
+        # itself is not identified, so it is not a candidate at all. It is not an
+        # exception either -- an exception here would report a group the engine has
+        # no reason to believe in.
+        if len(result.solutions) != 1:
+            continue
 
-            sol = result.solutions[0]
-            members_pay = [by_id[pid] for pid in sol.payment_ids if pid in by_id]
-            if len(members_pay) != len(sol.payment_ids):
-                continue
-            if _is_reducible(group, members_pay, invoices_by_no):
-                continue
+        sol = result.solutions[0]
+        members_pay = [by_id[pid] for pid in sol.payment_ids if pid in by_id]
+        if len(members_pay) != len(sol.payment_ids):
+            continue
+        if _is_reducible(group, members_pay, invoices_by_no):
+            continue
 
-            interval = fees.expected_credit_interval(members_pay, invoices_by_no)
-            candidates.append(
-                (
-                    SettlementGroup(
-                        bank_txn_ids=tuple(sorted(t.id for t in group)),
-                        payment_ids=tuple(sorted(sol.payment_ids)),
-                        invoice_nos=tuple(
-                            sorted(
-                                {
-                                    inv
-                                    for p in members_pay
-                                    if (inv := p.notes.get("invoice_no"))
-                                }
-                            )
-                        ),
-                        credit_paise=target,
-                        residual_paise=fees.residual(target, interval),
-                        residual_tightness=fees.residual_tightness(target, interval),
-                        certain_fee=sol.certain,
-                        uniqueness_margin=1.0,
+        interval = fees.expected_credit_interval(members_pay, invoices_by_no)
+        candidates.append(
+            (
+                SettlementGroup(
+                    bank_txn_ids=tuple(sorted(t.id for t in group)),
+                    payment_ids=tuple(sorted(sol.payment_ids)),
+                    invoice_nos=tuple(
+                        sorted(
+                            {
+                                inv
+                                for p in members_pay
+                                if (inv := p.notes.get("invoice_no"))
+                            }
+                        )
                     ),
-                    members_pay,
-                )
+                    credit_paise=target,
+                    residual_paise=fees.residual(target, interval),
+                    residual_tightness=fees.residual_tightness(target, interval),
+                    certain_fee=sol.certain,
+                    uniqueness_margin=1.0,
+                ),
+                members_pay,
             )
+        )
 
     return (*_apply_uniqueness(candidates, residue), False)
 

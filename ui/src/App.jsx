@@ -72,6 +72,7 @@ function DebitLedger({ data }) {
           {data.lines} debit line{data.lines === 1 ? "" : "s"} ·{" "}
           <strong>{RUPEES.format(data.rupees)}</strong> left the account ·{" "}
           {data.reversals_identified} tied to a settlement
+          {data.reversals_partial > 0 ? ` (${data.reversals_partial} partial)` : ""}
           {unexplained > 0 ? (
             <>
               {" "}· <strong>{unexplained} unexplained</strong>
@@ -99,7 +100,21 @@ function DebitLedger({ data }) {
                   <td className="mono">{l.narration}</td>
                   <td className="mono">
                     {l.reverses ? (
-                      l.reverses
+                      <>
+                        {l.reverses}
+                        {/*
+                          Full or partial is the difference an operator acts on. A full
+                          reversal means the settlement is undone; a partial one means
+                          the rest of that batch still stands and only these receivables
+                          reopened, so the number of payments is the useful detail.
+                        */}
+                        {l.status === "partial reversal" && (
+                          <span className="muted">
+                            {" "}· part only, {l.payment_ids?.length ?? 0} payment
+                            {(l.payment_ids?.length ?? 0) === 1 ? "" : "s"}
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <span className="muted">unexplained</span>
                     )}

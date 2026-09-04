@@ -154,6 +154,7 @@ class Scorecard:
     # by counting lines that are not matches. Kept separate so it can be read on its own
     # terms, or ignored, without either number contaminating the other.
     reversals_found: int = 0
+    reversals_partial: int = 0
     reversals_expected: int = 0
     reversals_correct: int = 0
     reversals_wrong: tuple[str, ...] = ()
@@ -564,6 +565,7 @@ def score(
         unexamined_lines=unexamined[0],
         unexamined_paise=unexamined[1],
         reversals_found=len(out.reversals),
+        reversals_partial=sum(1 for r in out.reversals if r.partial),
         reversals_expected=reversals_expected,
         reversals_correct=reversals_correct,
         reversals_wrong=tuple(reversals_wrong),

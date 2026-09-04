@@ -90,6 +90,7 @@ class Ensemble:
     # base run's reversals rather than silently reporting none.
     bank_txns: tuple[BankTxn, ...] = ()
     payments_by_id: dict[str, Payment] = field(default_factory=dict)
+    invoices_by_no: dict = field(default_factory=dict)
 
     def unstable(self) -> tuple[TxnStability, ...]:
         return tuple(
@@ -230,6 +231,7 @@ def run_with_permutations(
         passes=passes, seed=base_seed, per_txn=per_txn, base=base,
         bank_txns=inputs.bank_txns,
         payments_by_id={p.id: p for p in inputs.payments},
+        invoices_by_no={i.invoice_no: i for i in inputs.invoices},
     )
 
 
@@ -380,7 +382,8 @@ def apply_gate(ensemble: Ensemble, credits_by_id: dict[str, int]) -> MatchOutput
     # have the books reversing a match the engine no longer makes.
     if ensemble.bank_txns:
         gated_reversals, gated_unexplained = reversals.resolve(
-            ensemble.bank_txns, tuple(kept), tuple(kept_groups), ensemble.payments_by_id
+            ensemble.bank_txns, tuple(kept), tuple(kept_groups),
+            ensemble.payments_by_id, ensemble.invoices_by_no,
         )
     else:
         gated_reversals = list(base.reversals)
