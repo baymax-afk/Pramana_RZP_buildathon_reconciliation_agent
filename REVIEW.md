@@ -26,6 +26,19 @@ number from a doc, I say so and I say whether the code agrees.
 > accompanied this was **corrected on the tenth run** — 9 of 10 observed live runs
 > assign 127 and one assigns 126. See the variance row in §6.
 >
+> **The served artefact is now the reproducible arm.** Regenerating it for the panel
+> above flipped the demo from 127 assignments to 126 with no code change — the
+> documented 1-in-10 live-tier outcome, landing on the file a judge opens. It is now
+> generated with `--no-llm` (`llm_tier: disabled`), which every doc already said the
+> demo should run, and a test enforces it. The live comparison stays published beside
+> it. `DEFECT_LOG` 2026-09-04-02.
+>
+> **Item 6 of the ship list was reported closed a day early.** The reachable ceiling
+> was computed and printed and rendered nowhere, and the five payments it promised to
+> name were never named. Both are now on the page, behind a separate scoring artefact
+> that keeps the engine payload free of ground truth. See the note under §8 item 6
+> and `DEFECT_LOG` 2026-09-04-01.
+>
 > **The verdict below said the missing agent was the real problem. That is now closed
 > too** — see question 1 in section 9. What it says about the artefact bugs is kept
 > as written, because it was true when written.
@@ -364,6 +377,17 @@ than the reverse, and it is defensible out loud.
 | 7 | **Ring-2 investigator** | 6+ | The only thing that makes "agentic" true. Additive; deletable |
 | 8 | **Reword the trust boundary honestly** | 0.5 | Removes the one claim a sharp engineer can falsify on stage |
 | 9 | **Bank-statement balance-continuity check** | 2 | The check a controller expects and no submission will have |
+
+> **Item 6, revisited 2026-09-04.** This was marked done when the ceiling was
+> computed and printed by the scorer. It was not: the number reached the terminal
+> and nothing else — not `run_output.json`, not the API, not the page — and the
+> *"here they are"* half did not exist, because `short_of_ceiling` was a count with
+> no list under it. It now has its own artefact (`reports/scorecard.json`), its own
+> route, and a panel that names all five credits with the engine's refusal reason
+> and a link into each one's recorded working. Kept separate from the engine payload
+> deliberately — the ceiling is truth-derived and `run_output.json`'s guarantee is
+> that it is not. Logged as `DEFECT_LOG` 2026-09-04-01, because "implemented and
+> tested" standing in for "visible" is the third instance of P0-1's shape.
 
 ### Post-buildathon — product direction
 

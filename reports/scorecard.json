@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-04T01:19:51+00:00",
+  "dataset": "primary",
+  "seed": 20260905,
+  "provenance": "Scored against ground truth the engine never received. The engine's own output is in run_output.json and contains none of this; ground-truth isolation is enforced by an audit hook over the recon package, not by convention.",
+  "coverage": {
+    "captured_payments": 194,
+    "payments_assigned": 172,
+    "match_rate": 0.8865979381443299,
+    "reachable_payments": 177,
+    "ceiling": 0.9123711340206185,
+    "short_of_ceiling": 5,
+    "unreachable_payments": 17,
+    "shortfall_by_defect": {
+      "mdr_fee": 5,
+      "third_party_payer": 5,
+      "settlement_drift": 2,
+      "paisa_rounding": 1,
+      "weekend_bunching": 1,
+      "tds_deduction": 1
+    }
+  },
+  "precision": {
+    "total_assignments": 126,
+    "correct_assignments": 126,
+    "match_precision": 1.0,
+    "wrong_assignments": []
+  },
+  "refusals": {
+    "total": 15,
+    "rate": 0.10638297872340426,
+    "correct": 10,
+    "conservative": 5,
+    "correctness": 0.6666666666666666
+  },
+  "short_of_ceiling_txns": [
+    {
+      "bank_txn_id": "bank_txn_0103",
+      "payment_ids": [
+        "pay_SYN001441035"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "third_party_payer",
+        "weekend_bunching"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 4802017
+    },
+    {
+      "bank_txn_id": "bank_txn_0031",
+      "payment_ids": [
+        "pay_SYN000458238"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "third_party_payer",
+        "paisa_rounding",
+        "settlement_drift"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 4466848
+    },
+    {
+      "bank_txn_id": "bank_txn_0128",
+      "payment_ids": [
+        "pay_SYN001742843"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "third_party_payer",
+        "settlement_drift"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 3997558
+    },
+    {
+      "bank_txn_id": "bank_txn_0112",
+      "payment_ids": [
+        "pay_SYN001461845"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "tds_deduction",
+        "third_party_payer"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 947362
+    },
+    {
+      "bank_txn_id": "bank_txn_0027",
+      "payment_ids": [
+        "pay_TWdulPFK9A74yH"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "third_party_payer"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 886376
+    }
+  ]
+}

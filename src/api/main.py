@@ -36,6 +36,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import config as cfg
 
 RUN_OUTPUT = cfg.REPORTS / "run_output.json"
+# Scoring lives in its OWN file, and that separation is load-bearing rather than
+# tidy: run_output.json is defined as what the engine could justify with no answer
+# key, so the ceiling -- which is derived from ground truth -- cannot live in it
+# without making that claim unverifiable by opening the file. Two artefacts, two
+# routes, and the panel says which is which.
+SCORECARD = cfg.REPORTS / "scorecard.json"
 
 app = FastAPI(
     title="Reconciliation exception triage",
@@ -177,9 +183,49 @@ def get_summary() -> dict:
     }
 
 
+_SCORECARD_CACHE: tuple[tuple[int, int], dict] | None = None
+
+
+@app.get("/api/scorecard")
+def get_scorecard() -> dict:
+    """
+    How the run scored against ground truth the engine never received.
+
+    **Returns 200 with `status: "not_scored"` when the file is absent, rather than an
+    error.** A run produced with `--no-score` has no scorecard, and that is a legitimate
+    state, not a failure -- but it must LOOK absent on the page. The alternative is the
+    defect this project already shipped once: `App.jsx` returned `null` for an empty
+    verification block, so the central claim rendered as nothing and nobody noticed
+    until it was asked for. See REVIEW.md P0-1. An absent claim must look absent.
+    """
+    global _SCORECARD_CACHE
+    try:
+        st = SCORECARD.stat()
+    except FileNotFoundError:
+        return {
+            "status": "not_scored",
+            "note": (
+                "This run was produced without scoring, so there is no comparison "
+                "against ground truth. Produce one with: python run.py match --verify"
+            ),
+        }
+
+    signature = (st.st_mtime_ns, st.st_size)
+    if _SCORECARD_CACHE is None or _SCORECARD_CACHE[0] != signature:
+        _SCORECARD_CACHE = (
+            signature,
+            json.loads(SCORECARD.read_text(encoding="utf-8")),
+        )
+    return {"status": "ok", **_SCORECARD_CACHE[1]}
+
+
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "run_output_present": RUN_OUTPUT.exists()}
+    return {
+        "ok": True,
+        "run_output_present": RUN_OUTPUT.exists(),
+        "scorecard_present": SCORECARD.exists(),
+    }
 
 
 # Invoice ledger management. The only write endpoints in the system, and scoped to

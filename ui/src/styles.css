@@ -229,20 +229,24 @@ table.mini .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-s
 
 /* A verification section that did not run must read as a warning, not as a heading
    with nothing under it. Same slot on the page, unmistakably different weight. */
-.verification.not-run {
+.verification.not-run,
+.ceiling.not-run {
   border-left: 3px solid #b45309;
   background: #fffbeb;
   padding-left: 0.9rem;
 }
-.verification.not-run h2 {
+.verification.not-run h2,
+.ceiling.not-run h2 {
   color: #92400e;
 }
 @media (prefers-color-scheme: dark) {
-  .verification.not-run {
+  .verification.not-run,
+  .ceiling.not-run {
     background: #2a1f05;
     border-left-color: #f59e0b;
   }
-  .verification.not-run h2 {
+  .verification.not-run h2,
+  .ceiling.not-run h2 {
     color: #fbbf24;
   }
 }
@@ -343,4 +347,54 @@ dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
   .match-head:hover { background: #1b222c; }
   .match-body { border-top-color: #2a3340; }
   .match .tier { background: #232c38; color: #b8c2d0; }
+}
+
+/* ---- reachable ceiling ----
+ *
+ * REVIEW.md section 8 item 6. The bar is the argument in one glance: the shortfall the
+ * engine owns is the middle segment, and it is meant to look small next to the segment
+ * that was never available to anything. Colours carry meaning, so each segment is also
+ * named in the facts list beneath -- the bar is a summary of the numbers, never the
+ * only place they appear.
+ */
+.ceiling { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--line); }
+.ceiling h2 { font-size: 15px; margin: 0 0 10px; }
+.ceiling-bar {
+  display: flex; height: 10px; border-radius: 999px; overflow: hidden;
+  background: var(--line); margin: 14px 0 16px;
+}
+.ceiling-bar .seg { display: block; height: 100%; }
+.seg.assigned { background: #2c6b41; }
+.seg.short { background: var(--warn); }
+.seg.unreachable { background: #cfcec9; }
+
+.ceiling-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px 22px; margin: 0 0 18px;
+}
+.ceiling-facts div { display: flex; flex-direction: column; gap: 2px; }
+.ceiling-facts dt {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+}
+.ceiling-facts dd { margin: 0; font-size: 13px; }
+.ceiling-facts dd strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+
+.shortfall-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.shortfall { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.shortfall-head {
+  width: 100%; font: inherit; text-align: left; cursor: pointer; background: none; border: 0;
+  display: grid; grid-template-columns: 22px 132px 118px 168px 1fr; gap: 12px;
+  align-items: baseline; padding: 11px 14px; color: var(--ink); font-size: 13px;
+}
+.shortfall-head:hover { background: #faf9f7; }
+.shortfall-money { font-variant-numeric: tabular-nums; color: var(--warn); }
+.shortfall-why { color: var(--muted); }
+.shortfall-labels { color: var(--muted); font-size: 12px; }
+.shortfall-body { padding: 2px 14px 16px 48px; border-top: 1px solid var(--line); }
+.shortfall-body > .muted { font-size: 13px; margin: 12px 0; }
+
+@media (max-width: 720px) {
+  .shortfall-head { grid-template-columns: 22px 1fr; }
+  .shortfall-money, .shortfall-why, .shortfall-labels { grid-column: 2; }
+  .shortfall-body { padding-left: 16px; }
 }

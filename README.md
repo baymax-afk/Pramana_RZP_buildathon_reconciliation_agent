@@ -96,6 +96,15 @@ moving. **9 of 10 observed live runs assign 127; one assigns 126.** The determin
 (`--no-llm`) is bit-identical every time, which is what a live demo should run. Full numbers, including where the live model does *worse*
 than the offline stand-in, in [`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) W2.
 
+**And that is now what the committed artefact is.** For a day it was not: this paragraph
+said "the deterministic arm is what a live demo should run" while `reports/run_output.json`
+was still being generated with the live tier, so regenerating it for unrelated work moved
+the demo's headline from 127 to 126 by itself. `reports/run_output.json` and
+`reports/scorecard.json` are now produced by `python run.py match --verify --no-llm`, the
+payload says `llm_tier: disabled`, and a test asserts it — re-run the command and the
+numbers come back bit for bit. The live delta above stays published beside them rather
+than baked into them. See [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) 2026-09-04-02.
+
 Ground truth is written by the generator to a directory the matching engine never
 reads. Enforced by function signatures, an import-time audit hook, and a test that
 deletes the ground-truth directory and asserts the engine and all four verification

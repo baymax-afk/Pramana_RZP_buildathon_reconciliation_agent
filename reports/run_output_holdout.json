@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T00:57:42.160623+00:00",
+  "generated_at": "2026-09-04T01:15:22.986999+00:00",
   "seed": 8080808,
   "density": 12,
-  "llm_tier": "disabled",
+  "llm_tier": "claude:claude-sonnet-5",
   "explanations": {
     "bank_txn_0004": {
       "bank_txn_id": "bank_txn_0004",
@@ -18947,5 +18947,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 410
+  "throughput_records_per_s": 189
 }

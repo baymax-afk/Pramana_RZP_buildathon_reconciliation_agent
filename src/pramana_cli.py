@@ -302,6 +302,21 @@ def cmd_match(args: argparse.Namespace) -> int:
         (cfg.REPORTS / "run_output_holdout.json") if generated_dir is not None else None,
     )
 
+    # The scoring numbers travel SEPARATELY, in their own file, because run_output.json
+    # is defined as what the engine could justify with no answer key and folding a
+    # truth-derived number into it would make that unprovable by inspection. Same
+    # holdout rule as above, for the same reason: a shifted run must not overwrite the
+    # scorecard the demo reads.
+    from scorer import artifact as _scorecard
+
+    scorecard_path = cfg.REPORTS / (
+        "scorecard_holdout.json" if generated_dir is not None else "scorecard.json"
+    )
+    _scorecard.write(
+        _scorecard.build(sc, seed=seed, dataset=("holdout" if generated_dir is not None else "primary")),
+        scorecard_path,
+    )
+
     # ---- the comparison arm ----
     #
     # A single density in the headline invites the reading that these numbers are a

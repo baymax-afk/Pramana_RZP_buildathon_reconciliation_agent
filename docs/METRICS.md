@@ -56,6 +56,56 @@ This document previously said "total payments in the batch" while `scorer/score.
 divided by `captured_payments`. The code was right and the definition was wrong.
 `tests/test_reported_numbers.py` now pins the denominator so the two cannot drift again.
 
+### Reachable ceiling — what the match rate should be compared against
+
+```
+                     payments some truth link says a credit SHOULD be assigned to
+reachable ceiling = ────────────────────────────────────────────────────────────
+                                  CAPTURED payments in the batch
+```
+
+**88.66% against 100% is the wrong comparison, and it is the one a reader makes without
+being told otherwise.** 100% is not available on this batch. Of the 22 captured payments
+the engine does not assign, **17 are unreachable by construction, and ground truth marks
+every one of them `refuse`**:
+
+| n | why it cannot be matched |
+|--:|---|
+| 6 | `unsettled` — the payment never settled, so **no bank credit exists** to match it |
+| 5 | `bank_charge` — the receiving bank took ₹5–50 on top of MDR, outside the ±₹1 tolerance. Refusing is the correct output |
+| 4 | the hand-placed `many_to_one` ambiguity case — two subsets fit the same credit, and refusing is the designed answer |
+| 2 | `split_settlement` — one payment arriving as two credits. The model cannot represent it: `claimed` is a set of payment ids and there is nowhere to put half a payment |
+
+Scoring the engine for those is scoring it for failing to do something nobody claims it
+can do. (Counted per distinct payment: a split payment appears in two truth links, so
+counting link rows instead gives 19 and is wrong.)
+
+| | primary | shifted holdout |
+|---|---:|---:|
+| match rate | 88.66% | 84.54% |
+| reachable ceiling | **91.24%** | **92.27%** |
+| short of the ceiling | **5** payments | **15** payments |
+| unreachable by construction | 17 | 15 |
+| match precision | 1.0000 | 1.0000 |
+
+The ceiling is derived from each batch's own truth links, not asserted — which is why
+the two columns differ, and `tests/test_ceiling.py` asserts that they must. A hardcoded
+constant passes every arithmetic check on the batch it was written against and fails
+that one.
+
+**On the primary batch the whole remaining gap is one defect class.** All five payments
+short of the ceiling are `third_party_payer`, all five refuse as `amount_name_conflict`
+with residual `+0p` — the amount channel is exact and the name channel disagrees because
+a parent company paid a subsidiary's invoice. They are named individually, with rupees
+and the engine's own reason, in `reports/scorecard.json` and in the UI's ceiling panel.
+
+**Scoring travels in its own artefact.** `reports/run_output.json` is defined as what the
+engine could justify with no answer key; the ceiling is derived from the answer key.
+Folding one into the other would make the isolation claim unverifiable by opening the
+file, so the scorecard is a separate file on a separate route
+(`/api/scorecard`), and a test asserts no truth-derived term appears in the engine
+payload. See `DEFECT_LOG` 2026-09-04-01 for why this is written down.
+
 ### Match precision
 
 ```

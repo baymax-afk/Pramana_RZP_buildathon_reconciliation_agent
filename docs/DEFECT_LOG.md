@@ -1609,3 +1609,83 @@ use; the live arm assigns 127 in 9 of 10 observed runs and 126 in one.
 evidence carries, and the failure here was of exactly that kind, in a sentence written
 about its own verification. A run count is not a proof, and "we observed N runs agree" is
 the claim the data supports.
+
+## 2026-09-04-01 — the ceiling was built, reported closed, and rendered nowhere
+
+**The claim.** `REVIEW.md` section 8 listed nine things to ship, and item 6 was the
+reachable ceiling: *"177/194 = 91.24% reachable; we are 5 payments short, here they
+are"*, justified as *"turns your gap into your strongest slide"*. It was implemented in
+`scorer/score.py` and `scorer/report.py`, tested twice — the arithmetic closes, and the
+number moves between batches so a constant would fail — and recorded as done.
+
+**What was actually shipped.** A number printed to the terminal during a scoring run.
+`reports/run_output.json` never carried it, so `/api/run` never served it, so the UI
+never rendered it. The audit's word was *slide*, and the thing built was visible only to
+someone running the CLI and reading its output — which is to say, not to a judge, who
+sees the page.
+
+**The "here they are" half did not exist at all.** `short_of_ceiling` was a count, and
+`shortfall_by_defect` grouped it by label. Neither said *which credits*. The five are now
+named, with rupees and the engine's own refusal reason, each expandable into its recorded
+transcript.
+
+**This is P0-1's shape for the third time.** P0-1 was the verification block generated
+without `--verify` and rendering as nothing. Then a holdout run silently overwrote the
+served `run_output.json`. Now a headline number that existed in code and in tests but not
+in the artefact anyone looks at. The recurring failure is not a bug in any of the three —
+each was correct where it ran. It is that **"implemented and tested" was allowed to stand
+in for "reaches the surface a reader uses"**, and the tests were written against the
+function rather than against the artefact.
+
+**What the fix could not do, and why there are now two files.** The ceiling is derived
+from ground truth. `run_output.json` is defined by its own first line as what the engine
+could justify *without* an answer key, and that claim is checkable by opening the file —
+which is most of what it is worth. Folding the ceiling in would have bought a convenient
+client and spent the only cheap proof of the isolation boundary. So scoring travels in
+`reports/scorecard.json`, on its own route, in its own panel, and the panel states its
+provenance in the payload rather than only in a docstring.
+`tests/test_ceiling.py` asserts that `run_output.json` contains no truth-derived term, so
+a future merge of the two fails rather than passing quietly.
+
+**The lesson.** A test that pins a number proves the number is right. It says nothing
+about whether anyone can see it. For anything whose stated purpose is to be *shown*, the
+assertion has to run against the served artefact — which is why the new tests read
+`reports/scorecard.json` and hit `/api/scorecard`, not just `score()`.
+
+## 2026-09-04-02 — the served artefact was a coin flip, and regenerating it flipped
+
+**What happened.** Regenerating `reports/run_output.json` to produce the new scorecard
+changed the served demo from **127 assignments to 126**, with no code change involved.
+Both runs used the live tier; the model recovered nothing useful on `bank_txn_0103` this
+time and contributed zero. This is the 1-in-10 outcome `DEFECT_LOG` 2026-09-03-04 already
+recorded and the README already publishes.
+
+**The part that had not been noticed.** The correction written that day ended: *"the
+deterministic arm (`--no-llm`) is bit-identical every time and remains what the demo
+should run."* It was written into `README.md`, `OUTSTANDING_TASKS` and `METRICS.md` —
+and the artefact the demo actually serves was still being generated with the live tier.
+The guidance and the file disagreed for a day, and nothing failed, because no test
+asserts which tier the served run used.
+
+**Why not just re-run until it came back 127.** Because that is choosing the run that
+flatters the number, on a project whose entire argument is against doing that. There
+were three options and only one of them is defensible: keep the coin flip and let the
+headline move on every regeneration; re-roll until it lands on 127; or serve the arm
+that does not move. The docs had already picked the third.
+
+**What changed.** `reports/run_output.json` and `reports/scorecard.json` are now produced
+by `python run.py match --verify --no-llm`, and the payload says `llm_tier: disabled` so
+nobody can mistake it for a live run. The numbers it serves — 126 assignments, 172/194 =
+88.66%, precision 1.0000, 5 short of a 91.24% ceiling — are the ones every doc publishes,
+and re-running the command reproduces them bit for bit.
+
+**What was NOT given up.** The live comparison is measured and published in
+`METRICS.md` and `OUTSTANDING_TASKS` W2: +1 assignment, precision unmoved at 1.0000, 9 of
+10 observed runs at 127. Serving the reproducible arm and reporting the live delta beside
+it is a stronger position than serving a number that changes when you press the button
+again — reproducibility is one of the three things this submission can demonstrate that a
+prompt-an-LLM entry structurally cannot.
+
+**The lesson.** A decision recorded in prose is not a decision that has taken effect.
+This one had been written down three times, in three documents, and the artefact went on
+contradicting all of them because nothing checked.

@@ -313,3 +313,93 @@ def test_every_exception_in_the_list_can_be_explained():
         r = client.get(f"/api/explain/{row['bank_txn_id']}")
         assert r.status_code == 200, f"{row['bank_txn_id']} has no explanation"
         assert r.json()["plain"].strip()
+
+
+# --------------------------------------------------------------------------
+# The scorecard route
+#
+# Scoring is served separately from the run because the two have different provenance:
+# `run_output.json` is what the engine could justify with no answer key, and the ceiling
+# is derived from the answer key. One route each keeps that legible on the wire as well
+# as on the page.
+# --------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _clear_scorecard_cache():
+    api_main._SCORECARD_CACHE = None
+    yield
+    api_main._SCORECARD_CACHE = None
+
+
+requires_scorecard = pytest.mark.skipif(
+    not api_main.SCORECARD.exists(),
+    reason="no scorecard.json; run `python run.py match --verify`",
+)
+
+
+@requires_scorecard
+def test_the_scorecard_route_serves_the_ceiling_and_says_where_it_came_from():
+    r = client.get("/api/scorecard")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    c = body["coverage"]
+    assert c["payments_assigned"] + c["short_of_ceiling"] == c["reachable_payments"]
+    assert 0 < c["match_rate"] <= c["ceiling"] <= 1
+    assert "never received" in body["provenance"]
+
+
+@requires_scorecard
+def test_every_named_shortfall_can_be_explained():
+    """
+    The panel makes each shortfall row expandable into the engine's own transcript.
+
+    A row naming a credit `/api/explain` cannot resolve would open onto an error, and
+    the whole point of naming them is that a judge can click through to the working.
+    """
+    rows = client.get("/api/scorecard").json()["short_of_ceiling_txns"]
+    assert rows, "the batch reports a shortfall of zero; the panel has nothing to name"
+    for row in rows:
+        r = client.get(f"/api/explain/{row['bank_txn_id']}")
+        assert r.status_code == 200, f"{row['bank_txn_id']} is named but not explainable"
+
+
+def test_an_unscored_run_is_200_and_visibly_unscored(tmp_path, monkeypatch):
+    """
+    Absence is a legitimate state, and it must LOOK like one.
+
+    `--no-score` produces a run with no scorecard. Returning an error for that would put
+    a red console message in front of a working demo; returning an empty body would
+    repeat P0-1, where an absent verification block rendered as nothing at all and the
+    omission was invisible. So: 200, an explicit status, and the command that fixes it.
+    """
+    monkeypatch.setattr(api_main, "SCORECARD", tmp_path / "absent.json")
+    api_main._SCORECARD_CACHE = None
+    body = client.get("/api/scorecard").json()
+    assert body["status"] == "not_scored"
+    assert "match --verify" in body["note"]
+
+
+@requires_scorecard
+def test_the_scorecard_cache_invalidates_when_the_file_changes(tmp_path, monkeypatch):
+    path = tmp_path / "scorecard.json"
+    path.write_text(json.dumps({"coverage": {"ceiling": 0.5}}), encoding="utf-8")
+    monkeypatch.setattr(api_main, "SCORECARD", path)
+    api_main._SCORECARD_CACHE = None
+    assert client.get("/api/scorecard").json()["coverage"]["ceiling"] == 0.5
+
+    path.write_text(json.dumps({"coverage": {"ceiling": 0.9}}), encoding="utf-8")
+    assert client.get("/api/scorecard").json()["coverage"]["ceiling"] == 0.9
+
+
+@requires_scorecard
+def test_the_scorecard_is_not_folded_into_the_run_payload():
+    """
+    Two artefacts, deliberately. See tests/test_ceiling.py for the argument.
+
+    Serving the ceiling inside `/api/run` would be more convenient for the client and
+    would cost the isolation claim its only cheap proof: that you can open the payload
+    the merchant sees and find no ground truth in it.
+    """
+    run = client.get("/api/run").json()
+    assert "coverage" not in run
+    assert "ceiling" not in json.dumps(run)

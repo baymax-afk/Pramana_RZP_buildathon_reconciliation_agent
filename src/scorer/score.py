@@ -55,6 +55,29 @@ def load_truth(truth_path: Path) -> tuple[dict, tuple[TruthLink, ...]]:
 # Results
 # --------------------------------------------------------------------------
 @dataclass(frozen=True, slots=True)
+class ShortfallTxn:
+    """
+    One credit ground truth says should have been assigned, and was not.
+
+    The count alone (`short_of_ceiling`) says how far the engine is from what the data
+    permits. It does not say WHICH money, and "we are 5 payments short" is a weaker
+    sentence than "we are 5 payments short and here they are, with the reason each one
+    was refused". Naming them is what turns the gap from a caveat into a claim -- the
+    engine knows exactly what it does not know, and can point at it.
+
+    `engine_verdict` is what the engine actually did, so a reader can see the miss was a
+    REFUSAL and not a wrong post. Every entry here cost coverage; none cost precision.
+    """
+
+    bank_txn_id: str
+    payment_ids: tuple[str, ...]
+    defect_labels: tuple[str, ...]
+    relation: str
+    engine_verdict: str
+    paise: int
+
+
+@dataclass(frozen=True, slots=True)
 class Scorecard:
     # Coverage
     total_payments: int
@@ -100,6 +123,9 @@ class Scorecard:
     ceiling: float = 0.0
     short_of_ceiling: int = 0
     shortfall_by_defect: dict[str, int] = field(default_factory=dict)
+    # The same shortfall, NAMED. A count is a caveat; a list you can click through
+    # to the engine's own reason for each one is a claim.
+    short_of_ceiling_txns: tuple[ShortfallTxn, ...] = ()
     materiality: object | None = None
     confidence_deciles: tuple[tuple[float, int, float], ...] = ()
     confidence_calibrated: bool = False
@@ -297,11 +323,6 @@ def score(
     # reason ground truth already records -- it never settled, or it belongs to a
     # relation the engine does not model -- and counting those against the engine scores
     # it for failing to do something nobody claims it can do.
-    captured_ids = {
-        pid
-        for link in links
-        for pid in link.payment_ids
-    }
     assigned_ids = {pid for a in out.assignments for pid in a.payment_ids}
     reachable = {
         pid
@@ -311,6 +332,9 @@ def score(
     }
     missed = reachable - assigned_ids
     shortfall: dict[str, int] = {}
+    short_txns: list[ShortfallTxn] = []
+    refusal_by_txn = {r.bank_txn_id: r.category.value for r in out.refusals}
+    no_candidate_ids = set(out.no_candidate)
     for link in links:
         if not link.bank_txn_id or link.expected_verdict != "assign":
             continue
@@ -319,6 +343,26 @@ def score(
             continue
         for label in link.defect_labels:
             shortfall[label] = shortfall.get(label, 0) + n
+        # Which credit, and what the engine did instead. A miss that shows up here as
+        # `assigned` would mean the engine posted this credit to a DIFFERENT payment --
+        # a precision failure wearing a coverage failure's clothes -- so the verdict is
+        # recorded rather than assumed.
+        short_txns.append(
+            ShortfallTxn(
+                bank_txn_id=link.bank_txn_id,
+                payment_ids=tuple(pid for pid in link.payment_ids if pid in missed),
+                defect_labels=tuple(link.defect_labels),
+                relation=link.relation,
+                engine_verdict=(
+                    refusal_by_txn.get(link.bank_txn_id)
+                    or ("no_candidate" if link.bank_txn_id in no_candidate_ids else "")
+                    or ("assigned_elsewhere" if link.bank_txn_id in out.assignment_map
+                        else "credit absent from batch")
+                ),
+                paise=credits_by_id.get(link.bank_txn_id, 0) if credits_by_id else 0,
+            )
+        )
+    short_txns.sort(key=lambda s: -s.paise)
 
     return Scorecard(
         total_payments=total_payments,
@@ -343,6 +387,7 @@ def score(
         shortfall_by_defect=dict(
             sorted(shortfall.items(), key=lambda kv: -kv[1])
         ),
+        short_of_ceiling_txns=tuple(short_txns),
         exceptions_by_category=by_cat,
         paise_at_risk_by_category=risk_by_cat,
         precision_by_tier={k: (v[0], v[1]) for k, v in precision_by_tier.items()},

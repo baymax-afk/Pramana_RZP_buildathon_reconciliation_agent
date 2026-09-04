@@ -510,3 +510,117 @@ def test_the_ceiling_moves_with_the_batch():
         ).ceiling
 
     assert ceiling_of(cfg.SEED_PRIMARY) != ceiling_of(cfg.SEED_SECONDARY)
+
+
+def test_the_published_ceiling_table_matches_a_live_score():
+    """
+    `METRICS.md` publishes a two-column ceiling table, and both columns are load-bearing.
+
+    The primary column contextualises the headline: 88.66% is 5 payments short of what
+    the data permits, not 11 points short of perfect. The holdout column is what proves
+    the ceiling is derived rather than typed -- a constant satisfies every arithmetic
+    check on the batch it was written against.
+
+    Pinned here for the same reason the density sweep is: the table went stale twice in
+    this project before anyone noticed, and a doc number nobody re-derives is a doc
+    number that will eventually be wrong on stage.
+    """
+    import config as cfg
+    from loaders import load_inputs
+    from recon.engine.match import match_once
+    from scorer.score import load_truth, score
+
+    inputs = load_inputs()
+    raw, links = load_truth(cfg.TRUTH_DIR / "ground_truth.json")
+    sc = score(
+        match_once(inputs),
+        links,
+        total_payments=len(inputs.payments),
+        captured_payments=sum(1 for p in inputs.payments if p.captured),
+        ambiguity_bank_txn_id=raw.get("ambiguity_bank_txn_id", ""),
+        credits_by_id={x.id: x.credit for x in inputs.bank_txns},
+        seed=inputs.seed,
+    )
+
+    row = re.search(r"\|\s*reachable ceiling\s*\|\s*\*\*([\d.]+)%\*\*", METRICS)
+    assert row, "METRICS.md no longer publishes a reachable-ceiling row"
+    assert abs(float(row.group(1)) - sc.ceiling * 100) < 0.01, (
+        f"METRICS.md publishes a ceiling of {row.group(1)}%, a live score gives "
+        f"{sc.ceiling * 100:.2f}%"
+    )
+
+    row = re.search(r"\|\s*short of the ceiling\s*\|\s*\*\*(\d+)\*\*", METRICS)
+    assert row, "METRICS.md no longer publishes a short-of-the-ceiling row"
+    assert int(row.group(1)) == sc.short_of_ceiling, (
+        f"METRICS.md publishes {row.group(1)} payments short of the ceiling, a live "
+        f"score gives {sc.short_of_ceiling}"
+    )
+
+    row = re.search(r"\|\s*unreachable by construction\s*\|\s*(\d+)\s*\|", METRICS)
+    assert row, "METRICS.md no longer publishes an unreachable count"
+    unreachable = sc.captured_payments - sc.reachable_payments
+    assert int(row.group(1)) == unreachable, (
+        f"METRICS.md publishes {row.group(1)} unreachable payments, a live score gives "
+        f"{unreachable}"
+    )
+
+
+def test_the_unreachable_decomposition_in_metrics_sums_to_the_unreachable_count():
+    """
+    The table saying WHY 17 payments are unmatchable must add up to 17.
+
+    This one is written from experience: the first draft of that table said "6 split
+    settlements" because it counted truth LINK ROWS, and a split payment appears in two
+    links. The rows summed to 19 against a total of 17 and read as authoritative.
+    """
+    import config as cfg
+    from loaders import load_inputs
+    from recon.engine.match import match_once
+    from scorer.score import load_truth, score
+
+    inputs = load_inputs()
+    raw, links = load_truth(cfg.TRUTH_DIR / "ground_truth.json")
+    sc = score(
+        match_once(inputs),
+        links,
+        total_payments=len(inputs.payments),
+        captured_payments=sum(1 for p in inputs.payments if p.captured),
+        ambiguity_bank_txn_id=raw.get("ambiguity_bank_txn_id", ""),
+        credits_by_id={x.id: x.credit for x in inputs.bank_txns},
+        seed=inputs.seed,
+    )
+    unreachable = sc.captured_payments - sc.reachable_payments
+
+    block = re.search(
+        r"\| n \| why it cannot be matched \|\n\|[-:| ]+\|\n((?:\|.*\|\n)+)", METRICS
+    )
+    assert block, "METRICS.md no longer carries the unreachable decomposition table"
+    counts = [int(m) for m in re.findall(r"^\|\s*(\d+)\s*\|", block.group(1), re.M)]
+    assert sum(counts) == unreachable, (
+        f"METRICS.md decomposes the unreachable payments as {counts} summing to "
+        f"{sum(counts)}, but a live score has {unreachable} of them"
+    )
+
+
+def test_the_served_artefact_is_the_reproducible_arm():
+    """
+    The check that was missing when the served run silently changed by itself.
+
+    `README.md`, `METRICS.md` and `OUTSTANDING_TASKS.md` all say the deterministic arm
+    (`--no-llm`) is what the demo should run, because the live tier's output is an INPUT
+    to the engine and it moves: 9 of 10 observed live runs assign 127 and one assigns
+    126. The artefact went on being generated with the live tier anyway, and regenerating
+    it for unrelated work flipped the demo's headline with no code change. Nothing failed,
+    because nothing checked. See DEFECT_LOG 2026-09-04-02.
+
+    To serve a live run deliberately, change the guidance in those three documents first
+    and then this test -- the friction is the point.
+    """
+    payload = json.loads(
+        (ROOT / "reports" / "run_output.json").read_text(encoding="utf-8")
+    )
+    assert payload["llm_tier"] == "disabled", (
+        f"the served artefact was produced with the {payload['llm_tier']!r} tier. The "
+        f"docs say the demo runs the reproducible arm; regenerate with "
+        f"`python run.py match --verify --no-llm`"
+    )

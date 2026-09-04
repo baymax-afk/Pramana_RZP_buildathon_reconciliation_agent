@@ -421,6 +421,171 @@ function MatchCard({ row, rank }) {
   );
 }
 
+// --------------------------------------------------------------------------
+// The reachable ceiling
+//
+// REVIEW.md section 8, item 6. A match rate of 88.66% invites comparison against 100%,
+// and 100% is not on offer: some captured payments never settled, so no bank credit
+// exists to match them, and others belong to a relation the engine does not model and
+// are refused correctly. Ground truth says 91.24% is the ceiling, which makes the gap
+// worth arguing about 5 payments rather than 22.
+//
+// It is fetched from its OWN endpoint rather than read out of the run payload, and that
+// is the point rather than an inconvenience: the ceiling is derived from ground truth,
+// run_output.json is defined as what the engine could justify with no answer key, and
+// putting the two in one file would make the isolation claim unprovable by opening it.
+// Two artefacts, and the panel says which is which.
+// --------------------------------------------------------------------------
+function useScorecard() {
+  const [state, setState] = useState({ status: "loading" });
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/scorecard")
+      .then((r) => r.json())
+      .then((data) => alive && setState({ status: "ready", data }))
+      .catch((e) => alive && setState({ status: "error", error: String(e.message ?? e) }));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return state;
+}
+
+function ShortfallRow({ row }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li className="shortfall">
+      <button className="shortfall-head" onClick={() => setOpen((v) => !v)}>
+        <span className="chev">{open ? "▾" : "▸"}</span>
+        <span className="mono">{row.bank_txn_id}</span>
+        <span className="shortfall-money">{RUPEES.format(row.paise / 100)}</span>
+        <span className="shortfall-why">
+          {CATEGORY_LABEL[row.engine_verdict] ?? row.engine_verdict}
+        </span>
+        <span className="shortfall-labels">{row.defect_labels.join(" · ")}</span>
+      </button>
+      {open && (
+        <div className="shortfall-body">
+          <p className="muted">
+            Ground truth links this credit to{" "}
+            <span className="mono">{row.payment_ids.join(", ")}</span>. The engine
+            refused it. No money was posted anywhere — this cost coverage, not
+            precision.
+          </p>
+          <Explanation txnId={row.bank_txn_id} open={open} />
+        </div>
+      )}
+    </li>
+  );
+}
+
+function Ceiling() {
+  const sc = useScorecard();
+  if (sc.status === "loading") return null;
+  // An absent claim must LOOK absent -- the lesson of P0-1, where an empty verification
+  // block rendered as nothing at all and the omission was invisible until someone went
+  // looking for it.
+  if (sc.status === "error" || sc.data?.status === "not_scored") {
+    return (
+      <section className="ceiling not-run">
+        <h2>Reachable ceiling — not scored</h2>
+        <p className="gate">
+          {sc.data?.note ??
+            "The scorecard could not be read, so this run has not been compared " +
+              "against ground truth."}
+        </p>
+      </section>
+    );
+  }
+
+  const { coverage: c, precision: p, provenance, dataset } = sc.data;
+  const pct = (x) => `${(x * 100).toFixed(2)}%`;
+  const total = c.captured_payments || 1;
+  const seg = (n) => `${(100 * n) / total}%`;
+
+  return (
+    <section className="ceiling">
+      <h2>Reachable ceiling</h2>
+      <p className="gate">
+        {provenance}
+        {dataset === "holdout" && " Shifted holdout batch."}
+      </p>
+
+      <div className="ceiling-bar" role="img"
+           aria-label={`${c.payments_assigned} assigned, ${c.short_of_ceiling} short, ${c.unreachable_payments} unreachable`}>
+        <span className="seg assigned" style={{ width: seg(c.payments_assigned) }} />
+        <span className="seg short" style={{ width: seg(c.short_of_ceiling) }} />
+        <span className="seg unreachable" style={{ width: seg(c.unreachable_payments) }} />
+      </div>
+
+      <dl className="ceiling-facts">
+        <div>
+          <dt>Matched</dt>
+          <dd>
+            <strong>{pct(c.match_rate)}</strong>
+            <span className="muted">
+              {" "}
+              {c.payments_assigned}/{c.captured_payments} captured payments
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Ceiling</dt>
+          <dd>
+            <strong>{pct(c.ceiling)}</strong>
+            <span className="muted">
+              {" "}
+              {c.reachable_payments} payments ground truth says can be matched
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Short of it</dt>
+          <dd>
+            <strong>{c.short_of_ceiling}</strong>
+            <span className="muted"> payments the engine could have had and did not</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Unreachable</dt>
+          <dd>
+            <strong>{c.unreachable_payments}</strong>
+            <span className="muted">
+              {" "}
+              never settled, or a relation this engine does not model
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Precision</dt>
+          <dd>
+            <strong>{pct(p.match_precision)}</strong>
+            <span className="muted">
+              {" "}
+              {p.correct_assignments}/{p.total_assignments} assignments correct
+              {p.wrong_assignments.length === 0 && " · nothing posted wrongly"}
+            </span>
+          </dd>
+        </div>
+      </dl>
+
+      {sc.data.short_of_ceiling_txns.length > 0 && (
+        <>
+          <p className="showing">
+            Every payment between the engine and its ceiling, with the reason it was
+            refused. Open one to read the engine's own working.
+          </p>
+          <ul className="shortfall-list">
+            {sc.data.short_of_ceiling_txns.map((row) => (
+              <ShortfallRow key={row.bank_txn_id} row={row} />
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function App() {
   const run = useRun();
   const [filter, setFilter] = useState("all");
@@ -516,6 +681,7 @@ export default function App() {
                 <MatchCard key={row.bank_txn_id} row={row} rank={i + 1} />
               ))}
           </ol>
+          <Ceiling />
           <Verification block={verification} />
         </>
       )}
@@ -554,7 +720,8 @@ export default function App() {
         <p className="muted">Nothing in this category.</p>
       )}
 
-      <Verification block={verification} />
+      <Ceiling />
+          <Verification block={verification} />
       </>
       )}
 

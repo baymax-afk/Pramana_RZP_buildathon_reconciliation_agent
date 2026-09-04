@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-04T01:15:23+00:00",
+  "dataset": "holdout",
+  "seed": 8080808,
+  "provenance": "Scored against ground truth the engine never received. The engine's own output is in run_output.json and contains none of this; ground-truth isolation is enforced by an audit hook over the recon package, not by convention.",
+  "coverage": {
+    "captured_payments": 194,
+    "payments_assigned": 164,
+    "match_rate": 0.845360824742268,
+    "reachable_payments": 179,
+    "ceiling": 0.9226804123711341,
+    "short_of_ceiling": 15,
+    "unreachable_payments": 15,
+    "shortfall_by_defect": {
+      "mdr_fee": 15,
+      "settlement_drift": 8,
+      "third_party_payer": 5,
+      "near_duplicate_name": 3,
+      "many_to_one": 2,
+      "weekend_bunching": 2,
+      "tds_deduction": 2,
+      "partial_payment": 1,
+      "advance_payment": 1
+    }
+  },
+  "precision": {
+    "total_assignments": 104,
+    "correct_assignments": 104,
+    "match_precision": 1.0,
+    "wrong_assignments": []
+  },
+  "refusals": {
+    "total": 23,
+    "rate": 0.18110236220472442,
+    "correct": 9,
+    "conservative": 14,
+    "correctness": 0.391304347826087
+  },
+  "short_of_ceiling_txns": [
+    {
+      "bank_txn_id": "bank_txn_0041",
+      "payment_ids": [
+        "pay_SYN000725129"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "tds_deduction",
+        "settlement_drift"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 4467484
+    },
+    {
+      "bank_txn_id": "bank_txn_0054",
+      "payment_ids": [
+        "pay_SYN000775790"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "third_party_payer",
+        "settlement_drift"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 4009733
+    },
+    {
+      "bank_txn_id": "bank_txn_0028",
+      "payment_ids": [
+        "pay_SYN000161596",
+        "pay_TWdoUNOlyGqTcU"
+      ],
+      "defect_labels": [
+        "many_to_one",
+        "mdr_fee",
+        "settlement_drift"
+      ],
+      "relation": "many_to_one",
+      "engine_verdict": "no_subset_fits",
+      "paise": 3677684
+    },
+    {
+      "bank_txn_id": "bank_txn_0096",
+      "payment_ids": [
+        "pay_SYN001231830"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "settlement_drift"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 3545019
+    },
+    {
+      "bank_txn_id": "bank_txn_0105",
+      "payment_ids": [
+        "pay_SYN001356490"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "third_party_payer",
+        "settlement_drift"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 2776988
+    },
+    {
+      "bank_txn_id": "bank_txn_0109",
+      "payment_ids": [
+        "pay_SYN001534288"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "partial_payment",
+        "third_party_payer"
+      ],
+      "relation": "partial",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 2204163
+    },
+    {
+      "bank_txn_id": "bank_txn_0093",
+      "payment_ids": [
+        "pay_SYN900006854"
+      ],
+      "defect_labels": [
+        "mdr_fee"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "no_subset_fits",
+      "paise": 2015386
+    },
+    {
+      "bank_txn_id": "bank_txn_0110",
+      "payment_ids": [
+        "pay_SYN001503382"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "third_party_payer",
+        "advance_payment"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 1100665
+    },
+    {
+      "bank_txn_id": "bank_txn_0037",
+      "payment_ids": [
+        "pay_TWekRsHFrjfEBU"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "near_duplicate_name"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "no_subset_fits",
+      "paise": 917546
+    },
+    {
+      "bank_txn_id": "bank_txn_0085",
+      "payment_ids": [
+        "pay_SYN001126853"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "weekend_bunching"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 910727
+    },
+    {
+      "bank_txn_id": "bank_txn_0079",
+      "payment_ids": [
+        "pay_SYN000912382"
+      ],
+      "defect_labels": [
+        "mdr_fee"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "no_subset_fits",
+      "paise": 437149
+    },
+    {
+      "bank_txn_id": "bank_txn_0021",
+      "payment_ids": [
+        "pay_TWSzxog1eMrPK6"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "settlement_drift",
+        "near_duplicate_name"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 336044
+    },
+    {
+      "bank_txn_id": "bank_txn_0031",
+      "payment_ids": [
+        "pay_R2XTWf07xIRgP3mLt"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "third_party_payer",
+        "settlement_drift",
+        "weekend_bunching",
+        "near_duplicate_name"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 87274
+    },
+    {
+      "bank_txn_id": "bank_txn_0092",
+      "payment_ids": [
+        "pay_SYN001298256"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "tds_deduction"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 57051
+    }
+  ]
+}
