@@ -353,30 +353,45 @@ imply otherwise.
 > which is what the original finding said was missing. The density sweep is still the
 > place the *trend* is demonstrated — these are one seed, not five.
 
-## LLM tier: reported as unmeasured
+## LLM tier: measured
 
 `docs/ARCHITECTURE.md` requires precision to be reported with the LLM tier on and off.
-That comparison **is not made**, and the reason is recorded rather than the number
-substituted.
+**That comparison is now made.** It was withheld for days because no API key existed in
+the build environment; one was supplied on 2026-09-03 and
+`python run.py llm-compare --seed 20260905 --verify` reported VALID.
 
-The tier is architecturally complete and its boundary is enforced structurally:
-`NarrationFields` has no field for a payment id, a candidate or a score, so a model
-cannot nominate or endorse a match even in principle, and `parse_with_llm` fills only
-fields the deterministic tier left empty. Both properties are tested.
+| | LLM OFF | LLM ON (live `claude-sonnet-5`) |
+|---|---:|---:|
+| match rate | 88.66% | **89.18%** |
+| match precision | **1.0000** | **1.0000** |
+| assignments | 126 | 127 |
 
-What is missing is a valid measurement. There is no API key in this environment, and the
-offline stand-in (`RecordedTier`) applies essentially the same word-filtering heuristic
-as `normalize._extract_name` — it recovers the payer name on the same 8 of 18
-unparseable narrations the regex tier already handles, and changes 0 verdicts. That
-agreement is a property of the stand-in sharing the parser's logic, not evidence about
-what a model would contribute.
+Of 141 credit narrations, **13** are unreadable by the regex tier. The live model fills
+**8**, all merchant references and no payer names — the regex tier already reads a name
+off all 13. Exactly one verdict changes, and ground truth agrees with it.
 
-Running with `ANTHROPIC_API_KEY` set selects the live tier and makes the comparison real.
-Until then the claim is withheld.
+**Three qualifications, all of which cut against the tier rather than for it.**
 
-The comparison itself is `python run.py llm-compare`. It reports parse yield, verdict
-deltas and both arms' headlines, then judges its own validity: against the stand-in it
-exits non-zero and prints why the numbers are not evidence about a model. Measured
-against the stand-in on seed 20260905: 13 credit narrations unreadable by the regex tier
-(all missing a merchant reference, none missing a payer name), 10 refs recovered, 0
-payer names recovered, 0 verdicts changed, precision identical at 100.00% in both arms.
+The hand-written offline stand-in fills **9** of the same 13 gaps — *more* than the live
+model — and reaches the same single verdict change. That is not a failure of the model:
+`recorded.py` predicted it, because the stand-in was written for this generator's
+narration shapes. It does mean the generalisation claim is unmade.
+
+The live arm is **not deterministic at the verdict level**. Nine of ten observed runs
+assign 127 and one assigns 126, with the permutation gate reporting `unstable: 0` on the
+odd one out — so it is the tier's output moving, not order-dependence being caught. An
+earlier version of this document called the live arm deterministic on the evidence of
+five agreeing runs; see `DEFECT_LOG` 2026-09-03-04.
+
+It costs **30–35 seconds against 33 ms** with the tier off, all of it sequential HTTP.
+The deterministic arm is what a live demo should run.
+
+**The boundary, stated at the strength the evidence supports.** `NarrationFields` carries
+no payment id, no candidate and no score, so a model cannot name a record here and cannot
+post a match whose arithmetic fails — `fees.fits` still gates tier 1. It is *not* true
+that a model cannot influence the answer: `merchant_ref` is free text that resolves
+through `ReferenceIndex` to an invoice number and thence to a payment at one hop, and
+tier 1 outranks every other tier in the evidence order. Measured, the live tier moves +1
+assignment and reclassifies 9 credits from tier 2 to tier 1. See `REVIEW.md` §5 and the
+docstring in `recon/llm/interface.py`.
+

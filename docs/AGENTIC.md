@@ -76,9 +76,17 @@ The project's central constraint is one sentence:
 > scores a match assignment.**
 
 That is enforced structurally — `NarrationFields` has no field for a payment id, a
-candidate, or a score, so a model cannot express a matching preference even in
-principle. Any agentic design that quietly relaxes this is not an extension of the
+candidate, or a score, so a model cannot NAME a record and cannot post a match whose
+arithmetic fails. Any agentic design that quietly relaxes this is not an extension of the
 project, it is an abandonment of its argument.
+
+*(Stated more carefully than this document originally did. "Cannot express a matching
+preference even in principle" was too strong: `merchant_ref` reaches a payment at one hop
+through `ReferenceIndex`, and tier 1 outranks every other tier. The absence of a
+payment-id field bounds what a model can say, not everything it can affect — see
+`REVIEW.md` §5. The design below is unchanged by the correction, because it never relied
+on the stronger claim: `EvidenceProposal` validates its value against the shape of every
+identifier in the batch precisely so that one hop is closed.)*
 
 So the question is not "where can we add an agent." It is:
 

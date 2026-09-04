@@ -8,9 +8,13 @@ they are: `tier.name` reports `recorded` and the report prints it next to the nu
 
 **Why it exists.** No `ANTHROPIC_API_KEY` was available in the build environment, and a
 tier that cannot run is a tier that cannot be tested. This keeps the LLM code path
-genuinely exercised -- the same interface, the same call sites, the same return type
-that structurally cannot carry a match -- so the trust boundary is verified rather than
+genuinely exercised -- the same interface, the same call sites, the same return type,
+which carries no payment id and no score -- so the trust boundary is verified rather than
 merely designed, and the LLM-on/LLM-off comparison produces real numbers.
+
+(That return type bounds what a tier can SAY, not everything it can affect: a
+`merchant_ref` resolves to a payment at one hop. `interface.py` states the boundary at
+the strength the evidence supports.)
 
 **What it is honestly worth.** Considerably less than a live model. It handles shapes it
 was written for and would fail on narration formats this generator does not produce,
