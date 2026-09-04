@@ -742,6 +742,88 @@ function Worklist({ exceptions }) {
   );
 }
 
+// --------------------------------------------------------------------------
+// The track KPIs, above the fold
+//
+// These lived only in the Ceiling panel, which renders BELOW a fifteen-row exception
+// list -- so the numbers a judge is looking for were the ones they had to scroll for. An
+// external reviewer put it exactly right: the first screen showed "At risk / Assigned /
+// Refused" and none of the metrics the track is scored on.
+//
+// `Assigned 126 of 141 credits` was the sharper problem. That is a CREDIT count; the
+// match rate is payment-level (172/194 = 88.66%). A reader takes the first for the second
+// and is wrong by two different denominators. It is now labelled as credits and the match
+// rate is stated separately, in its own tile, with the bound that qualifies it.
+// --------------------------------------------------------------------------
+function Kpis({ totals }) {
+  const sc = useScorecard();
+  const pct = (x) => `${(x * 100).toFixed(2)}%`;
+  const ready = sc.status === "ready" && sc.data?.status === "ok";
+  const c = ready ? sc.data.coverage : null;
+  const p = ready ? sc.data.precision : null;
+  const r = ready ? sc.data.refusals : null;
+
+  return (
+    <div className="stats">
+      <Stat
+        label="At risk"
+        value={RUPEES.format(totals.rupees_at_risk)}
+        sub={`${totals.refused + totals.no_candidate} exceptions`}
+        tone="warn"
+      />
+      <Stat
+        label="Match rate"
+        value={c ? pct(c.match_rate) : "—"}
+        sub={c ? `${c.payments_assigned}/${c.captured_payments} captured payments` : "not scored"}
+      />
+      <Stat
+        label="Precision"
+        value={p ? pct(p.match_precision) : "—"}
+        sub={
+          p
+            ? `${p.correct_assignments}/${p.total_assignments} · 95% CI ≥ ${pct(
+                p.precision_ci_lower
+              )}`
+            : "not scored"
+        }
+      />
+      <Stat
+        label="Refusal correctness"
+        value={r ? pct(r.correctness) : "—"}
+        sub={r ? `${r.correct}/${r.total} refusals truth agrees with` : "not scored"}
+      />
+      <Stat
+        label="Credits posted"
+        value={totals.assigned}
+        sub={`of ${totals.bank_credits} bank credits`}
+      />
+    </div>
+  );
+}
+
+// How old is what you are looking at?
+//
+// `generated_at` was in the payload from the beginning and rendered nowhere, so a stale
+// artefact looked exactly like a fresh one -- the failure mode behind P0-1 and behind a
+// run that silently lost its verification block twice more since. A timestamp is the
+// cheapest defence against demoing yesterday's numbers.
+function Freshness({ generatedAt, llmTier, verified }) {
+  if (!generatedAt) return null;
+  const when = new Date(generatedAt);
+  const mins = Math.round((Date.now() - when.getTime()) / 60000);
+  const age =
+    mins < 1 ? "just now"
+    : mins < 60 ? `${mins} min ago`
+    : mins < 1440 ? `${Math.round(mins / 60)} h ago`
+    : `${Math.round(mins / 1440)} d ago`;
+  return (
+    <span className={`freshness ${mins > 1440 ? "stale" : ""}`} title={when.toISOString()}>
+      run {age} · tier {llmTier ?? "unknown"} ·{" "}
+      {verified ? "verification gated" : "NOT verification gated"}
+    </span>
+  );
+}
+
 export default function App() {
   const run = useRun();
   const [filter, setFilter] = useState("all");
@@ -802,6 +884,7 @@ export default function App() {
   }
 
   const { totals, tolerances, verification, seed, density } = run.data;
+  const generatedAt = run.data.generated_at;
   const notExamined = run.data.not_examined ?? {};
   const shownRupees = shown.reduce((s, e) => s + e.rupees_at_risk, 0);
 
@@ -814,25 +897,15 @@ export default function App() {
             Ranked by money at risk. Seed {seed} · density {density} ·{" "}
             {totals.bank_credits} bank credits
           </p>
+          <p className="sub">
+            <Freshness
+              generatedAt={generatedAt}
+              llmTier={run.data.llm_tier}
+              verified={verification?.status === "verified"}
+            />
+          </p>
         </div>
-        <div className="stats">
-          <Stat
-            label="At risk"
-            value={RUPEES.format(totals.rupees_at_risk)}
-            sub={`${totals.refused + totals.no_candidate} exceptions`}
-            tone="warn"
-          />
-          <Stat
-            label="Assigned"
-            value={totals.assigned}
-            sub={`of ${totals.bank_credits} credits`}
-          />
-          <Stat
-            label="Refused"
-            value={totals.refused + totals.no_candidate}
-            sub="engine declined to guess"
-          />
-        </div>
+        <Kpis totals={totals} />
       </header>
 
       {notExamined.debit_lines > 0 && <NotExamined data={notExamined} />}

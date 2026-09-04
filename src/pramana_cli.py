@@ -408,15 +408,30 @@ def cmd_agent(args: argparse.Namespace) -> int:
     from recon.llm import select as _select_llm
     from scorer.score import load_truth, score
 
+    generated_dir = cfg.HOLDOUT if args.dataset == "holdout" else None
     try:
-        inputs = load_inputs(seed=args.seed, payments_per_window=args.payments_per_window)
+        inputs = load_inputs(
+            generated_dir=generated_dir,
+            seed=args.seed,
+            payments_per_window=args.payments_per_window,
+        )
     except ValueError as e:
         print(f"\n  {e}\n")
+        return 1
+    if generated_dir is not None and not (generated_dir / "manifest.json").is_file():
+        print("\n  No holdout present -- run `python run.py holdout` first.\n")
         return 1
 
     from loaders import load_payer_directory
 
-    directory = load_payer_directory()
+    # The register travels with its batch. `load_payer_directory()` defaults to the
+    # reported one, and running the agent against the holdout with the reported
+    # merchant's register is not a measurement of anything -- it looks up payer names
+    # from one batch in another batch's authorisations and declines almost everything.
+    # Worth stating because the first attempt at this measurement did exactly that.
+    directory = load_payer_directory(
+        (generated_dir / "payer_directory.csv") if generated_dir is not None else None
+    )
     llm = _select_llm(disabled=args.no_llm)
     investigator = (
         None
@@ -432,13 +447,19 @@ def cmd_agent(args: argparse.Namespace) -> int:
         investigator,
         directory,
         llm=llm,
-        ledger_path=(cfg.REPORTS / "evidence_ledger.json") if args.write else None,
+        ledger_path=(
+            cfg.REPORTS / (
+                "evidence_ledger_holdout.json" if generated_dir is not None
+                else "evidence_ledger.json"
+            )
+        ) if args.write else None,
         max_exceptions=args.max_exceptions,
     )
     elapsed = time.perf_counter() - t0
 
     _print_block(
-        f"AGENT RUN  seed={inputs.seed}  investigator={run.investigator}",
+        f"AGENT RUN  dataset={args.dataset}  seed={inputs.seed}  "
+        f"investigator={run.investigator}",
         [
             ("authorised-payer register", f"{len(directory)} row(s)"),
             ("exceptions in the baseline", run.exceptions_seen),
@@ -453,7 +474,11 @@ def cmd_agent(args: argparse.Namespace) -> int:
         ],
     )
 
-    truth_path = cfg.TRUTH_DIR / "ground_truth.json"
+    truth_path = (
+        (generated_dir / "_truth" / "ground_truth.json")
+        if generated_dir is not None
+        else cfg.TRUTH_DIR / "ground_truth.json"
+    )
     if not truth_path.exists():
         print("\n  No ground truth present -- run `python run.py generate` first.")
         return 1
@@ -1070,6 +1095,10 @@ def main(argv: list[str] | None = None) -> int:
     g2.add_argument("--null-agent", action="store_true", default=False,
                     help="the control arm: investigate nothing, assert nothing. Must "
                          "reproduce the baseline exactly")
+    g2.add_argument("--dataset", choices=("reported", "holdout"), default="reported",
+                    help="which batch to investigate. The agent could only ever run "
+                         "against the reported one, so its numbers were single-batch "
+                         "and its generalisation unmeasured")
     g2.add_argument("--max-exceptions", type=int, default=None,
                     help="investigate only the N largest exceptions")
     g2.add_argument("--no-write", dest="write", action="store_false", default=True,

@@ -459,10 +459,33 @@ python run.py agent --offline
 
 Reports **evidence-attributable coverage gain per source**, not per agent — each verdict
 change credited to the dataset its proposal consulted, measured by re-running the engine
-with only that source's evidence: *the authorised-payer register closed 3 exceptions and
-released ₹66,357.55 at precision 1.0000.* A proposal citing nothing external is filed as
+with only that source's evidence. A proposal citing nothing external is filed as
 `model_assertion` and reported separately, because it may be right and it is still not a
 dataset anyone can buy, re-read or audit.
+
+`--dataset holdout` runs it against the shifted batch, and the comparison is the honest
+shape of this feature:
+
+| | reported | shifted holdout |
+|---|--:|--:|
+| `amount_name_conflict` exceptions | 5 | 10 |
+| closed by the register | **3** (60%) | **1** (10%) |
+| match rate | 88.66% → 90.21% | 84.54% → 85.05% |
+| released | ₹66,357.55 | ₹872.74 |
+| precision | 1.0000 → 1.0000 | 1.0000 → 1.0000 |
+
+Same code, same investigator, one-sixth the effectiveness — and 7 of the holdout's 10
+declines are *"no register entry"*. **The agent's value is mostly a property of how
+complete the merchant's register is.** "A better register closes more exceptions at
+unchanged precision" is a claim we can defend; "our agent closes exceptions" is a
+different sentence and we are not making it.
+
+**Offline runs a deterministic stand-in, not an investigation.** `RecordedInvestigator`
+implements the decision procedure in code so the tools, the budget, the ledger, the
+boundary checks and the re-run are all genuinely exercised with no network. It follows one
+path because that path was written for it; a live model chooses its own. Every agent
+figure prints `investigator=recorded` beside it so a recorded run is never mistaken for a
+live one.
 
 The UI is a single page: exceptions ranked by rupees at risk, each expanding to show
 why the engine declined, what to do next, and — for ambiguous credits — every candidate
@@ -482,7 +505,7 @@ would be worse than none.
 pytest tests/
 ```
 
-465 tests, including the end-to-end isolation test — which deletes the ground-truth
+475 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,

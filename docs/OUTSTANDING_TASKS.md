@@ -298,14 +298,36 @@ both cost real coverage. `docs/ARCHITECTURE.md` states what lifting each would t
 in both cases a different engine, not a patch. Recorded so a correct-looking refusal
 cannot hide an unmodelled relation.
 
-### O9. `third_party_payer` refusals are correct but expensive
-Three of seven third-party payments are refused with `amount_name_conflict`. The split
-is not arbitrary: the ones that match carry a quoted invoice reference, and that
-evidence outweighs the name disagreement. Refusing the rest is the right call — the
-amounts reconcile and the counterparty does not — but it is the largest remaining
-source of conservative refusals, and an investigating agent (see `AGENTIC.md`) checking
-whether a payer is an authorised group entity is exactly the evidence that would close
-it.
+### ~~O9. `third_party_payer` refusals are correct but expensive~~ — **closed, and measured on two batches**
+The original entry, kept: *"an investigating agent checking whether a payer is an
+authorised group entity is exactly the evidence that would close it."* It was written as
+a hypothesis. It is now a measurement, and the measurement is smaller and more
+interesting than the hypothesis.
+
+`run.py agent --dataset {reported,holdout}` (deterministic arm, recorded investigator):
+
+| | reported | shifted holdout |
+|---|--:|--:|
+| exceptions in the baseline | 15 | 23 |
+| `amount_name_conflict` among them | 5 | 10 |
+| evidence asserted | **3** | **1** |
+| declined — insufficient evidence | 12 | 22 |
+| match rate | 88.66% → **90.21%** | 84.54% → **85.05%** |
+| released | **₹66,357.55** | **₹872.74** |
+| match precision | 1.0000 → **1.0000** | 1.0000 → **1.0000** |
+
+**The agent closes 60% of name conflicts on the reported batch and 10% on the shifted
+one.** Same code, same investigator; the difference is register coverage, and 7 of the
+holdout's 10 declines are *"no register entry"*. So the honest product claim is **"a more
+complete authorised-payer register closes more exceptions at unchanged precision"** — not
+"our agent closes exceptions". The per-source attribution built in Block B7 says exactly
+this, which is the argument for having built it that way.
+
+**Until 2026-09-04 this could not be measured at all**: `run.py agent` had no `--dataset`
+flag, and `load_payer_directory()` defaults to the reported register — so running the
+holdout by hand looked up one batch's payer names in another batch's authorisations and
+returned a clean, wrong zero. `tests/test_agent_dataset.py` pins both the flag and the
+per-batch register.
 
 ---
 
