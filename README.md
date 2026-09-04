@@ -224,11 +224,10 @@ would be worth less than an accurate account of what is real.
 | Tier | What it is | Count |
 |---|---|---|
 | **R1 — captured payments** | Genuinely completed Razorpay test-mode payments. Real `id`, `fee`, `tax`, `created_at`, `bank`, `bank_transaction_id`. **The only tier with a real fee/tax pair.** | **18 captured + 6 failed = 24** |
-| **R2 — Razorpay-issued orders** | Real orders created through the API. Genuine Razorpay-issued IDs, receipts, notes and server timestamps. **Never completed — no `fee`, no `tax`, not `captured`.** | **12** |
+| **R2 — settlements simulated on real orders** | Real orders created through the API — genuine Razorpay-issued IDs, receipts, notes and server timestamps. **The orders were never completed, so the capture, `fee` and `tax` are SYNTHESISED** from the rate model measured on R1, and the records enter the batch `captured`. Real identity, modelled money. | **12** |
 | **S — synthetic** | Schema-conformant records generated locally, carrying the injected defects. | **164** |
 
 Total batch: **200 payments**, 147 bank transactions, 187 invoices, across 34
-settlement windows.
 settlement windows.
 
 The R1 slice spans **7 distinct payer contacts**, **7 banks** (BARB_R, CNRB, DEUT,
@@ -246,10 +245,24 @@ observations and no attempt is made to claim otherwise; see
 [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) 2026-09-01-01, which records getting this
 wrong first.
 
-**An uncaptured order is not a payment.** R2 entities carry no fee or tax because
-nothing was ever captured; presenting them as reconcilable revenue would be the same
-overclaim this project exists to criticise. Sides B (bank statement) and C (invoice
-ledger) are fully generated — no real settlement data exists in test mode.
+**What R2 is, stated exactly, because an earlier version of this section got it
+wrong.** This table used to say R2 carried *"no `fee`, no `tax`, not `captured`"*. That
+is true of the raw orders in `data/mcp_created/orders_r2.json` and **false of the records
+that reach the batch**: `build.py::_r2_as_payments` promotes each one into a settled
+payment with a synthetic fee, and all 12 sit inside the 194-payment denominator behind
+the match rate. The generator's own docstring always said so — *"this is the one place
+the codebase turns an uncaptured order into something that looks like revenue"* — and the
+README was describing the source tier rather than the batch. It was doc drift, not a
+hidden transformation, and `tests/test_reported_numbers.py` now asserts this table against
+a live tier count so it cannot drift again.
+
+So: **an uncaptured order is not a payment, and these are not presented as one.** They are
+12 settlement simulations wearing real order identity. What is real is the identity — id,
+receipt, notes, server timestamp, all inspectable in the Razorpay dashboard. What is
+modelled is the money, from the rate fitted to R1's 18 genuine fee observations. **R1
+remains the only tier with a real fee/tax pair**, which is the claim that actually matters
+and is unaffected. Sides B (bank statement) and C (invoice ledger) are fully generated —
+no real settlement data exists in test mode.
 
 All test-mode payments were completed using **only Razorpay's published test values**.
 No real card, account, or credential was used at any point.
@@ -469,7 +482,7 @@ would be worse than none.
 pytest tests/
 ```
 
-457 tests, including the end-to-end isolation test — which deletes the ground-truth
+458 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,

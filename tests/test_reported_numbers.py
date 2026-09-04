@@ -703,3 +703,54 @@ def test_the_holdout_artefact_is_the_reproducible_arm_too():
         f"the primary uses the reproducible arm. Regenerate with "
         f"`python run.py match --dataset holdout --verify --no-llm`"
     )
+
+
+def test_the_provenance_table_describes_the_batch_and_not_the_source_files():
+    """
+    The drift that an outside reviewer found before this suite did.
+
+    `README.md`'s provenance table said R2 carried "no `fee`, no `tax`, not `captured`".
+    True of the raw orders in `data/mcp_created/orders_r2.json`; false of the records that
+    reach the batch, where `build.py::_r2_as_payments` promotes all 12 into settled
+    payments with synthetic fees — inside the 194-payment denominator behind the match
+    rate. The generator's docstring was always explicit about the transformation, so this
+    was doc drift rather than a hidden one, and it sat in the section this project is
+    proudest of.
+
+    Two assertions, because the counts alone would not have caught it: the tier sizes must
+    match the batch, AND a tier the README calls uncaptured must actually be uncaptured in
+    the batch.
+    """
+    import collections
+
+    from loaders import load_inputs
+
+    inputs = load_inputs()
+    by_tier = collections.Counter(p.provenance for p in inputs.payments)
+
+    section = README.split("## Data provenance", 1)
+    assert len(section) == 2, "README no longer has a Data provenance section"
+    table = section[1].split("Total batch", 1)[0]
+
+    for tier in ("R1", "R2", "S"):
+        row = re.search(rf"\|\s*\*\*{tier} [^|]*\|[^|]*\|\s*\*\*([^*]+)\*\*\s*\|", table)
+        assert row, f"the provenance table no longer states a count for tier {tier}"
+        stated = [int(n) for n in re.findall(r"\d+", row.group(1))]
+        assert by_tier[tier] in stated or sum(stated) == by_tier[tier], (
+            f"README says tier {tier} is {row.group(1).strip()!r}; the batch carries "
+            f"{by_tier[tier]}"
+        )
+
+    # The half that actually drifted: a tier described as uncaptured must BE uncaptured.
+    for tier in ("R1", "R2", "S"):
+        row = re.search(rf"\|\s*\*\*{tier} [^|]*\|([^|]*)\|", table)
+        assert row, tier
+        text = row.group(1)
+        claims_uncaptured = re.search(r"not\s+`?captured`?", text) and "SYNTHESIS" not in text.upper()
+        if claims_uncaptured:
+            captured = [p for p in inputs.payments if p.provenance == tier and p.captured]
+            assert not captured, (
+                f"README describes tier {tier} as not captured, but {len(captured)} of "
+                f"its records enter the batch captured and count toward the match-rate "
+                f"denominator"
+            )

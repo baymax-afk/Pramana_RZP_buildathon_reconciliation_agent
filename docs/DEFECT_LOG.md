@@ -1800,3 +1800,44 @@ unchanged precision; only one of them was an improvement, and the difference was
 in the metrics and obvious in the two credits. `tests/test_narration_gate.py::
 test_a_clean_name_in_an_unrecognised_grammar_is_KEPT` exists so the better-scoring version
 cannot come back.
+
+## 2026-09-04-05 — the provenance table described the source files, not the batch
+
+Found by an external reviewer, not by this suite, and it sat in the section this project
+is proudest of.
+
+**The claim.** `README.md`'s provenance table said tier R2 was *"Never completed — no
+`fee`, no `tax`, not `captured`"*, and the paragraph below it: *"An uncaptured order is
+not a payment. R2 entities carry no fee or tax because nothing was ever captured."*
+
+**Measured.** All 12 R2 records enter the batch `captured=True` with a synthetic `fee` and
+`tax`, and all 12 sit inside the 194-payment denominator behind the 88.66% match rate:
+
+    prov  captured  has_fee   n
+    R1    False     False     6
+    R1    True      True     18
+    R2    True      True     12
+    S     True      True    164
+
+**Not a hidden transformation.** `build.py::_r2_as_payments` is explicit in its own
+docstring — *"Promote tier-R2 orders into settled payments, with SYNTHETIC fees… this is
+the one place the codebase turns an uncaptured order into something that looks like
+revenue, so it is done explicitly, in a named function, with the provenance stamped
+'R2'."* The code knew. The README was describing `data/mcp_created/orders_r2.json`, where
+the statement is true, and was never reconciled with what the generator does to it.
+
+**Why it mattered more than its size.** The reviewer's phrasing was right: it *"undermines
+the project's strongest claim"*. Every other number here is hedged and sourced; a
+provenance table that overstates what is real is the one error that makes a reader
+re-open all the others.
+
+**Fixed.** The row now reads *"settlements simulated on real orders — real identity,
+modelled money"*, and says which fields are synthesised and that the records enter the
+batch captured. The claim that survives intact is the one that carries the weight: **R1 is
+still the only tier with a real fee/tax pair.**
+
+**The check that was missing.** `tests/test_reported_numbers.py` exists precisely to stop
+doc numbers drifting and had no coverage of provenance. It now asserts the tier counts
+against a live `load_inputs()`, and separately that a tier the README calls uncaptured is
+uncaptured in the batch — the half that actually drifted, and the half a count check alone
+would have missed. Verified by reintroducing the old wording and watching it fail.
