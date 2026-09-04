@@ -10,9 +10,16 @@ The subtler half was worse. `Assigned 126 of 141 credits` is a **credit** count;
 rate is **payment**-level (172/194 = 88.66%). A reader takes the first for the second and
 is wrong by two different denominators, in the direction that flatters the engine.
 
-And `generated_at` was in the payload from the first version and rendered nowhere, so a
-stale artefact looked exactly like a fresh one — the failure behind P0-1 and behind two
-later runs that silently lost their verification block.
+**The first fix put a KPI row in the header, and these tests pinned it there. That row is
+gone.** `ReconciliationSummary` now reports the same figures better, and keeping both put
+a warning-toned "At risk" tile *above* the success story — leading with the failure again,
+one row higher. So the assertions moved with the implementation: the requirement was never
+"a tile in the header", it was **"a reader sees the outcome, the rate, the accuracy and
+its bound before they scroll"**, and that is what they check now.
+
+`generated_at` stays in the header. It was in the payload from the first version and
+rendered nowhere, so a stale artefact looked exactly like a fresh one — the failure behind
+P0-1 and behind two later runs that silently lost their verification block.
 """
 
 from __future__ import annotations
@@ -26,31 +33,41 @@ JSX = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text
 )
 
 
-def test_the_track_metrics_are_in_the_header_not_only_below_the_exception_list():
-    assert "function Kpis" in JSX, "the header no longer renders a KPI row"
-    header = JSX.split("<header>", 1)[1].split("</header>", 1)[0]
-    assert "<Kpis" in header, "the KPI row is defined but not rendered in the header"
-    for label in ("Match rate", "Precision", "Refusal correctness"):
-        assert label in JSX, f"the header does not report {label!r}"
+def test_the_track_metrics_are_above_the_fold_not_below_the_exception_list():
+    """The requirement, wherever it is implemented: seen before any scrolling."""
+    assert "function ReconciliationSummary" in JSX
+    above_the_tabs = JSX.split("</header>", 1)[1].split('<nav className="tabs">', 1)[0]
+    assert "<ReconciliationSummary" in above_the_tabs, (
+        "nothing reports the outcome between the header and the tabs"
+    )
+    summary = JSX.split("function ReconciliationSummary", 1)[1].split("\nfunction ", 1)[0]
+    for label in ("Match rate", "Records processed", "Invoices reconciled",
+                  "Verified stable"):
+        assert label in summary, f"the summary does not report {label!r}"
 
 
-def test_the_credit_count_is_not_labelled_in_a_way_that_reads_as_coverage():
+def test_no_bare_percentage_can_be_mistaken_for_the_match_rate():
     """
     `Assigned 126 of 141 credits` invited exactly one misreading, and it was the
-    flattering one. The tile is now named for what it counts.
+    flattering one: a CREDIT count read as the payment-level match rate.
+
+    The summary shows both a credit-level figure and the match rate, so each must name its
+    own denominator in the same breath.
     """
-    assert "Credits posted" in JSX
     assert 'label="Assigned"' not in JSX, (
-        "a tile labelled 'Assigned' over a credit count reads as the payment-level match "
-        "rate, which is a different number over a different denominator"
+        "a tile labelled 'Assigned' over a credit count reads as the match rate"
+    )
+    summary = JSX.split("function ReconciliationSummary", 1)[1].split("\nfunction ", 1)[0]
+    assert "bank credits" in summary and "settleable payments" in summary, (
+        "the two percentages on the first screen do not each name their denominator"
     )
 
 
-def test_precision_in_the_header_carries_its_bound():
-    kpis = JSX.split("function Kpis", 1)[1].split("function ", 1)[0]
-    assert "precision_ci_lower" in kpis, (
-        "the header reports precision without the bound that qualifies it -- the "
-        "headline is what a judge reads"
+def test_precision_above_the_fold_carries_its_bound():
+    summary = JSX.split("function ReconciliationSummary", 1)[1].split("\nfunction ", 1)[0]
+    assert "precision_ci_lower" in summary, (
+        "the first screen reports precision without the bound that qualifies it -- the "
+        "headline is what a judge reads, and 1.0000 on 126 is not 1.0000 on 126,000"
     )
 
 

@@ -362,6 +362,9 @@ uvicorn api.main:app --port 8000            # read-only; leave it running
 cd ui && npm install && npm run dev         # http://localhost:5173
 ```
 
+Demoing it? [`docs/DEMO.md`](docs/DEMO.md) is a six-minute run-sheet: open on the money
+reconciled, one concrete before/after, the stability proof, then what it refused.
+
 The data is committed, so `python run.py generate` is optional — run it only to rebuild
 the batch from its seed. The UI proxies `/api` to port 8000, so **the API has to be
 running before the page will show anything**; if it is not, the page now says so and
@@ -431,6 +434,32 @@ the crowded arm. See `docs/METRICS.md` for what that comparison does and does no
 uvicorn api.main:app --port 8000     # read-only API (importable from anywhere)
 cd ui && npm install && npm run dev  # triage UI on :5173
 ```
+
+## Connecting it to other systems
+
+**The matching logic never sees a file, a vendor or a schema.** `ReconInputs` carries
+three typed record sets — payments, bank lines, invoices — and no paths. That was done for
+the ground-truth isolation boundary rather than for portability, and portability is what
+it also buys: **a new source is a loader, not a change to the engine.**
+
+| | |
+|---|---|
+| **Implemented today** | Razorpay payments (API + MCP server), bank statement CSV with column and currency validation, invoice ledger CSV replaceable from the UI |
+| **What a new connector needs** | Map its records onto `Payment` / `BankTxn` / `Invoice`, amounts in integer paise, currency declared and checked at the boundary |
+| **What it does not touch** | The three matching tiers, the four verification layers, the refusal taxonomy, the scorer |
+
+Candidates for the next one: **SAP**, **Tally**, **Zoho Books**, NetSuite, QuickBooks, or
+a merchant's own ERP export. **None of these is built** — the claim here is about where
+the seam is, not about integrations that exist. The current path is the first
+implementation, and it is the only one with measured numbers behind it.
+
+The one thing a new source genuinely *would* change is the narration grammar the parser
+reads. That is why an unrecognised grammar is routed to a model rather than guessed at,
+and why a name the parser cannot vouch for is withheld instead of being fed to the
+matcher — see [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) 2026-09-04-04 for what happened
+the one time that went wrong.
+
+---
 
 ```bash
 python run.py verify-foreign --naive --score
@@ -513,7 +542,7 @@ would be worse than none.
 pytest tests/
 ```
 
-476 tests, including the end-to-end isolation test — which deletes the ground-truth
+488 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,

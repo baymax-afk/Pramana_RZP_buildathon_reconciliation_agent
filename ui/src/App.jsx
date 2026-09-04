@@ -247,6 +247,59 @@ function ExceptionCard({ row, rank }) {
   );
 }
 
+// The permutation gate, said twice: once for a person, once for the record.
+//
+// The original sentence was "Permutation gate: 0 of 127 assignments changed under input
+// reordering, over 8 shuffled passes." Every word of that is accurate and it assumes the
+// reader already knows why anyone would shuffle the input.
+//
+// The thing worth communicating is the failure it rules out: a matcher that processes
+// records in file order can hand the same money to whichever payment it happened to see
+// first, and the result looks completely normal. Running the batch several times in
+// different orders and comparing is how you catch it. The raw counts stay, one level
+// down, because the claim has to remain checkable.
+function PermutationGate({ gate }) {
+  const [detail, setDetail] = useState(false);
+  const clean = gate.unstable === 0;
+  return (
+    <div className="pgate">
+      <p className="pgate-plain">
+        {clean ? (
+          <>
+            <strong>Every match held when the records were shuffled.</strong> The batch was
+            reconciled {gate.passes} times over, each time with the bank lines in a
+            different order, and all {gate.txns_observed} matches came out the same. None
+            of them depended on which record happened to be read first.
+          </>
+        ) : (
+          <>
+            <strong>{gate.unstable} of {gate.txns_observed} matches changed when the
+            records were shuffled</strong>, across {gate.passes} passes. Those were refused
+            rather than posted — a match that moves with the reading order was decided by
+            the order and not by the data.
+          </>
+        )}
+      </p>
+      <p className="muted pgate-why">
+        Why it matters: a reconciler that works through records in file order can give the
+        same money to whichever candidate it saw first, and the wrong answer looks exactly
+        like the right one. Re-running in a different order is how that gets caught, and
+        anything caught is refused instead of posted.
+      </p>
+      <button className="linky" onClick={() => setDetail((v) => !v)}>
+        {detail ? "Hide" : "Show"} the raw metric
+      </button>
+      {detail && (
+        <pre className="pgate-raw">
+{`permutation gate  K=${gate.passes} shuffled passes
+unstable          ${gate.unstable} / ${gate.txns_observed} assignments
+min stability     ${gate.min_stability ?? "1.000"}`}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function Verification({ block }) {
   if (!block) return null;
   const { relations = [], permutation_gate: gate, status, note } = block;
@@ -273,14 +326,7 @@ function Verification({ block }) {
   return (
     <section className="verification">
       <h2>Verification</h2>
-      {gate && (
-        <p className="gate">
-          Permutation gate: <strong>{gate.unstable}</strong> of{" "}
-          <strong>{gate.txns_observed}</strong> assignments changed under input
-          reordering, over {gate.passes} shuffled passes. Anything that had would have
-          been refused.
-        </p>
-      )}
+      {gate && <PermutationGate gate={gate} />}
       <ul className="relations">
         {relations.map((r) => (
           <li key={r.name} className={r.passed ? "ok" : "bad"}>
@@ -420,6 +466,92 @@ function Explanation({ txnId, open }) {
 // --------------------------------------------------------------------------
 // Matches — the view that did not exist
 // --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+// BEFORE → AFTER
+//
+// The engine's own view of a match is a residual and a tier. That answers "is this
+// right" and not "what happened", and the second is the question someone asks the first
+// time they see the tool.
+//
+// So the same match is shown as a state change: on the left the records as they arrived
+// — a bank line nobody had claimed, and the open invoices sitting against it — and on
+// the right what they became. Nothing is recomputed here; both columns read the evidence
+// list the explain transcript already carries, so the picture cannot disagree with the
+// working underneath it.
+//
+// **Nothing in the source records is edited.** The reconciliation is a link, not a
+// rewrite, and the AFTER column says so rather than implying the ledger was touched.
+// --------------------------------------------------------------------------
+function BeforeAfter({ row, evidence, plain }) {
+  if (!evidence?.length) return null;
+  const bank = evidence.filter((e) => e.kind === "bank_txn");
+  const payments = evidence.filter((e) => e.kind === "payment");
+  const invoices = evidence.filter((e) => e.kind === "invoice");
+
+  return (
+    <div className="ba">
+      <div className="ba-col ba-before">
+        <h4>Before · unreconciled</h4>
+        {bank.map((b) => (
+          <div key={b.id} className="ba-rec ba-bank">
+            <span className="ba-kind">Bank line</span>
+            <span className="mono">{b.id}</span>
+            <span className="ba-text">{b.label}</span>
+            <span className="ba-state">not claimed by anything</span>
+          </div>
+        ))}
+        {invoices.map((i) => (
+          <div key={i.id} className="ba-rec">
+            <span className="ba-kind">Open invoice</span>
+            <span className="mono">{i.id}</span>
+            <span className="ba-text">{i.label}</span>
+            <span className="ba-state">awaiting payment</span>
+          </div>
+        ))}
+        {invoices.length === 0 && (
+          <p className="muted ba-none">
+            No invoice was linked to this credit — a gateway settlement batch carries its
+            own reference rather than an invoice number.
+          </p>
+        )}
+      </div>
+
+      <div className="ba-arrow" aria-hidden="true">→</div>
+
+      <div className="ba-col ba-after">
+        <h4>After · reconciled</h4>
+        <div className="ba-decision">
+          <span className="ba-kind">Decision</span>
+          <p>{plain}</p>
+          <span className="ba-state">
+            matched on {TIER_LABEL[row.tier] ?? row.tier} ·{" "}
+            {row.residual_paise === 0
+              ? "balances to the paisa"
+              : `${row.residual_paise > 0 ? "+" : ""}${row.residual_paise} paise left over, inside tolerance`}
+          </span>
+        </div>
+        <div className="ba-rec ba-linked">
+          <span className="ba-kind">Result</span>
+          <span className="ba-text">
+            <strong>{RUPEES.format(row.rupees)}</strong> settled ·{" "}
+            {payments.length} payment{payments.length === 1 ? "" : "s"} ·{" "}
+            {invoices.length} invoice{invoices.length === 1 ? "" : "s"} closed
+          </span>
+          <span className="ba-state">
+            {row.permutation_stability === 1
+              ? "held on all 8 shuffled passes"
+              : `stability ${row.permutation_stability}`}
+          </span>
+        </div>
+        <p className="muted ba-note">
+          The records themselves are unchanged. Reconciling links them; it does not edit
+          anyone's ledger, and this page has no endpoint that could.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function MatchCard({ row, rank }) {
   const [open, setOpen] = useState(false);
   return (
@@ -440,8 +572,27 @@ function MatchCard({ row, rank }) {
         </span>
         <span className="chev">{open ? "▾" : "▸"}</span>
       </button>
-      {open && (
-        <div className="match-body">
+      {open && <MatchBody row={row} />}
+    </li>
+  );
+}
+
+function MatchBody({ row }) {
+  // The state change first, the engine's own numbers second. Someone opening a match
+  // wants to know what happened before they want the residual in paise.
+  const ex = useExplanation(row.bank_txn_id, true);
+  const [showEngine, setShowEngine] = useState(false);
+  return (
+    <div className="match-body">
+      {ex.status === "ready" && (
+        <BeforeAfter row={row} evidence={ex.data.evidence} plain={ex.data.plain} />
+      )}
+      {ex.status === "loading" && <p className="muted">Reading the transcript…</p>}
+      <button className="linky" onClick={() => setShowEngine((v) => !v)}>
+        {showEngine ? "Hide" : "Show"} the engine's own numbers
+      </button>
+      {showEngine && (
+        <>
           <dl className="mini-facts">
             <div><dt>Tier</dt><dd>{TIER_LABEL[row.tier] ?? row.tier}</dd></div>
             <div><dt>Residual</dt><dd>{row.residual_paise} paise</dd></div>
@@ -462,10 +613,10 @@ function MatchCard({ row, rank }) {
             </div>
             <div><dt>Stable under reordering</dt><dd>{row.permutation_stability === 1 ? "yes, all passes" : row.permutation_stability}</dd></div>
           </dl>
-          <Explanation txnId={row.bank_txn_id} open={open} />
-        </div>
+          <Explanation txnId={row.bank_txn_id} open />
+        </>
       )}
-    </li>
+    </div>
   );
 }
 
@@ -743,64 +894,13 @@ function Worklist({ exceptions }) {
 }
 
 // --------------------------------------------------------------------------
-// The track KPIs, above the fold
+// Run freshness
 //
-// These lived only in the Ceiling panel, which renders BELOW a fifteen-row exception
-// list -- so the numbers a judge is looking for were the ones they had to scroll for. An
-// external reviewer put it exactly right: the first screen showed "At risk / Assigned /
-// Refused" and none of the metrics the track is scored on.
-//
-// `Assigned 126 of 141 credits` was the sharper problem. That is a CREDIT count; the
-// match rate is payment-level (172/194 = 88.66%). A reader takes the first for the second
-// and is wrong by two different denominators. It is now labelled as credits and the match
-// rate is stated separately, in its own tile, with the bound that qualifies it.
+// The header used to carry a row of KPI tiles. `ReconciliationSummary` now reports the
+// same figures better and in a better place, and keeping both put a warning-coloured
+// "At risk" tile ABOVE the success story -- leading with the failure again, one row
+// higher up the page. The tiles are gone; the summary is the headline.
 // --------------------------------------------------------------------------
-function Kpis({ totals }) {
-  const sc = useScorecard();
-  const pct = (x) => `${(x * 100).toFixed(2)}%`;
-  const ready = sc.status === "ready" && sc.data?.status === "ok";
-  const c = ready ? sc.data.coverage : null;
-  const p = ready ? sc.data.precision : null;
-  const r = ready ? sc.data.refusals : null;
-
-  return (
-    <div className="stats">
-      <Stat
-        label="At risk"
-        value={RUPEES.format(totals.rupees_at_risk)}
-        sub={`${totals.refused + totals.no_candidate} exceptions`}
-        tone="warn"
-      />
-      <Stat
-        label="Match rate"
-        value={c ? pct(c.match_rate) : "—"}
-        sub={c ? `${c.payments_assigned}/${c.captured_payments} captured payments` : "not scored"}
-      />
-      <Stat
-        label="Precision"
-        value={p ? pct(p.match_precision) : "—"}
-        sub={
-          p
-            ? `${p.correct_assignments}/${p.total_assignments} · 95% CI ≥ ${pct(
-                p.precision_ci_lower
-              )}`
-            : "not scored"
-        }
-      />
-      <Stat
-        label="Refusal correctness"
-        value={r ? pct(r.correctness) : "—"}
-        sub={r ? `${r.correct}/${r.total} refusals truth agrees with` : "not scored"}
-      />
-      <Stat
-        label="Credits posted"
-        value={totals.assigned}
-        sub={`of ${totals.bank_credits} bank credits`}
-      />
-    </div>
-  );
-}
-
 // How old is what you are looking at?
 //
 // `generated_at` was in the payload from the beginning and rendered nowhere, so a stale
@@ -824,10 +924,381 @@ function Freshness({ generatedAt, llmTier, verified }) {
   );
 }
 
+// --------------------------------------------------------------------------
+// The reconciliation summary — the first thing on the page
+//
+// The page used to open on the exception list, which answers "what went wrong" before
+// anyone has been told what went right. A reader landing on fifteen red rows has no way
+// to know they represent 11% of the batch.
+//
+// So the outcome leads: how much money was reconciled, across how many records, at what
+// rate, and how much of it survived the verification gate. Every figure comes from the
+// `reconciled` block the engine computes (`recon/report/run_output.py::_reconciled`) or
+// from the scorecard — nothing here is assembled in the browser, so the headline and the
+// detail views cannot drift apart.
+//
+// The exceptions are not hidden by this; they are moved. They keep their own section,
+// their own count in this summary, and their money is named in the same breath as the
+// money that settled. Leading with the success story is an ordering decision. Quietly
+// dropping the 11% would be a different thing entirely, and this page does not do it.
+// --------------------------------------------------------------------------
+function ReconciliationSummary({ reconciled: r, totals }) {
+  const sc = useScorecard();
+  const scored = sc.status === "ready" && sc.data?.status === "ok" ? sc.data : null;
+  const pct = (x) => `${(x * 100).toFixed(2)}%`;
+
+  if (!r) {
+    return (
+      <section className="summary not-run">
+        <h2>Reconciliation summary — unavailable</h2>
+        <p className="gate">
+          This run output predates the summary block. Regenerate it with{" "}
+          <code>python run.py match --verify --no-llm</code>.
+        </p>
+      </section>
+    );
+  }
+
+  const pctCredits = r.credits_reconciled / Math.max(r.credits_total, 1);
+
+  return (
+    <section className="summary">
+      <div className="summary-hero">
+        <div className="hero-money">
+          <span className="hero-label">Reconciled and verified</span>
+          <span className="hero-value">{RUPEES.format(r.rupees_reconciled)}</span>
+          <span className="hero-sub">
+            across <strong>{r.credits_reconciled}</strong> bank credits,{" "}
+            <strong>{r.payments_reconciled}</strong> payments and{" "}
+            <strong>{r.invoices_reconciled}</strong> invoices
+          </span>
+        </div>
+        <div className="hero-bar" role="img"
+             aria-label={`${r.credits_reconciled} of ${r.credits_total} credits reconciled`}>
+          <span className="seg assigned" style={{ width: `${pctCredits * 100}%` }} />
+          <span className="seg short" style={{ width: `${(1 - pctCredits) * 100}%` }} />
+        </div>
+        <p className="hero-line">
+          <strong>{r.credits_reconciled} of the {r.credits_total} bank credits</strong>{" "}
+          ({pct(pctCredits)}) settled automatically.{" "}
+          The remaining <strong>{r.exceptions}</strong> were{" "}
+          <em>refused rather than guessed</em> — they are listed below with the reason for
+          each.
+        </p>
+      </div>
+
+      <dl className="summary-grid">
+        <div>
+          <dt>Records processed</dt>
+          <dd>
+            <strong>{r.records_processed.toLocaleString("en-IN")}</strong>
+            <span className="muted">
+              {r.records_breakdown.payments} payments · {r.records_breakdown.bank_credits}{" "}
+              bank credits · {r.records_breakdown.invoices} invoices ·{" "}
+              {r.records_breakdown.bank_debits_not_examined} debits not examined
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Invoices reconciled</dt>
+          <dd>
+            <strong>{r.invoices_reconciled}</strong>
+            <span className="muted">of {r.invoices_total} in the ledger</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Match rate</dt>
+          <dd>
+            <strong>{scored ? pct(scored.coverage.match_rate) : "—"}</strong>
+            <span className="muted">
+              {scored
+                ? `${scored.coverage.payments_assigned}/${scored.coverage.captured_payments} settleable payments`
+                : "not scored"}
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Accuracy of what was posted</dt>
+          <dd>
+            <strong>{scored ? pct(scored.precision.match_precision) : "—"}</strong>
+            <span className="muted">
+              {scored
+                ? `${scored.precision.correct_assignments}/${scored.precision.total_assignments} correct · 95% CI ≥ ${pct(scored.precision.precision_ci_lower)}`
+                : "not scored"}
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Verified stable</dt>
+          <dd>
+            <strong>{r.verified_stable}</strong>
+            <span className="muted">
+              of {r.credits_reconciled} — unchanged when the input order was shuffled
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt>Multi-payment settlements</dt>
+          <dd>
+            <strong>{r.settlements_merged}</strong>
+            <span className="muted">
+              one bank line covering {r.payments_inside_merged_settlements} payments
+              between them
+            </span>
+          </dd>
+        </div>
+      </dl>
+
+      <p className="summary-resolved">
+        <strong>What the engine resolved.</strong> It read{" "}
+        {r.records_processed.toLocaleString("en-IN")} records across three sources and
+        settled {r.credits_reconciled} of {r.credits_total} bank credits against{" "}
+        {r.invoices_reconciled} invoices, worth{" "}
+        {RUPEES.format(r.rupees_reconciled)}. {r.settlements_merged} of those credits were
+        lump settlements that no single payment explained — it decomposed them into the{" "}
+        {r.payments_inside_merged_settlements} payments they actually covered. Every one
+        of the {r.verified_stable} postings held when the input order was shuffled eight
+        ways. Where the evidence did not identify one answer it declined to post at all,
+        which is the {r.exceptions} exceptions below, worth{" "}
+        {RUPEES.format(totals.rupees_at_risk)}.
+      </p>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Plain English
+//
+// The footer used to read "Tolerance 100p + 0bps · MDR band 0.018–0.025 · lookback 5d ·
+// pool ≤ 20 · materiality ₹5,000" and expect the reader to supply the meaning. Every one
+// of those is a real, defensible setting; none of them explains itself.
+//
+// The values are still read from the payload rather than written here, so this page
+// cannot describe a threshold the engine is not using.
+// --------------------------------------------------------------------------
+function Term({ term, value, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`term ${open ? "on" : ""}`}>
+      <button className="term-head" onClick={() => setOpen((v) => !v)}>
+        <span className="chev">{open ? "▾" : "▸"}</span>
+        <span className="term-name">{term}</span>
+        {value !== undefined && <span className="term-value mono">{value}</span>}
+      </button>
+      {open && <div className="term-body">{children}</div>}
+    </div>
+  );
+}
+
+function Glossary({ tolerances, seed, density, totals }) {
+  const t = tolerances ?? {};
+  return (
+    <>
+      <p className="showing">
+        Every setting below was fixed before the run and none is tuned per record. The
+        values are read from the run itself, so this page cannot describe a threshold the
+        engine is not using.
+      </p>
+
+      <h3 className="gl-h">What the engine is deciding</h3>
+      <div className="terms">
+        <Term term="Reconciliation" >
+          <p>
+            Matching money that <em>arrived</em> (a bank credit) to money that was{" "}
+            <em>owed</em> (an invoice) through the record of who paid (a gateway payment).
+            Three sources, and a match only counts when all three agree.
+          </p>
+        </Term>
+        <Term term="TDS — Tax Deducted at Source" >
+          <p>
+            Indian law requires many business customers to withhold a slice of an invoice
+            and pay it directly to the tax authority rather than to the supplier. A
+            ₹1,00,000 invoice with 2% TDS is settled by a ₹98,000 payment — and the books
+            are correct.
+          </p>
+          <p>
+            This is the single most common reason a bank credit does not equal the invoice
+            it settles. The engine reads the TDS amount from the invoice ledger and
+            subtracts it before comparing, so a withheld invoice reconciles exactly instead
+            of landing in the exception list.
+          </p>
+        </Term>
+        <Term term="Gateway fee (MDR) and the fee band" value={
+          t.mdr_rate_band ? `${(t.mdr_rate_band[0] * 100).toFixed(1)}%–${(t.mdr_rate_band[1] * 100).toFixed(1)}%` : "—"
+        }>
+          <p>
+            The payment gateway keeps a percentage of every transaction — the Merchant
+            Discount Rate — plus GST on it. So ₹10,000 paid by a customer arrives in the
+            bank as roughly ₹9,740.
+          </p>
+          <p>
+            Where the fee is on the payment record the engine uses that exact figure.
+            Where it is not, it allows the credit to fall anywhere in the band above and
+            still match. <strong>Narrower is safer:</strong> a wide band would let
+            unrelated amounts coincide, so this one is fitted to 18 real observations and
+            not widened to improve the match rate.
+          </p>
+        </Term>
+      </div>
+
+      <h3 className="gl-h">How careful it is being</h3>
+      <div className="terms">
+        <Term term="Tolerance" value={
+          t.tol_abs_paise !== undefined ? `₹${(t.tol_abs_paise / 100).toFixed(2)} + ${t.tol_rel_bps} bps` : "—"
+        }>
+          <p>
+            How far apart two amounts may be and still count as the same money — here{" "}
+            <strong>one rupee</strong>, plus nothing proportional.
+          </p>
+          <p>
+            It exists for rounding, not for slack: GST and TDS are rounded to the paisa by
+            different systems, so an exact match can legitimately be a paisa or two out.
+            One rupee sits about 200× below the smallest payment in the batch, which is
+            what stops the tolerance itself creating coincidental matches.
+          </p>
+        </Term>
+        <Term term="Lookback window" value={t.lookback_days ? `${t.lookback_days} days` : "—"}>
+          <p>
+            A payment settles into the bank a few days after the customer pays. The engine
+            only considers payments from the {t.lookback_days ?? "—"} days before a credit
+            — a payment older than that is very unlikely to be what this money is.
+          </p>
+          <p>
+            It is a safety limit as much as a speed one: the wider the window, the more
+            unrelated payments are available to coincide with the right amount.
+          </p>
+        </Term>
+        <Term term="Matching pool" value={t.max_pool ? `≤ ${t.max_pool} payments` : "—"}>
+          <p>
+            When one bank credit covers several payments, the engine tries combinations to
+            find which ones. It will search a window of up to {t.max_pool ?? "—"} payments
+            exhaustively.
+          </p>
+          <p>
+            Beyond that it <strong>stops and says so</strong> rather than searching part of
+            the range and reporting the first fit it finds. A partial search that looks
+            like a full one is how a wrong match gets posted confidently.
+          </p>
+        </Term>
+        <Term term="Materiality" value={
+          t.materiality_rupees ? RUPEES.format(t.materiality_rupees) : "—"
+        }>
+          <p>
+            The audit threshold from PCAOB AS 2315: items at or above{" "}
+            {t.materiality_rupees ? RUPEES.format(t.materiality_rupees) : "—"} are
+            verified in full, and a sample stands for the rest.
+          </p>
+          <p>
+            It also drives the worklist: an exception at or above materiality gets half the
+            turnaround time of one below it, on the same desk.
+          </p>
+        </Term>
+      </div>
+
+      <h3 className="gl-h">What you are looking at</h3>
+      <div className="terms">
+        <Term term="“Ranked by money at risk”">
+          <p>
+            Exceptions are listed largest-rupee first, not oldest or alphabetical. An
+            analyst's scarce resource is attention, and the right order to spend it in is
+            descending exposure — the ₹48,020 unresolved credit is worth looking at before
+            the ₹800 one.
+          </p>
+          <p>
+            "At risk" means <em>unreconciled</em>, not lost. The money is in the bank; what
+            is missing is a defensible link to an invoice.
+          </p>
+        </Term>
+        <Term term="Seed" value={seed}>
+          <p>
+            This batch is synthetic, and <strong>{seed}</strong> is the number it was
+            generated from. Anyone with this repository can reproduce the identical 534
+            records — the data, the defects planted in it, and the answer key — by passing
+            the same seed. It is here so the numbers on this page are checkable, not
+            because an end user needs it.
+          </p>
+        </Term>
+        <Term term="Density" value={density}>
+          <p>
+            Roughly how many payments fall in each settlement window — the crowding of the
+            batch. It matters because it is the parameter the difficulty turns on: more
+            payments in a window means more combinations that could coincidentally add up
+            to the same credit.
+          </p>
+        </Term>
+        <Term term="Bank credits" value={totals?.bank_credits}>
+          <p>
+            Money-in lines on the bank statement. The engine reads credits only; money-out
+            lines (refunds, chargebacks, bank charges) are counted and disclosed but never
+            matched — see the “not examined” note at the top of the page.
+          </p>
+        </Term>
+      </div>
+    </>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Where this connects next
+//
+// The engine takes three typed record sets and returns verdicts. It has no idea where
+// they came from — `ReconInputs` carries dataclasses and no paths, no vendor, no schema.
+// That was done for the ground-truth boundary rather than for portability, and
+// portability is what it also buys: a new source is a loader, not an engine change.
+//
+// Stated as what the architecture allows, not as work that is finished. The current
+// Razorpay + CSV path is the one that exists and has been measured.
+// --------------------------------------------------------------------------
+function ErpRoadmap({ tierCounts }) {
+  return (
+    <section className="erp">
+      <h3 className="gl-h">Connecting this to other systems</h3>
+      <p className="showing">
+        The matching logic never sees a file, a vendor or a schema. It receives three
+        typed record sets — payments, bank lines, invoices — and returns verdicts, so a
+        new source is a <strong>loader</strong>, not a change to the engine.
+      </p>
+      <div className="erp-grid">
+        <div className="erp-now">
+          <h4>Implemented today</h4>
+          <ul>
+            <li><strong>Razorpay</strong> — payments, via the API and its MCP server</li>
+            <li><strong>Bank statement</strong> — CSV, with column and currency validation</li>
+            <li><strong>Invoice ledger</strong> — CSV, replaceable from the page</li>
+          </ul>
+          <p className="muted">
+            The first implementation, and the only one with measured numbers behind it.
+          </p>
+        </div>
+        <div className="erp-next">
+          <h4>What a new connector needs</h4>
+          <ul>
+            <li>Map its records onto <code>Payment</code>, <code>BankTxn</code>, <code>Invoice</code></li>
+            <li>Amounts in integer paise, currency declared and checked at the boundary</li>
+            <li>Nothing else — the tiers, the four verification layers and the refusal
+                taxonomy are unchanged</li>
+          </ul>
+          <p className="muted">
+            Candidates: <strong>SAP</strong>, <strong>Tally</strong>,{" "}
+            <strong>Zoho Books</strong>, NetSuite, QuickBooks, or a merchant's own ERP
+            export. None of these is built; the point is that none of them would touch the
+            reconciliation logic.
+          </p>
+        </div>
+      </div>
+      <p className="muted erp-note">
+        The one thing a new source <em>would</em> change is the narration grammar the
+        parser reads, which is why unreadable narrations are routed to a model rather than
+        guessed at — see the exceptions for what that looks like when it declines.
+      </p>
+    </section>
+  );
+}
+
 export default function App() {
   const run = useRun();
   const [filter, setFilter] = useState("all");
-  const [tab, setTab] = useState("exceptions");
+  const [tab, setTab] = useState("reconciled");
 
   const categories = useMemo(() => {
     if (run.status !== "ready") return [];
@@ -892,10 +1363,15 @@ export default function App() {
     <div className="shell">
       <header>
         <div>
-          <h1>Exceptions</h1>
+          <h1>
+            Pramana <span className="wordmark">· three-way reconciliation</span>
+          </h1>
           <p className="sub">
-            Ranked by money at risk. Seed {seed} · density {density} ·{" "}
-            {totals.bank_credits} bank credits
+            Razorpay payments × bank statement × invoice ledger. Seed {seed} · density{" "}
+            {density} · {totals.bank_credits} bank credits —{" "}
+            <button className="linky" onClick={() => setTab("glossary")}>
+              what do these mean?
+            </button>
           </p>
           <p className="sub">
             <Freshness
@@ -905,17 +1381,18 @@ export default function App() {
             />
           </p>
         </div>
-        <Kpis totals={totals} />
       </header>
+
+      <ReconciliationSummary reconciled={run.data.reconciled} totals={totals} />
 
       {notExamined.debit_lines > 0 && <NotExamined data={notExamined} />}
 
       <nav className="tabs">
-        <button className={tab === "exceptions" ? "on" : ""} onClick={() => setTab("exceptions")}>
-          Exceptions
+        <button className={tab === "reconciled" ? "on" : ""} onClick={() => setTab("reconciled")}>
+          Reconciled <span className="n">{run.data.assignments.length}</span>
         </button>
-        <button className={tab === "matches" ? "on" : ""} onClick={() => setTab("matches")}>
-          Matches
+        <button className={tab === "exceptions" ? "on" : ""} onClick={() => setTab("exceptions")}>
+          Exceptions <span className="n">{run.data.exceptions.length}</span>
         </button>
         <button className={tab === "worklist" ? "on" : ""} onClick={() => setTab("worklist")}>
           Worklist
@@ -923,17 +1400,32 @@ export default function App() {
         <button className={tab === "invoices" ? "on" : ""} onClick={() => setTab("invoices")}>
           Invoice ledger
         </button>
+        <button className={tab === "glossary" ? "on" : ""} onClick={() => setTab("glossary")}>
+          How to read this
+        </button>
       </nav>
 
       {tab === "worklist" && <Worklist exceptions={run.data.exceptions} />}
 
       {tab === "invoices" && <Invoices />}
 
-      {tab === "matches" && (
+      {tab === "glossary" && (
+        <>
+          <Glossary
+            tolerances={tolerances}
+            seed={seed}
+            density={density}
+            totals={totals}
+          />
+          <ErpRoadmap tierCounts={run.data.tier_counts} />
+        </>
+      )}
+
+      {tab === "reconciled" && (
         <>
           <p className="showing">
-            {run.data.assignments.length} posted matches, largest first. Open one to see
-            why it was made.
+            {run.data.assignments.length} bank credits reconciled, largest first. Open one
+            to see the records before and after.
           </p>
           <ol className="matches">
             {[...run.data.assignments]

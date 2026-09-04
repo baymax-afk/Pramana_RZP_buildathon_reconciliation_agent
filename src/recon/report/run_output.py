@@ -293,6 +293,8 @@ def build(
         # rows are on whose plate -- three implementations of one group-by is how a
         # worklist and its summary drift apart.
         "worklist": _worklist(exceptions),
+        # The success side, first in the payload because it is first on the page.
+        "reconciled": _reconciled(inputs, out, len(debits)),
         "assignments": [asdict(a) for a in assignments],
         "verification": _verification_block(relations, ensemble),
         "throughput_records_per_s": (
@@ -380,6 +382,67 @@ def write(payload: dict, path: Path | None = None) -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     return p
+
+
+def _reconciled(inputs: ReconInputs, out: MatchOutput, debit_lines: int) -> dict:
+    """
+    What the run actually settled — the success side, computed from the engine's output.
+
+    **Why this is a block in the payload and not arithmetic in the client.** The CLI, the
+    API and the page all want "how much money got reconciled", and three implementations
+    of one sum is how a headline and its own detail view come to disagree. Same reasoning
+    as `_worklist`.
+
+    **Every figure here is engine-side and needs no ground truth.** Match rate and
+    precision are NOT here — they require an answer key and live in `reports/scorecard.json`
+    behind its own route, which is the separation that lets a reader open this file and
+    find nothing scored in it.
+
+    A note on `settlements_merged`, because the word invites a wrong reading: nothing is
+    merged in the sense of records being combined or rewritten. It counts credits that one
+    payment could not explain — a single bank line covering several payments, which the
+    subset-sum layer had to decompose. That is the hard case this engine exists for, so it
+    is worth surfacing; it is not an edit to anybody's ledger.
+    """
+    assignments = out.assignments
+    invoices_reconciled = {no for a in assignments for no in a.invoice_nos}
+    multi = [a for a in assignments if len(a.payment_ids) > 1]
+    payments_reconciled = sum(len(a.payment_ids) for a in assignments)
+    captured = sum(1 for p in inputs.payments if p.captured)
+    credits = [t for t in inputs.bank_txns if t.is_credit]
+    paise = sum(t.credit for t in credits if t.id in out.assignment_map)
+
+    return {
+        # Everything the run read, including the debit lines it deliberately does not
+        # match -- counting only what it acted on would overstate the throughput.
+        "records_processed": (
+            len(inputs.payments) + len(credits) + len(inputs.invoices) + debit_lines
+        ),
+        "records_breakdown": {
+            "payments": len(inputs.payments),
+            "bank_credits": len(credits),
+            "invoices": len(inputs.invoices),
+            "bank_debits_not_examined": debit_lines,
+        },
+        "credits_reconciled": len(assignments),
+        "credits_total": len(credits),
+        "payments_reconciled": payments_reconciled,
+        "payments_capturable": captured,
+        "invoices_reconciled": len(invoices_reconciled),
+        "invoices_total": len(inputs.invoices),
+        "paise_reconciled": paise,
+        "rupees_reconciled": round(paise / 100, 2),
+        # One bank line covering several payments. See the docstring on the word.
+        "settlements_merged": len(multi),
+        "payments_inside_merged_settlements": sum(len(a.payment_ids) for a in multi),
+        # Assignments that survived every shuffled pass of the permutation gate. Equal to
+        # `credits_reconciled` on a healthy run: anything that moved under reordering was
+        # refused before it reached this list.
+        "verified_stable": sum(
+            1 for a in assignments if (a.permutation_stability or 0) >= 1.0
+        ),
+        "exceptions": len(out.refusals) + len(out.no_candidate),
+    }
 
 
 def _worklist(exceptions: list[ExceptionRow]) -> dict:
