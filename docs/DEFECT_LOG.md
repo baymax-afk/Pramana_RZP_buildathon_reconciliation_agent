@@ -1689,3 +1689,48 @@ prompt-an-LLM entry structurally cannot.
 **The lesson.** A decision recorded in prose is not a decision that has taken effect.
 This one had been written down three times, in three documents, and the artefact went on
 contradicting all of them because nothing checked.
+
+## 2026-09-04-03 — three ways to fail at starting, and all three blamed the wrong thing
+
+Found by cloning the repository into an empty directory, building a virtualenv with
+nothing in it, and following `README.md` literally. Every one of these is invisible from
+a working checkout, which is why none had been noticed.
+
+**1. The good error message lived in the module that could not be imported.**
+`src/pramana_cli.py:27` carries a deliberate guard — if `config`, `recon` or `scorer`
+will not import, exit with *"Pramana is not installed"* and the `pip install -e .` lines,
+"deliberately an ERROR rather than a sys.path fix-up". The reasoning above it is right.
+It could never fire: `run.py:12` opens with `from pramana_cli import main`, so the import
+that fails first on a fresh clone is `pramana_cli` itself, and what a new reader actually
+got was
+
+    ModuleNotFoundError: No module named 'pramana_cli'
+
+with nothing about installing anything. The same guard now sits in `run.py`, where it can
+run, scoped by `_e.name` so a missing `fastapi` is not reported as an uninstalled
+project. `tests/test_entry_point.py` runs `python -S run.py` — `-S` skips `site`, so the
+editable install's path hook never loads and the interpreter is in exactly the state a
+fresh clone leaves it in.
+
+**2. With the API down, the page told the reader to rebuild data they had already built.**
+Nothing listening on :8000 means Vite's proxy answers 500 with an empty body, `r.json()`
+throws *"Unexpected end of JSON input"*, and that string was rendered under the heading
+**"No run to show"** beside `python run.py generate` / `python run.py match --verify`.
+Following those instructions is a dead end: both commands succeed, the page does not
+change, and there is nothing on screen pointing at the actual cause. `getJSON` now
+classifies a body that will not parse as *unreachable*, and the error screen branches on
+it — **"The API isn't running"**, with the `uvicorn` line. Verified in a browser against
+a dead API before and after.
+
+**3. A verification strip that said what was missing but not how to get it back.**
+The A1 fix made an unverified run render as a visible warning instead of silently
+rendering nothing, which was the right half of the job. It did not say to re-run with
+`--verify`. It does now.
+
+**The pattern, and it is the same one as 2026-09-04-01.** Every one of these was correct
+code with a correct comment, failing only in a situation nobody had stood in: the reader
+who has just cloned this and has nothing installed. A message that is only reachable when
+things already work is not an error message, and "it works here" is the state that hides
+all three of these. The fix for the class is cheap and now recorded in `README.md`:
+clone into a temporary directory, build an empty virtualenv, and follow your own
+instructions literally before you hand them to anybody.

@@ -104,17 +104,63 @@ function NotExamined({ data }) {
   );
 }
 
+/*
+ * Fetching, and telling the two failures apart.
+ *
+ * There are exactly two reasons this page has nothing to show, and they need different
+ * instructions:
+ *
+ *   1. The API is not running. Nothing is listening on :8000, so Vite's proxy answers
+ *      500 with an EMPTY BODY. `r.json()` then throws "Unexpected end of JSON input",
+ *      and that string used to be what the reader saw, under a heading offering to
+ *      regenerate the data -- which they had already done, and which cannot help. They
+ *      would run the two commands, watch both succeed, reload, and get the same page.
+ *
+ *   2. The API is running but there is no run to serve. It answers 503 with a JSON
+ *      `detail` naming the commands that fix it, and those ARE the right commands.
+ *
+ * Telling them apart costs a try/catch around the body parse. Getting it wrong costs
+ * somebody their evening, which is the version that actually happened.
+ */
+async function getJSON(url) {
+  let r;
+  try {
+    r = await fetch(url);
+  } catch {
+    // The fetch never completed: dev server down, or the browser is offline.
+    throw Object.assign(new Error("unreachable"), { kind: "unreachable" });
+  }
+  let body = null;
+  try {
+    body = await r.json();
+  } catch {
+    // A response that is not JSON is the proxy talking, not the API.
+    if (!r.ok) throw Object.assign(new Error("unreachable"), { kind: "unreachable" });
+    throw Object.assign(new Error("The API returned something that is not JSON."), {
+      kind: "bad_response",
+    });
+  }
+  if (!r.ok) {
+    throw Object.assign(new Error(body?.detail ?? r.statusText), { kind: "no_run" });
+  }
+  return body;
+}
+
 function useRun() {
   const [state, setState] = useState({ status: "loading" });
   useEffect(() => {
     let alive = true;
-    fetch("/api/run")
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).detail ?? r.statusText);
-        return r.json();
-      })
+    getJSON("/api/run")
       .then((data) => alive && setState({ status: "ready", data }))
-      .catch((e) => alive && setState({ status: "error", error: String(e.message ?? e) }));
+      .catch(
+        (e) =>
+          alive &&
+          setState({
+            status: "error",
+            kind: e.kind ?? "bad_response",
+            error: String(e.message ?? e),
+          })
+      );
     return () => {
       alive = false;
     };
@@ -217,6 +263,10 @@ function Verification({ block }) {
             "This run was produced without --verify, so the metamorphic relations and " +
               "the permutation refusal gate did not run."}
         </p>
+        {/* Saying a claim is absent is the A1 fix. Saying which command restores it is
+            the rest of the same thought -- a reader who sees this on a demo machine
+            needs the line to type, not a diagnosis. */}
+        <pre>python run.py match --verify --no-llm</pre>
       </section>
     );
   }
@@ -290,11 +340,9 @@ function useExplanation(txnId, open) {
     if (!open) return;
     let alive = true;
     setState({ status: "loading" });
-    fetch(`/api/explain/${encodeURIComponent(txnId)}`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).detail ?? r.statusText);
-        return r.json();
-      })
+    // Same body-parse guard as the run fetch: a dead API answers 500 with no body, and
+    // `r.json()` on that throws a parse error that reads like a data problem.
+    getJSON(`/api/explain/${encodeURIComponent(txnId)}`)
       .then((data) => {
         if (alive) setState({ status: "ready", data });
       })
@@ -440,8 +488,7 @@ function useScorecard() {
   const [state, setState] = useState({ status: "loading" });
   useEffect(() => {
     let alive = true;
-    fetch("/api/scorecard")
-      .then((r) => r.json())
+    getJSON("/api/scorecard")
       .then((data) => alive && setState({ status: "ready", data }))
       .catch((e) => alive && setState({ status: "error", error: String(e.message ?? e) }));
     return () => {
@@ -607,16 +654,43 @@ export default function App() {
   }, [run, filter]);
 
   if (run.status === "loading") return <div className="shell muted">Loading run…</div>;
-  if (run.status === "error")
+  if (run.status === "error") {
+    // Two failures, two sets of instructions. See getJSON above for why this matters.
+    const unreachable = run.kind === "unreachable";
     return (
       <div className="shell">
         <div className="error">
-          <h1>No run to show</h1>
-          <p>{run.error}</p>
-          <pre>python run.py generate{"\n"}python run.py match --verify</pre>
+          <h1>{unreachable ? "The API isn’t running" : "No run to show"}</h1>
+          {unreachable ? (
+            <>
+              <p>
+                Nothing is answering on <code>127.0.0.1:8000</code>, so this page has no
+                data to render. Start the read-only API in a second terminal, from the
+                repository root:
+              </p>
+              <pre>uvicorn api.main:app --port 8000</pre>
+              <p className="muted">
+                If that command is not found, the API extra is not installed:{" "}
+                <code>pip install -e &apos;.[api]&apos;</code>. Leave it running and
+                reload this page — nothing else needs restarting.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>{run.error}</p>
+              <p>
+                The API is up but has no run to serve. Produce one from the repository
+                root:
+              </p>
+              <pre>
+                python run.py generate{"\n"}python run.py match --verify --no-llm
+              </pre>
+            </>
+          )}
         </div>
       </div>
     );
+  }
 
   const { totals, tolerances, verification, seed, density } = run.data;
   const notExamined = run.data.not_examined ?? {};

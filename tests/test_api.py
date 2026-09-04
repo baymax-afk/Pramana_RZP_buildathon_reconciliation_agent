@@ -403,3 +403,62 @@ def test_the_scorecard_is_not_folded_into_the_run_payload():
     run = client.get("/api/run").json()
     assert "coverage" not in run
     assert "ceiling" not in json.dumps(run)
+
+
+# --------------------------------------------------------------------------
+# What the page says when it has nothing to show
+#
+# There are two reasons for an empty page and they need different instructions. The UI
+# used to give one answer for both, and it was the wrong one in the more common case.
+# --------------------------------------------------------------------------
+def test_the_ui_tells_an_unreachable_api_apart_from_an_unscored_one():
+    """
+    Pinned at the source level, like the disclosure test above.
+
+    With nothing listening on :8000, Vite's proxy answers 500 with an EMPTY BODY.
+    `r.json()` on that throws "Unexpected end of JSON input", and the page used to show
+    that string under "No run to show" beside `python run.py generate` — telling a
+    reader to rebuild data they had already built, for a problem no amount of rebuilding
+    fixes. Reproduced in a browser against a dead API before the fix and after it.
+
+    The distinction lives in `getJSON`, which classifies a body that will not parse as
+    unreachable rather than as a data problem, and in the error screen, which branches
+    on that. Both halves are asserted because either alone silently restores the bug.
+    """
+    from pathlib import Path
+
+    jsx = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text(
+        encoding="utf-8"
+    )
+    assert "async function getJSON" in jsx, (
+        "the UI no longer routes its fetches through the guarded parser, so a dead API "
+        "will surface a JSON parse error as if it were the answer"
+    )
+    assert 'kind: "unreachable"' in jsx
+    assert 'run.kind === "unreachable"' in jsx, (
+        "the error screen no longer branches on reachability, so both failures get the "
+        "same instructions again"
+    )
+    assert "uvicorn api.main:app --port 8000" in jsx, (
+        "the unreachable branch must name the command that starts the API"
+    )
+    # And every fetch has to go through it -- one raw `fetch(` for a data route puts the
+    # old behaviour back on that route only, which is the hardest version to notice.
+    for route in ("/api/run", "/api/scorecard", "/api/explain/"):
+        assert f'fetch("{route}")' not in jsx and f"fetch(`{route}" not in jsx, (
+            f"{route} is fetched directly rather than through getJSON"
+        )
+
+
+def test_the_unverified_strip_names_the_command_that_fixes_it():
+    """A claim shown as absent should come with the line that restores it."""
+    from pathlib import Path
+
+    jsx = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text(
+        encoding="utf-8"
+    )
+    head = jsx.split("Verification — did not run")[1][:600]
+    assert "run.py match --verify" in head, (
+        "the not-run verification strip says the layers did not run without saying how "
+        "to run them"
+    )

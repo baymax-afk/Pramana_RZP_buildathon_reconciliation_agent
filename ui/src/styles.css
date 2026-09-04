@@ -398,3 +398,14 @@ dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
   .shortfall-money, .shortfall-why, .shortfall-labels { grid-column: 2; }
   .shortfall-body { padding-left: 16px; }
 }
+
+/* The remediation command inside a not-run strip. Same treatment as the error screen's
+   `pre`: a line to copy, not decoration. */
+.verification.not-run pre {
+  background: #fff7e6; border: 1px solid #f0dfbe; border-radius: 7px;
+  padding: 9px 12px; margin: 10px 0 2px; font-family: var(--mono); font-size: 12.5px;
+  overflow-x: auto; color: #92400e;
+}
+@media (prefers-color-scheme: dark) {
+  .verification.not-run pre { background: #3a2c07; border-color: #6b5210; color: #fbbf24; }
+}

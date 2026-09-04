@@ -328,6 +328,33 @@ verdict.
 
 ## Running it
 
+**The whole thing, from a clean clone, in two terminals.** Verified end to end against a
+fresh checkout and an empty virtualenv — not written from memory.
+
+```bash
+# terminal 1 -- engine + API
+pip install -e '.[api]'                     # the engine itself has no dependencies
+python run.py match --verify --no-llm       # writes reports/run_output.json + scorecard.json
+uvicorn api.main:app --port 8000            # read-only; leave it running
+
+# terminal 2 -- the UI
+cd ui && npm install && npm run dev         # http://localhost:5173
+```
+
+The data is committed, so `python run.py generate` is optional — run it only to rebuild
+the batch from its seed. The UI proxies `/api` to port 8000, so **the API has to be
+running before the page will show anything**; if it is not, the page now says so and
+gives you that `uvicorn` line rather than blaming the data.
+
+Three failure modes worth knowing, all of which used to be confusing and are now
+self-explaining:
+
+| what you see | what it means |
+|---|---|
+| `ModuleNotFoundError: No module named 'pramana_cli'` | the package is not installed. `run.py` now catches this and prints the `pip install` line instead |
+| the page says **"The API isn't running"** | nothing is listening on :8000. Start `uvicorn` and reload; nothing else needs restarting |
+| a **"Verification — did not run"** strip | the run was produced without `--verify`. Re-run `python run.py match --verify --no-llm` |
+
 ```bash
 pip install -e '.[api,test]'      # engine + API + test deps; the engine itself has none
 ```

@@ -32,7 +32,16 @@ export default function Invoices() {
   const load = useCallback(async (q = "") => {
     try {
       const r = await fetch(`/api/invoices?limit=300${q ? `&q=${encodeURIComponent(q)}` : ""}`);
-      if (!r.ok) throw new Error(r.statusText);
+      // A 500 with no body is Vite's proxy reporting that nothing is listening on
+      // :8000, not the API reporting a problem with the ledger. Saying "Internal Server
+      // Error" sends the reader looking in the wrong place.
+      if (!r.ok) {
+        throw new Error(
+          r.status >= 500
+            ? "The API isn't running. Start it with: uvicorn api.main:app --port 8000"
+            : r.statusText
+        );
+      }
       setLedger({ status: "ready", data: await r.json() });
     } catch (e) {
       setLedger({ status: "error", error: String(e.message ?? e) });
