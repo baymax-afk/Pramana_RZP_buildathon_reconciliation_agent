@@ -542,7 +542,7 @@ would be worse than none.
 pytest tests/
 ```
 
-494 tests, including the end-to-end isolation test — which deletes the ground-truth
+497 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,

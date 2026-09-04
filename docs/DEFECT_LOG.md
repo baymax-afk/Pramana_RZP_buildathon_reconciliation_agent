@@ -1877,3 +1877,44 @@ find-and-grep on the identifier misses the second every time — the prose said
 "two-threshold band" while the code said `contradicts`, and they share no token. When a
 mechanism is removed, the check is a grep for what it was *called in English*, not for
 what it was named in Python.
+
+## 2026-09-04-07 — half a dark theme, rendering black text on a black row
+
+**Found by asking a question nobody had asked:** does this page work for someone whose
+laptop is set to dark mode? Most are, by default.
+
+**Measured in a browser**, `prefers-color-scheme: dark`, on the tab the page now lands on:
+
+    .match-head   background rgb(20, 26, 34)
+    inherited     text       rgb(0, 0, 0)
+
+A contrast ratio of roughly **1.1:1** — 126 rows of near-black text on a near-black
+background, on a light page. Opening a transcript was no better:
+`.explanation .plain { color: rgb(231, 236, 243) }`, near-white ink on a white panel.
+**Sixteen rules in total went live.**
+
+**Why it happened.** `:root` declares `color-scheme: light` and defines exactly one
+palette. Someone had also written three `@media (prefers-color-scheme: dark)` blocks for a
+handful of components — `.match`, `.explanation`, `.verification.not-run` — a half-finished
+theme. Media queries fire regardless of `color-scheme`, so those rules applied on a page
+whose tokens never moved. The components went dark; everything around and inside them
+stayed light.
+
+**Not introduced by the UI restructure, but promoted by it.** The rules had been there for
+a while, applying to a "Matches" tab a reader had to click. Making the reconciled view the
+landing tab put 126 unreadable rows in front of anyone arriving in dark mode — the first
+thing after the summary, on a demo machine, in a room where the projector is somebody
+else's laptop.
+
+**Fixed by deleting the blocks, not by finishing them.** The page has one palette and now
+says so consistently. Finishing dark mode is a real piece of work — every token moves, and
+the forty-odd hardcoded colours added for the summary, the before/after view and the
+glossary would each need a pair — and doing it quickly is how you get this defect again in
+a different component.
+
+**The lesson, and it generalises past CSS.** A partial implementation of a cross-cutting
+concern is worse than none: it does not fall back to the working design, it half-overrides
+it. `tests/test_theme.py` encodes the all-or-nothing rule — a dark media block is
+permitted only when the palette itself goes dark — plus a backstop that catches any rule
+painting a dark surface without setting a text colour, which needs no media query to be
+wrong. Verified by putting one block back and watching all three assertions fire.

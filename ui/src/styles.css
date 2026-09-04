@@ -239,17 +239,6 @@ table.mini .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-s
 .ceiling.not-run h2 {
   color: #92400e;
 }
-@media (prefers-color-scheme: dark) {
-  .verification.not-run,
-  .ceiling.not-run {
-    background: #2a1f05;
-    border-left-color: #f59e0b;
-  }
-  .verification.not-run h2,
-  .ceiling.not-run h2 {
-    color: #fbbf24;
-  }
-}
 
 /* --------------------------------------------------------------------------
    Explanations
@@ -332,22 +321,6 @@ dl.mini-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(11
 dl.mini-facts dt { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7686; }
 dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
 
-@media (prefers-color-scheme: dark) {
-  .explanation { border-top-color: #2a3340; }
-  .explanation .plain { color: #e7ecf3; }
-  ul.evidence a { background: #1b222c; }
-  ul.evidence a:hover { background: #232c38; }
-  .working-toggle { border-color: #2a3340; color: #b8c2d0; }
-  .working-toggle:hover { background: #1b222c; }
-  .step { border-left-color: #2a3340; }
-  .step-verdict { border-left-color: #e7ecf3; }
-  .step-detail { color: #b8c2d0; }
-  .match { border-color: #2a3340; }
-  .match-head { background: #141a22; }
-  .match-head:hover { background: #1b222c; }
-  .match-body { border-top-color: #2a3340; }
-  .match .tier { background: #232c38; color: #b8c2d0; }
-}
 
 /* ---- reachable ceiling ----
  *
@@ -405,9 +378,6 @@ dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
   background: #fff7e6; border: 1px solid #f0dfbe; border-radius: 7px;
   padding: 9px 12px; margin: 10px 0 2px; font-family: var(--mono); font-size: 12.5px;
   overflow-x: auto; color: #92400e;
-}
-@media (prefers-color-scheme: dark) {
-  .verification.not-run pre { background: #3a2c07; border-color: #6b5210; color: #fbbf24; }
 }
 
 /* ---- worklist ----
@@ -672,3 +642,23 @@ h1 .wordmark { font-weight: 400; color: var(--muted); font-size: 0.62em; }
 }
 .param:hover { background: #eceae5; }
 .param strong { font-variant-numeric: tabular-nums; }
+
+/* ---- On dark mode, and why there is none ----
+ *
+ * `:root` declares `color-scheme: light` and defines exactly one palette. This file used
+ * to ALSO carry `@media (prefers-color-scheme: dark)` blocks for a handful of components
+ * -- `.match`, `.explanation`, `.verification.not-run` -- from a half-finished attempt at
+ * theming.
+ *
+ * Media queries fire regardless of `color-scheme`, so on any machine set to dark those
+ * sixteen rules activated on a page whose tokens stayed light. `.match-head` rendered at
+ * rgb(20, 26, 34) under rgb(0, 0, 0) text: a contrast ratio of about 1.1:1, on what is
+ * now the landing tab. Most laptops default to dark. Nobody had looked, because whoever
+ * writes the CSS is not usually the one running dark.
+ *
+ * The blocks are gone. A partial theme is worse than no theme -- it does not fall back to
+ * the light design, it half-overrides it. If dark mode is wanted later the whole palette
+ * moves at once: redefine every token under the media query and drop the
+ * `color-scheme: light` declaration. `tests/test_theme.py` enforces exactly that: a dark
+ * block is permitted only when the tokens are dark too.
+ */
