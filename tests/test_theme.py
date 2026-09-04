@@ -117,3 +117,48 @@ def test_no_component_hardcodes_a_near_black_background():
         "these rules paint a dark surface but do not set a text colour, so they inherit "
         "the page's near-black ink:\n  " + "\n  ".join(offenders)
     )
+
+
+# --------------------------------------------------------------------------
+# Layout at the sizes this actually gets shown at
+# --------------------------------------------------------------------------
+def test_the_layout_has_a_narrow_width_rule_for_every_fixed_row():
+    """
+    Measured in a browser at four widths. A 1024x768 projector and a 1280 laptop were
+    clean; a 390px phone overflowed by 107px, in two places I had just made worse:
+
+      * `.match-head` — a flex row of amount, id, two new outcome badges, tier and
+        residual, none of which wrapped;
+      * `.tabs` — a fifth tab ("How to read this") and count badges pushed five tabs
+        past one row.
+
+    Both wrap now rather than hide anything. Every field on a match row answers a
+    question somebody might be asking, and a narrow screen is a reason to stack them, not
+    to decide for the reader which ones matter. The tab bar wraps rather than scrolls for
+    the same reason: a scrolled strip hides tabs with no sign they exist, and "How to read
+    this" is the one a confused reader most needs to find.
+    """
+    narrow = re.findall(
+        r"@media\s*\(max-width:\s*(\d+)px\)\s*\{([^@]*?)\n\}", CSS, re.S
+    )
+    assert narrow, "the stylesheet has no narrow-width rules at all"
+    joined = "\n".join(body for _, body in narrow)
+    for selector in (".match-head", ".tabs"):
+        assert selector in joined, (
+            f"{selector} is a fixed-width row with no narrow-width rule; it overflowed a "
+            f"390px viewport when this was last measured"
+        )
+        assert "flex-wrap: wrap" in joined
+
+
+def test_keyboard_focus_stays_visible():
+    """
+    Nothing here resets `outline`, so the browser's default ring already survived —
+    verified by tabbing to a control and reading back `outline: auto 1px`, rather than
+    assumed. This pins the stronger replacement, and pins that it is not removed.
+    """
+    assert ":focus-visible" in CSS, "no keyboard focus style"
+    assert not re.search(r"outline:\s*(none|0)\b", CSS), (
+        "something removes the focus outline; keyboard users lose their place on a page "
+        "whose every control is a button"
+    )

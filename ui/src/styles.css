@@ -662,3 +662,44 @@ h1 .wordmark { font-weight: 400; color: var(--muted); font-size: 0.62em; }
  * `color-scheme: light` declaration. `tests/test_theme.py` enforces exactly that: a dark
  * block is permitted only when the tokens are dark too.
  */
+
+/* ---- narrow screens ----
+ *
+ * `.match-head` is a flex row with a fixed-width amount, an id, two outcome badges, a
+ * tier chip and a residual. That fits a laptop and a 1024x768 projector (both measured,
+ * no overflow) and blows past a 390px phone by ~107px -- the badges added the last of it.
+ *
+ * Wrapping rather than hiding: every field on that row is the answer to a question
+ * somebody might be asking, and a narrow screen is a reason to stack them, not to decide
+ * for the reader which ones matter.
+ */
+@media (max-width: 560px) {
+  /* Five tabs with count badges do not fit 390px in one row. Wrapping rather than
+     scrolling: a horizontally scrolled tab strip hides tabs off-screen with no
+     indication they exist, and "How to read this" is the one a confused reader most
+     needs to find. */
+  .tabs { flex-wrap: wrap; }
+  .tabs button { padding: 8px 11px; }
+  .match-head { flex-wrap: wrap; }
+  .match .amount { min-width: 0; }
+  .match .ids { flex: 1 1 100%; order: 3; }
+  .match-head .badges { order: 4; }
+  .match .tier, .match .resid { order: 5; }
+  .summary { padding: 16px 14px; }
+  .hero-value { font-size: 30px; }
+  .legend ul { gap: 6px 14px; }
+}
+
+/* ---- keyboard focus ----
+ *
+ * Nothing in this file resets `outline`, so the browser's default focus ring already
+ * survives -- verified, rather than assumed, by tabbing to a control and reading back
+ * `outline: auto 1px`. This replaces it with something legible against the panel colours
+ * without removing anything: `:focus-visible` fires for keyboard navigation and not for
+ * mouse clicks, so the ring appears when it is useful and stays out of the way otherwise.
+ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
