@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T01:19:51.191065+00:00",
+  "generated_at": "2026-09-04T01:57:02.321609+00:00",
   "seed": 20260905,
   "density": 6,
   "llm_tier": "disabled",
@@ -20092,5 +20092,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 1141
+  "throughput_records_per_s": 1075
 }

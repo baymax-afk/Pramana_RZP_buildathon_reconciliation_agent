@@ -302,6 +302,21 @@ def cmd_match(args: argparse.Namespace) -> int:
         (cfg.REPORTS / "run_output_holdout.json") if generated_dir is not None else None,
     )
 
+    # Say it at the point of the write, not only in the metrics block below.
+    #
+    # `match` without `--verify` overwrites the artefact the API serves with one that
+    # carries no verification data, and the metrics block's "not run (pass --verify)"
+    # is 40 lines further down among the layer results -- easy to read as a note about
+    # THIS run rather than as a change to the file the demo reads. The UI shows a
+    # warning strip for exactly this state; a demo machine should not have to discover
+    # it from the page. P0-1 was this shape and it cost a day.
+    if payload.get("verification", {}).get("status") == "not_run":
+        print(
+            f"\n  NOTE: {written.name} now carries NO verification data, and the UI will\n"
+            f"        show a warning strip instead of the four-layer result. Restore it\n"
+            f"        with:  python run.py match --verify --no-llm\n"
+        )
+
     # The scoring numbers travel SEPARATELY, in their own file, because run_output.json
     # is defined as what the engine could justify with no answer key and folding a
     # truth-derived number into it would make that unprovable by inspection. Same

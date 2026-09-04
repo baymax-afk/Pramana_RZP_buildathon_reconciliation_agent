@@ -624,3 +624,82 @@ def test_the_served_artefact_is_the_reproducible_arm():
         f"docs say the demo runs the reproducible arm; regenerate with "
         f"`python run.py match --verify --no-llm`"
     )
+
+
+def test_an_unverified_write_warns_at_the_point_it_happens():
+    """
+    `match` without `--verify` overwrites the artefact the demo serves.
+
+    The metrics block already says "not run (pass --verify)" beside the layer results,
+    forty lines below the write and easy to read as a note about this run rather than as
+    a change to the file the UI reads. P0-1 was exactly that -- a served artefact quietly
+    missing its verification -- so the warning belongs at the write, in the terminal, as
+    well as on the page.
+
+    **This test writes to `reports/`, which is the same hazard it is testing**, and the
+    first version of it reproduced A1 exactly: it stripped verification from the
+    committed artefact and the test asserting that artefact is verified failed a few
+    lines later. So the real files are saved byte for byte and restored in a `finally`,
+    whatever the assertions do. A test that has to break a rule to check the rule has to
+    put it back.
+    """
+    import subprocess
+    import sys
+
+    guarded = [
+        ROOT / "reports" / "run_output.json",
+        ROOT / "reports" / "scorecard.json",
+    ]
+    saved = {p: p.read_bytes() for p in guarded if p.exists()}
+    try:
+        r = subprocess.run(
+            [sys.executable, str(ROOT / "run.py"), "match", "--no-llm"],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            timeout=600,
+        )
+        assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-2000:]
+        assert "NO verification data" in r.stdout, (
+            "an unverified run overwrote the served artefact without saying so at the "
+            "write"
+        )
+        assert "match --verify" in r.stdout
+
+        # ...and a verified run must NOT print it, or the warning becomes noise to skip.
+        r2 = subprocess.run(
+            [sys.executable, str(ROOT / "run.py"), "match", "--verify", "--no-llm"],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            timeout=900,
+        )
+        assert r2.returncode == 0, r2.stdout[-2000:] + r2.stderr[-2000:]
+        assert "NO verification data" not in r2.stdout
+    finally:
+        for p, blob in saved.items():
+            p.write_bytes(blob)
+
+
+def test_the_holdout_artefact_is_the_reproducible_arm_too():
+    """
+    Same rule as the primary, and it was not being applied.
+
+    `reports/run_output_holdout.json` was still carrying `llm_tier:
+    claude:claude-sonnet-5` after the primary had been switched to the deterministic
+    arm, so the two committed artefacts disagreed about which tier produced them. Every
+    verdict-level number in the file was identical either way -- the tier contributes
+    nothing to decisions on the shifted batch either -- which is precisely why the
+    inconsistency could sit there unnoticed.
+    """
+    path = ROOT / "reports" / "run_output_holdout.json"
+    if not path.is_file():
+        import pytest
+
+        pytest.skip("no holdout artefact; run `python run.py match --dataset holdout`")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["llm_tier"] == "disabled", (
+        f"the holdout artefact was produced with the {payload['llm_tier']!r} tier while "
+        f"the primary uses the reproducible arm. Regenerate with "
+        f"`python run.py match --dataset holdout --verify --no-llm`"
+    )

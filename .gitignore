@@ -6,6 +6,11 @@ razorpay-mcp-server/
 # Provenance and attribution: docs/ARCHITECTURE.md, README.md.
 data/benchrec/
 
+# The agent's evidence ledger is written per run by `run.py agent --write`. Nothing
+# serves it and no test pins it, so a committed copy would only ever be a stale one.
+# Re-create it by running the agent; the run itself is the artefact.
+reports/evidence_ledger.json
+
 # Secrets. The LLM tier and the Razorpay MCP both read from here.
 .env
 *.key
