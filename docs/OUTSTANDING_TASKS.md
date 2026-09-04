@@ -12,31 +12,159 @@ Ordering is by consequence, not by effort.
 
 ## Withheld claims — evidence does not support them
 
-### W1. The confidence score is not calibrated, and is currently decorative
-**Status:** measured, documented, claim withheld · `METRICS.md`, `DEFECT_LOG` 2026-09-02-01
+### W1. The confidence score is not calibrated — **BenchRec obtained 2026-09-04, and it says something bigger**
+**Status:** the blocker is gone. The fit ran. What it settled and what it did not are
+separate answers, and the second one matters more.
 
-Three attempts (125, then 777, then 3,705 examples across five densities and six seeds)
-all put **every prediction in one of ten bins** at a base rate of 0.992. The layered
-refusal architecture strips essentially every error before the confidence stage exists,
-so what survives is correct regardless of its features. The reported ECE of 0.0002 is the
-arithmetic of a single bucket and is published *with its bin count* so it cannot be
-quoted as evidence of calibration.
+    data/benchrec/BenchRec_cash_v1.0_eval.csv       69,171 rows
+    data/benchrec/BenchRec_cash_v1.0_solution.csv   32,048 labels
 
-**Consequence:** the composite score adds no measurable information beyond the
-accept/refuse decision preceding it. The four layers demonstrably work — see the density
-sweep — but their scalar summary does not.
+37,123 A-side (ledger) rows carrying an allocation, 32,048 B-side (bank) rows carrying
+none, and a solution file mapping each `B_id` to the allocation it belongs to. Real
+Tier-1 bank data, obfuscated, CC BY 4.0.
 
-**What would settle it:** BenchRec (external, labelled, ~69k rows, CC BY 4.0). Blocked
-two independent ways in this environment, both re-verified: Kaggle requires
-authentication and no credentials are present, and the outbound network policy refuses
-the host outright (`CONNECT tunnel failed, response 403`). Neither is something the
-project can route around from here.
-`src/external/benchrec_ingest.py` reads it when present and reports its absence rather
-than silently substituting the fallback.
+#### First: the ingest was wrong, and wrong in the way that looks like a result
 
-    pip install kaggle
-    kaggle datasets download -d benchmarkteam/benchrec-real-world-cash-reconciliation-dataset
-    unzip -d data/benchrec <archive>.zip
+`benchrec_ingest.load_pairs` was written **before the data could be obtained**, against a
+guessed schema. Every guess failed silently and in the same direction:
+
+| it read | the file actually has |
+|---|---|
+| `B_allocation` | *no such column* — only the A side carries one |
+| `A_currency` / `B_currency` | `A_currencyCode` / `B_currencyCode` |
+| a B-keyed label tested against A-only rows | rows are **single-sided**; a pair must be joined |
+
+It returned 37,123 rows — one per A record — every one labelled negative. The calibration
+fitter consumed that without complaint and reported **base rate 0.000, ECE 0.0032, one
+occupied bin**. An ECE of 0.003 reads like a good number.
+
+Rewritten against the real schema: pairs are joined B→A through the solution's
+allocation, blocked on value date, with sampled negatives. Base rate 0.202.
+
+#### Second: the `m` prior for references is wrong by two orders of magnitude
+
+Measured on 30,057 true pairs. Both sides are obfuscated and neither quotes the other, so
+"agreement" is the most generous definition still worth the name — a shared run of six or
+more digits anywhere in either side's references or attributes.
+
+| field | `FS_M_PRIORS` assumes | BenchRec measures |
+|---|--:|--:|
+| reference (shared 8-char prefix) | **0.99** | **0.279** |
+| reference (shared full digit run) | — | **0.012** |
+| amount | 0.98 | **0.823** |
+| date | 0.95 | 0.986 |
+
+**The direction is what matters, not the size.** A Fellegi–Sunter weight is
+`log2(m/u)` when a field agrees and `log2((1−m)/(1−u))` when it does not:
+
+| reference | agrees | **does not agree** |
+|---|--:|--:|
+| under the prior `m=0.99` | +8.06 bits | **−6.64 bits** |
+| under the fitted `m=0.279` | +5.99 bits | **−0.47 bits** |
+
+So an engine carrying this prior into a real bank feed treats *"the references don't
+match"* as **fourteen times more evidence against a correct match than it is**. On
+BenchRec, where references disagree on 72% of true matches, that is a mechanism for
+refusing correct matches in bulk.
+
+**Two further things the same measurement says.**
+
+* **The amount channel is not the certainty this engine treats it as.** Only **82.3%** of
+  true matches have equal amounts. This engine requires conservation to hold within ±₹1
+  before it will post; on this data that would refuse roughly one true match in six on
+  arithmetic alone.
+* **Excluding date from the comparison vector was right.** Chance agreement on value date
+  among date-blocked non-matches is **1.000** — it carries exactly zero evidence once it
+  has been used for blocking. `fellegi_sunter.py` says this in prose; it is now measured.
+
+#### What was NOT done, deliberately
+
+**The fitted `m` was not written into `config.py`.** `m` is a property of a data source's
+reference semantics, not a constant of reconciliation. This project's generator writes
+clean quoted invoice numbers into narrations, and 0.99 is roughly right *there*; BenchRec's
+counterparties do not quote each other at all. Substituting one for the other would be
+fitting a second dataset's semantics onto the first, which is the mistake in a different
+direction.
+
+**What the finding licenses instead**, and it is a stronger claim than a fitted constant:
+*the prior is disclosed, its source is named, and it has now been measured against
+external labelled data that says it does not transfer.* `config.FS_M_SOURCE` still reads
+"fallback priors (unfitted)" and that is still the honest label for what the engine runs.
+
+#### So: is the confidence score calibrated?
+
+Still no, and the reason has changed. It was "we cannot obtain the data". It is now
+recorded in the calibration block below.
+
+#### The calibration curve, for the first time
+
+    source        BenchRec (external, labelled, real Tier-1 bank data)
+    examples      40,001   base rate 0.202
+    bins occupied 10 of 10
+    ECE           0.0230
+
+| | previous (own batches) | BenchRec |
+|---|--:|--:|
+| examples | 3,705 | 40,001 |
+| base rate | 0.992 | 0.202 |
+| bins occupied | **1 of 10** | **10 of 10** |
+| ECE | 0.0002 | **0.0230** |
+| interpretable | no — one bucket | **yes** |
+
+**The ECE got a hundred times worse and that is the good news.** 0.0002 over one occupied
+bin was the arithmetic of a single bucket, published with its bin count precisely so it
+could not be quoted as evidence. 0.0230 across ten occupied bins is a number that means
+something.
+
+What the curve says, read honestly: the two bins holding 99.8% of the mass are close —
+predicted 0.052 against observed 0.038, and predicted 0.928 against observed 0.991. The
+sparse middle is badly over-confident (bucket 0.85: predicted 0.857, observed 0.148) on
+27 examples. So the score **separates well at the extremes and should not be read as a
+probability in between**, which is a more useful statement than either "calibrated" or
+"decorative".
+
+Fitted weights: `residual_tightness +5.32`, `fs_scaled +1.21`, `uniqueness_margin −0.004`.
+
+**One caution on that third number, because it invites a wrong conclusion.**
+`uniqueness_margin` was mapped onto BenchRec as `1 / block_size`, which is near-constant
+inside a date block. Its ~zero weight is at least partly an artefact of that mapping and
+is **not** evidence that subset-sum uniqueness carries no signal in this engine, where it
+means something quite different. Reported because suppressing it would be worse; not
+leaned on.
+
+#### The weights were NOT written into `calibration.json`, and this is the load-bearing decision
+
+The two fits answer different questions over different populations:
+
+| | BenchRec fit | the engine's score |
+|---|---|---|
+| question | given *any* candidate pair in a date block, is it correct? | given a match that **survived four verification layers**, is it correct? |
+| base rate | 0.202 | 0.992 |
+| population | 80% are pairs the engine would never have accepted | only what the refusal layers let through |
+
+A logistic fitted on a 20%-positive population and applied to a 99%-positive one is
+miscalibrated by construction. Substituting these weights would replace an honestly
+labelled unfitted score with a confidently wrong one — the failure this project spends
+its time avoiding, arriving with an external dataset attached as credentials.
+
+`calibration.json` still reads `"fallback": true, "meaningful": false`, and
+`config.FS_M_SOURCE` still reads `fallback priors (unfitted)`. **Both labels are still
+correct and both stay.**
+
+#### So what did BenchRec settle?
+
+| question | before | after |
+|---|---|---|
+| Can the calibration be measured at all? | no — blocked two ways | **yes, and it was** |
+| Is the confidence score calibrated? | unknown | **no, and now we can say how** — good at the extremes, over-confident in the middle |
+| Do the FS priors transfer to real bank data? | assumed | **no — `reference` is out by 2 orders of magnitude, in the direction that refuses correct matches** |
+| Is excluding date from the evidence vector right? | argued | **measured: u = 1.000, zero evidence** |
+| Should either be written into the engine? | — | **no, and for a stated reason rather than by omission** |
+
+**What is still open:** the engine's confidence score remains uncalibrated *for its own
+population*, and settling that needs labelled data from that population — a merchant's own
+reconciled history, not a public benchmark. That is a different piece of work and it is
+now the honest description of the gap.
 
 ### ~~W2. The LLM on/off precision comparison is unmeasured~~ — **measured 2026-09-03**
 **Status:** RESOLVED. A key was supplied, the command was run, and it reported VALID ·

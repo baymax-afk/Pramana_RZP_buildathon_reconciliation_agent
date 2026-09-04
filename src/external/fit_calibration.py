@@ -133,24 +133,72 @@ def collect_from_generated(seeds=FIT_SEEDS, densities=FIT_DENSITIES) -> list[Exa
     return examples
 
 
+# How many labelled BenchRec pairs the calibration fit draws. See the note inside
+# `collect_from_benchrec` for why this is capped and why the number is what it is.
+BENCHREC_SAMPLE = 40_000
+
+
 def collect_from_benchrec() -> list[Example]:
     """Map BenchRec's labelled pairs onto the same feature space. Raises if absent."""
     from external import benchrec_ingest as bri
 
-    pairs = bri.load_pairs()
+    # Capped, and the cap is not arbitrary. `fit_logistic` is batch gradient descent in
+    # pure Python -- 4,000 full passes -- and its docstring's "at a few thousand examples
+    # this is fine" was written when the loader was broken and returned a degenerate
+    # 37,000 rows fast. Against the real join it returns ~150,000 labelled pairs, and
+    # 4,000 x 150,000 x 3 is several minutes of arithmetic to answer a question that
+    # 40,000 examples settles: a reliability curve needs spread across its bins, not
+    # sample size. The cap is stated here rather than hidden in a default so that anyone
+    # reading the ECE knows what it was computed over.
+    pairs = bri.load_pairs(limit=BENCHREC_SAMPLE)
     out: list[Example] = []
     for p in pairs:
+        # Map onto the engine's own three features rather than onto whatever BenchRec
+        # happens to carry. A fit over features the engine cannot compute at runtime
+        # would not be a fit for this engine.
         out.append(
             Example(
-                residual_tightness=1.0 if p.currency_agrees else 0.0,
-                uniqueness_margin=1.0 if p.account_agrees else 0.0,
-                fs_scaled=1.0 if p.allocation_agrees else 0.0,
+                # How tight is the amount? The engine's residual_tightness is 1.0 for an
+                # exact hit and falls as the residual grows against tolerance.
+                residual_tightness=max(0.0, 1.0 - p.amount_delta_ratio * 100.0),
+                # How alone is this candidate in its block? A credit with one plausible
+                # counterparty is a different proposition from one with forty.
+                uniqueness_margin=1.0 / max(p.block_size, 1),
+                # Non-amount evidence, on the same 0..1 scale the engine scales its
+                # Fellegi-Sunter weight onto.
+                fs_scaled=(
+                    1.0 if p.ref_agrees_exact else 0.5 if p.ref_agrees_partial else 0.0
+                ),
                 correct=p.is_match,
                 accepted=True,
                 source="benchrec",
             )
         )
+    _reject_degenerate_labels(out)
     return out
+
+
+def _reject_degenerate_labels(examples: list[Example]) -> None:
+    """
+    Refuse a label set that is all one class, because that is a broken join, not data.
+
+    This guard exists because its absence cost a day. The first version of the ingest
+    was written against a guessed schema and returned 37,123 rows every one of which was
+    labelled negative; the fitter consumed them without complaint and reported a base
+    rate of 0.000 with an ECE of 0.0032 over a single occupied bin. An ECE of 0.003
+    reads like a good result, and nothing in the pipeline objected.
+
+    BenchRec is a matched dataset: a sample of it containing no true matches, or no
+    non-matches, is a defect in the reader. Failing loudly is the only correct behaviour
+    -- see `DEFECT_LOG` 2026-09-04-08.
+    """
+    positives = sum(e.correct for e in examples)
+    if not examples or positives == 0 or positives == len(examples):
+        raise ValueError(
+            f"BenchRec produced a degenerate label set: {positives} positives in "
+            f"{len(examples)} examples. A matched dataset yielding one class means the "
+            "join failed; refusing to fit rather than reporting a calibration over it."
+        )
 
 
 # --------------------------------------------------------------------------

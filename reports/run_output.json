@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T13:27:05.240907+00:00",
+  "generated_at": "2026-09-04T14:53:52.547928+00:00",
   "seed": 20260905,
   "density": 6,
   "llm_tier": "disabled",
@@ -17386,7 +17386,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T01:27:05+00:00",
+        "due_at": "2026-09-05T02:53:52+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17409,7 +17409,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T13:27:05+00:00",
+        "due_at": "2026-09-05T14:53:52+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17443,7 +17443,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T01:27:05+00:00",
+        "due_at": "2026-09-05T02:53:52+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17477,7 +17477,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T01:27:05+00:00",
+        "due_at": "2026-09-05T02:53:52+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17511,7 +17511,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T13:27:05+00:00",
+        "due_at": "2026-09-05T14:53:52+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17534,7 +17534,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T13:27:05+00:00",
+        "due_at": "2026-09-05T14:53:52+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17570,7 +17570,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T13:27:05+00:00",
+        "due_at": "2026-09-05T14:53:52+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17604,7 +17604,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T13:27:05+00:00",
+        "due_at": "2026-09-05T14:53:52+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17638,7 +17638,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T01:27:05+00:00",
+        "due_at": "2026-09-05T02:53:52+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17672,7 +17672,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T01:27:05+00:00",
+        "due_at": "2026-09-05T02:53:52+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it."
       }
@@ -17706,7 +17706,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-05T13:27:05+00:00",
+        "due_at": "2026-09-05T14:53:52+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17729,7 +17729,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T13:27:05+00:00",
+        "due_at": "2026-09-06T14:53:52+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17752,7 +17752,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T13:27:05+00:00",
+        "due_at": "2026-09-06T14:53:52+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17786,7 +17786,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-06T13:27:05+00:00",
+        "due_at": "2026-09-06T14:53:52+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing."
       }
@@ -17832,7 +17832,7 @@
         "owner": "Treasury analyst",
         "action": "Obtain the remittance advice and confirm which payments this credit covers.",
         "sla_hours": 8,
-        "due_at": "2026-09-04T21:27:05+00:00",
+        "due_at": "2026-09-04T22:53:52+00:00",
         "material": false,
         "rationale": "The engine found more than one arithmetically valid answer and refused to choose. A remittance advice settles it in one lookup, so this is the fastest queue on the board."
       }
@@ -20360,5 +20360,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 866
+  "throughput_records_per_s": 920
 }

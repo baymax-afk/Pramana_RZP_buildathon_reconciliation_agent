@@ -542,7 +542,7 @@ would be worse than none.
 pytest tests/
 ```
 
-499 tests, including the end-to-end isolation test — which deletes the ground-truth
+516 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,
@@ -568,7 +568,11 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 - [x] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal *(86.1% at the time)*
 - [x] **Block 7** — Layer 3 Fellegi–Sunter (contradiction veto, unsupervised `u`)
 - [x] **Block 8** — Layer 4 materiality (AS 2315) + composite confidence
-- [ ] **Block 8b** — BenchRec calibration fit (weights currently UNCALIBRATED)
+- [x] **Block 8b** — BenchRec fitted 2026-09-04: ECE 0.0230 over 10/10 bins, n=40,001.
+      Weights and `m` priors **deliberately not substituted** — BenchRec scores any
+      candidate pair (base rate 0.202), this engine scores survivors of four layers
+      (0.992). Engine weights stay UNCALIBRATED and labelled so; see
+      [`OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) W1
 - [x] **Block 9** — LLM tier — changes reasons, and now one decision; see `DEFECT_LOG` 2026-09-03-01
 - [x] **Block 10** — FastAPI + React exception triage UI
 

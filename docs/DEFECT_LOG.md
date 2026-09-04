@@ -1918,3 +1918,81 @@ it. `tests/test_theme.py` encodes the all-or-nothing rule — a dark media block
 permitted only when the palette itself goes dark — plus a backstop that catches any rule
 painting a dark surface without setting a text colour, which needs no media query to be
 wrong. Verified by putting one block back and watching all three assertions fire.
+
+---
+
+## 2026-09-04-08 — the reader was written against a schema that did not exist, and reported a good ECE
+
+**Timestamp:** 2026-09-04, on the day the BenchRec files finally arrived (W1).
+
+**What broke.** `python -m external.fit_calibration --report` ran clean against real
+BenchRec data and printed:
+
+    examples      37,123   base rate 0.000
+    bins occupied 1 of 10
+    ECE           0.0032
+
+Nothing raised. Nothing warned. An Expected Calibration Error of 0.003 is, in isolation,
+an *excellent* number — and it was the arithmetic of a single bucket over a label set
+that was 100% negative.
+
+**Diagnosis.** The base rate is what gave it away: BenchRec is a *matched* dataset, so a
+sample of it containing zero true matches is not a measurement, it is a broken join.
+
+`benchrec_ingest.load_pairs` had been written weeks earlier, **before the data could be
+obtained**, against a guessed schema. Kaggle requires authentication, so the module was
+built to a plausible shape and shipped unexercised. Profiling the real header showed
+every guess wrong, and wrong in the same direction:
+
+| the reader read | the file actually has |
+|---|---|
+| `B_allocation` | *no such column* — only the A side carries an allocation |
+| `A_currency` / `B_currency` | `A_currencyCode` / `B_currencyCode` |
+| a `B_id`-keyed label tested against A-only rows | rows are **single-sided**; a pair must be joined B→A through the solution |
+
+Each failure resolved to empty-string-vs-empty-string or a missing key, so each produced
+`is_match=False` rather than an exception. 37,123 A-side rows, one "pair" each, all
+negative.
+
+**Fix.** Three things, and the first alone would not have been enough.
+
+1. **Rewrote the reader against the profiled schema.** A candidate is now an (A row, B
+   row) pair, true exactly when `solution[B_id] == A_allocation`, blocked on value date,
+   with seeded negative sampling. Base rate 0.202, and the first calibration curve this
+   project has ever had that occupies more than one bin: **ECE 0.0230 over 10/10 bins,
+   n=40,001**.
+2. **Added a guard that refuses to fit a degenerate label set.**
+   `fit_calibration._reject_degenerate_labels` raises when a BenchRec sample is all one
+   class, with the reason in the message. `fit_m_probabilities` already refused a sample
+   with no matches; the calibration path had no such check, which is precisely why the
+   bad run reached a printed ECE.
+3. **Wrote `tests/test_benchrec_ingest.py` — the first tests `src/external/` has ever
+   had.** The fixture carries the **real header line**, copied from the eval CSV, over
+   synthetic rows (BenchRec is gitignored and must never enter this repository), so a
+   column rename fails here rather than in a fit six weeks later. One test is the
+   regression by name: *load_pairs finds true matches through the solution join.*
+
+**Cost.** About two hours, and it would have been a great deal more if the number had
+been less flattering. That is the uncomfortable part.
+
+**The lesson, and it is not "write tests first".** The module's own docstring correctly
+said the data must be placed by hand and that it *"never silently substitutes something
+else and calls the result a BenchRec fit."* It honoured that: it did read BenchRec. What
+it did not have was any check that what it read made sense. **Code written against a
+schema you cannot yet see is a hypothesis, and the honest thing to do with an unexercised
+hypothesis is mark it unexercised** — or better, refuse to produce a headline number from
+it until something has confirmed the join.
+
+The generalisable defence is the one added here: **a metric that cannot distinguish
+"good" from "degenerate" must fail loudly on degenerate input.** ECE over one bin, a
+precision computed over zero assignments, a recall over an empty truth set — these all
+return numbers that read as results. Every one of them needs a base-rate assertion in
+front of it, not a footnote after it.
+
+**A postscript that is part of the same defect.** Once the reader worked, it returned
+~150,000 pairs instead of 37,123, and `fit_logistic` — 4,000 batch gradient passes in pure
+Python — went from seconds to minutes. Its docstring's *"at a few thousand examples this
+is fine"* had been written while the loader was broken. **A performance claim calibrated
+against broken input is broken too.** Capped at `BENCHREC_SAMPLE = 40_000`, with the cap
+named in the module rather than hidden in a default, so anyone reading the ECE knows what
+it was computed over.

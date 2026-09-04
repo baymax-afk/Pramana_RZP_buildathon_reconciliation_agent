@@ -34,8 +34,20 @@ entirely the wrong reason.
 **`u` is estimated from the batch, unsupervised.** Chance-agreement rates come from the
 observed distribution of each field's values -- how often two randomly drawn records
 would collide. No labels, so no boundary crossing. `m` cannot be estimated that way and
-is taken from a disclosed prior table until the BenchRec fit lands in Block 8b; fitting
-it on this run's own ground truth would breach the isolation boundary outright.
+is taken from a disclosed prior table; fitting it on this run's own ground truth would
+breach the isolation boundary outright.
+
+**The priors were measured against BenchRec on 2026-09-04 and they do not transfer.** On
+30,057 true pairs of real Tier-1 bank data, references agree on **0.279** of matches
+against the prior's 0.99, and amounts on **0.823** against 0.98. The direction is the
+finding: at m=0.99 a reference that does NOT agree scores **-6.64 bits** against the
+match, where the fitted value puts it at **-0.47** -- a 14x over-penalty that would refuse
+correct matches in bulk on a feed where counterparties do not quote each other. The
+fitted values were NOT written in, because `m` is a property of a data source's reference
+semantics rather than a constant of reconciliation, and this project's narrations do carry
+clean quoted invoice numbers. What the measurement licenses is the disclosure:
+the prior is stated, its source is named, and it is now known not to generalise.
+`docs/OUTSTANDING_TASKS.md` W1.
 """
 
 from __future__ import annotations

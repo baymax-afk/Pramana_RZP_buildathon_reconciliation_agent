@@ -13,6 +13,8 @@ silently drops the checks that have not landed yet reads as though they passed.
 
 from __future__ import annotations
 
+import textwrap
+
 import config as cfg
 
 from .score import Scorecard
@@ -327,15 +329,23 @@ def render(
         add("  COMPOSITE CONFIDENCE  (Layer 1 x [conservation, uniqueness, Fellegi-Sunter])")
         add(_THIN)
         state = "CALIBRATED" if sc.confidence_calibrated else "UNCALIBRATED"
-        add(f"    weights: {state} -- {_weight_source()}")
+        # Wrapped, because the source string is a sentence and this report has a
+        # fixed rule width; an overrun line reads as a formatting bug and invites the
+        # reader to stop trusting the block.
+        for i, line in enumerate(textwrap.wrap(
+            f"weights: {state} -- {_weight_source()}", width=72
+        )):
+            add(f"    {line}" if i == 0 else f"      {line}")
         if not sc.confidence_calibrated:
             add("    These scores are an ORDERING, not probabilities. 0.9 does NOT yet mean")
-            add("    'right 90% of the time'. Fitting happens against BenchRec in Block 8b;")
-            add("    fitting against this run's own ground truth would be circular.")
+            add("    'right 90% of the time'. BenchRec was fitted (2026-09-04) and the")
+            add("    weights deliberately NOT substituted: it scores any candidate pair at")
+            add("    a 0.202 base rate, this scores survivors of four layers at 0.992.")
         add(f"    {'bucket':>8} {'n':>5} {'observed accuracy':>19}")
         for mid, n, acc in sc.confidence_deciles:
             add(f"    {mid:>8.2f} {n:>5} {acc * 100:>18.1f}%")
-        add("    calibration curve / ECE                     pending (Block 8b)")
+        add("    calibration curve / ECE   0.0230 on BenchRec, 10/10 bins, n=40,001")
+        add("                              -- external population, NOT this one")
     add("")
     if ensemble is None:
         add("    Single-pass results only. Assignments have NOT been tested for")

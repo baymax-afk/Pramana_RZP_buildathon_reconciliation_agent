@@ -20,14 +20,25 @@ Folding it in as a weighted term would let it be auto-posted anyway at a slightl
 score, which is precisely the behaviour the gate exists to prevent. It multiplies by
 zero or it multiplies by one.
 
-**THE WEIGHTS ARE NOT FITTED YET.** They are disclosed constants chosen to order the
+**THE WEIGHTS ARE NOT FITTED.** They are disclosed constants chosen to order the
 signals sensibly, and a number produced from them is an ORDERING, not a calibrated
-probability -- 0.9 here does not yet mean "right 90% of the time". Fitting happens in
-Block 8b against BenchRec, which is external and labelled; fitting them against this
-run's own ground truth would breach the isolation boundary and would make the
-calibration claim circular besides. `is_calibrated()` reports which state the module is
-in, and the metrics block prints it, so an uncalibrated score is never quoted as though
-it were a calibrated one.
+probability -- 0.9 here does not yet mean "right 90% of the time".
+
+**The BenchRec fit ran on 2026-09-04, and the weights it produced were deliberately not
+written here.** The two fits answer different questions over different populations:
+BenchRec asks *"given any candidate pair in a date block, is it correct?"* at a base rate
+of 0.202, while this score is only ever computed for a candidate that has already
+survived four verification layers, where the base rate is 0.992. A logistic fitted on a
+20%-positive population and applied to a 99%-positive one is miscalibrated by
+construction, so substituting it would replace an honestly labelled unfitted score with a
+confidently wrong one. Calibrating this score for its own population needs labelled data
+from that population -- a merchant's reconciled history, not a public benchmark.
+`docs/OUTSTANDING_TASKS.md` W1 carries the measurement and the reasoning.
+
+Fitting against this run's own ground truth remains out of the question in any case: it
+would breach the isolation boundary and make the calibration claim circular.
+`is_calibrated()` reports which state the module is in, and the metrics block prints it,
+so an uncalibrated score is never quoted as though it were a calibrated one.
 """
 
 from __future__ import annotations
@@ -57,9 +68,17 @@ UNFITTED_WEIGHTS = {
 }
 
 FITTED_WEIGHTS: dict[str, float] | None = None
-"""Populated by src/external/fit_calibration.py once BenchRec has been fitted."""
+"""
+Left None on purpose, not for want of a fit.
 
-WEIGHT_SOURCE = "unfitted disclosed constants -- NOT calibrated (see Block 8b)"
+`src/external/fit_calibration.py` writes here, and the BenchRec fit ran. It was not
+substituted, for the population reason in the module docstring above.
+"""
+
+WEIGHT_SOURCE = (
+    "unfitted disclosed constants -- NOT calibrated "
+    "(BenchRec fitted, deliberately not substituted)"
+)
 
 
 def is_calibrated() -> bool:
