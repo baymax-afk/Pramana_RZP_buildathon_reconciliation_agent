@@ -415,7 +415,14 @@ def _tier_with(fake, monkeypatch):
     tier.enabled = True
     tier._client = fake
     tier._parse_cache = {}
-    tier.calls = tier.failures = tier.cache_hits = 0
+    # `transport_errors` / `parse_failures` replaced a single `failures` counter when
+    # this class picked up the honest-failure-typing fix -- see `claude.py`'s docstring.
+    # `.stats()["failures"]` still reports their sum, which is what the assertions below
+    # check.
+    tier.transport_errors = []
+    tier.parse_failures = []
+    tier.calls_made = 0
+    tier.cache_hits = 0
     return tier
 
 
@@ -502,3 +509,64 @@ def test_failures_are_counted_rather_than_only_swallowed(monkeypatch):
 
     assert fields.is_empty
     assert tier.stats()["failures"] == 1
+# The reported run must not depend on a paid, non-deterministic service
+# --------------------------------------------------------------------------
+
+def test_offline_and_disabled_are_different_things(monkeypatch):
+    """
+    `allow_live=False` means "offline, but not disabled". Conflating them was a real bug
+    in both directions: leaving the live tier reachable made `run.py match` produce
+    reports/run_output.json from a paid non-deterministic service, and reaching for
+    `disabled=True` to prevent that turns the narration tier off entirely and changes the
+    numbers.
+    """
+    from recon.llm import select
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-not-a-real-key")
+
+    assert select(disabled=True).name == "disabled"
+    assert select(disabled=False, allow_live=False).name == "recorded"
+
+
+def test_a_present_api_key_does_not_silently_change_the_reported_run(monkeypatch):
+    """
+    THE regression this guards. A key in `.env` must not, on its own, change what
+    `run.py match` writes -- the artifact the API, the UI and the submission all read
+    has to be reproducible by someone who has no key at all.
+    """
+    from recon.llm import select
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    without_key = select(allow_live=False).name
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-not-a-real-key")
+    with_key = select(allow_live=False).name
+
+    assert without_key == with_key == "recorded", (
+        "the presence of an API key changed the tier chosen for a reported run"
+    )
+
+
+def test_the_cli_defaults_to_a_reproducible_tier():
+    """Read off the argument parser, so the default cannot drift from the intent."""
+    from pramana_cli import main
+    import argparse, contextlib, io
+
+    parser_seen = {}
+    real_init = argparse.ArgumentParser.parse_args
+
+    def capture(self, argv=None, namespace=None):
+        ns = real_init(self, argv, namespace)
+        parser_seen["ns"] = ns
+        raise SystemExit(0)
+
+    argparse.ArgumentParser.parse_args = capture
+    try:
+        with contextlib.suppress(SystemExit), contextlib.redirect_stdout(io.StringIO()):
+            main(["match"])
+    finally:
+        argparse.ArgumentParser.parse_args = real_init
+
+    ns = parser_seen.get("ns")
+    assert ns is not None, "could not read the parsed arguments"
+    assert ns.live_llm is False, "`match` defaults to the live model"
+    assert ns.no_llm is False, "`match` defaults to disabling the narration tier"

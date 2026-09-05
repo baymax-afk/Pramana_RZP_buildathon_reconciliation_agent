@@ -17,6 +17,22 @@ Every design decision here exists to keep the model inside the trust boundary:
   * Any exception -- network, auth, quota, malformed output -- degrades to empty fields.
     The engine must run to completion with the LLM tier failing, and precision is
     reported both ways precisely so a degraded tier is visible rather than fatal.
+
+**Degrading silently is not the same as degrading safely, and this tier used to do the
+first.** Every failure returned `{}`, which is exactly what a successful call returns
+for an unreadable narration -- so a tier whose calls were ALL failing was indistinguishable
+from a tier that had honestly found nothing, and `llm-compare` would have reported "the
+measured contribution is zero" as though it were a finding about the model.
+
+That is not hypothetical. The first live key tried against this code was identity-linked
+and every request 400'd with `anthropic-workspace-id is required`; the tier swallowed all
+of them and reported empty fields. The comparison harness would have published a false
+zero attributed to Claude.
+
+So failures are still non-fatal -- the engine must run to completion with the tier
+broken -- but they are now COUNTED and NAMED. `ClaudeTier.transport_errors` holds what
+went wrong, and any consumer reporting a contribution figure is expected to check it
+first.
 """
 
 from __future__ import annotations
@@ -93,11 +109,20 @@ class ClaudeTier:
         # variable already set.
         load_dotenv()
 
+        # An identity-linked key must name the workspace it acts in, or EVERY request
+        # 400s. Sent as a default header rather than per-call so no code path can forget
+        # it, and omitted entirely when unset so an ordinary key is unaffected.
+        headers = {}
+        workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip()
+        if workspace:
+            headers["anthropic-workspace-id"] = workspace
+
         # The SDK's defaults are 600s and 2 retries, which on a dead network means a
         # single narration can block for half an hour. Wall clock per call is
         # timeout x (retries + 1), so this bounds one call at ~20s.
         self._client = anthropic.Anthropic(
             api_key=os.environ["ANTHROPIC_API_KEY"],
+            default_headers=headers or None,
             timeout=cfg.LLM_TIMEOUT_S,
             max_retries=cfg.LLM_MAX_RETRIES,
         )
@@ -108,8 +133,21 @@ class ClaudeTier:
         # without this the call count is multiplied by MAX_ROUNDS x PERMUTATION_K for
         # no additional information whatsoever.
         self._parse_cache: dict[str, NarrationFields] = {}
-        self.calls = 0
-        self.failures = 0
+        # Two failure lists, because they mean opposite things about a measurement.
+        #
+        # A TRANSPORT failure means the request never reached the model, so the empty
+        # fields it produced are not the model's answer and must not be counted as one.
+        # A PARSE failure means the model answered and the answer was unusable -- which
+        # IS a fact about the model, and belongs in the measurement rather than
+        # invalidating it.
+        #
+        # Collapsing the two would make one malformed JSON body in an otherwise clean
+        # run of 127 calls invalidate the whole comparison, and report the reason as
+        # "the requests never reached the model" -- a false claim, in the guard written
+        # to stop false claims.
+        self.transport_errors: list[str] = []
+        self.parse_failures: list[str] = []
+        self.calls_made = 0
         self.cache_hits = 0
 
     def _ask(self, prompt: str, max_tokens: int) -> dict:
@@ -117,33 +155,48 @@ class ClaudeTier:
         # the tier for the rest of the process rather than continuing to spend: the
         # engine is required to run to completion with the LLM absent, so degrading is
         # always available and is the correct response to a runaway loop.
-        if self.calls >= cfg.LLM_MAX_CALLS:
+        if self.calls_made >= cfg.LLM_MAX_CALLS:
             self.enabled = False
             return {}
-        self.calls += 1
+        self.calls_made += 1
+
+        # Scoped tightly to the network call: only what happens BEFORE a response
+        # exists can be a transport failure.
         try:
             resp = self._client.messages.create(
                 model=MODEL,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
+        except Exception as e:
+            # Degrade to nothing, but RECORD it. A tier that raises would make the
+            # engine's ability to run without the LLM a lie; a tier that fails silently
+            # makes every measurement of its contribution a lie instead.
+            self.transport_errors.append(f"{type(e).__name__}: {str(e)[:200]}")
+            return {}
+
+        # The model answered. Anything wrong from here on is about the answer, not the
+        # pipe, so it degrades to empty fields without impugning the run.
+        try:
             text = "".join(
-                block.text for block in resp.content if getattr(block, "type", "") == "text"
+                block.text
+                for block in resp.content
+                if getattr(block, "type", "") == "text"
             )
             start, end = text.find("{"), text.rfind("}")
             if start < 0 or end <= start:
-                self.failures += 1
+                self.parse_failures.append("no JSON object in response")
                 return {}
             return json.loads(text[start : end + 1])
-        except Exception:
+        except Exception as e:
             # Degrade to nothing. A tier that raises would make the engine's ability to
             # run without the LLM a lie.
             #
             # But degrading SILENTLY made a different lie possible: a tier that failed
             # on every call was indistinguishable from one that found nothing to add,
             # and the metrics block printed `claude:...` beside numbers no model had
-            # touched. The count is surfaced so a degraded run is visible.
-            self.failures += 1
+            # touched. Named and counted so a degraded run is visible.
+            self.parse_failures.append(f"{type(e).__name__}: {str(e)[:200]}")
             return {}
 
     def parse_narration(self, narration: str) -> NarrationFields:
@@ -161,11 +214,19 @@ class ClaudeTier:
         return fields
 
     def stats(self) -> dict[str, int]:
-        """What this tier actually did. Reported next to the numbers it influenced."""
+        """
+        What this tier actually did. Reported next to the numbers it influenced.
+
+        `failures` is the SUM of transport and parse failures -- the two are kept apart
+        internally because they mean different things about a measurement (see the
+        class docstring and `recon.llm.compare.tier_is_measurable`, which reads
+        `transport_errors` on its own), but a single "how much went wrong" figure is
+        what belongs beside a headline number.
+        """
         return {
-            "calls": self.calls,
+            "calls": self.calls_made,
             "cache_hits": self.cache_hits,
-            "failures": self.failures,
+            "failures": len(self.transport_errors) + len(self.parse_failures),
             "capped": int(not self.enabled),
         }
 

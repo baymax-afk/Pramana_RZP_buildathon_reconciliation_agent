@@ -477,11 +477,12 @@ imply otherwise.
 the build environment; one was supplied on 2026-09-03 and
 `python run.py llm-compare --seed 20260905 --verify` reported VALID.
 
-| | LLM OFF | LLM ON (live `claude-sonnet-5`) |
-|---|---:|---:|
-| match rate | 88.66% | **89.18%** |
-| match precision | **1.0000** | **1.0000** |
-| assignments | 126 | 127 |
+| | LLM OFF | LLM ON (live `claude-sonnet-5`) | delta |
+|---|---:|---:|---:|
+| match rate | 88.66% | **89.18%** | **+0.52pp** |
+| match precision | **1.0000** | **1.0000** | **+0.00pp** |
+| refusal rate | 10.64% | 9.93% | −0.71pp |
+| assignments | 126 | 127 | **+1** |
 
 > **Measured 2026-09-03, against the engine as it then was, and NOT re-run after O8.**
 > The baselines in this table are the pre-Layer-2b ones — the deterministic arm now reads
@@ -519,4 +520,10 @@ through `ReferenceIndex` to an invoice number and thence to a payment at one hop
 tier 1 outranks every other tier in the evidence order. Measured, the live tier moves +1
 assignment and reclassifies 9 credits from tier 2 to tier 1. See `REVIEW.md` §5 and the
 docstring in `recon/llm/interface.py`.
+
+**The reported run does not use the live tier.** `run.py match` selects the deterministic
+offline tier even when a key is present; `--live-llm` opts in. `reports/run_output.json`
+is the artifact the API, the UI and this submission all read, and it must be reproducible
+by someone with no key and no budget. The live measurement has its own command, and that
+command says `VALID` only when a live model actually answered.
 
