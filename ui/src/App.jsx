@@ -1502,7 +1502,6 @@ function Worklist({ exceptions }) {
    */
   const {
     queues,
-    note,
     finance_exceptions,
     finance_rupees_at_risk,
     internal_exceptions,
@@ -1536,7 +1535,6 @@ function Worklist({ exceptions }) {
           logged and routed, but not finance work.
         </p>
       )}
-      <p className="worklist-note">{note}</p>
     </>
   );
 }

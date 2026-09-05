@@ -464,7 +464,6 @@ dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
   color: var(--accent); margin-right: 8px;
 }
 .queue-body > .muted { font-size: 12.5px; margin: 0 0 14px; }
-.worklist-note { font-size: 12px; color: var(--muted); margin: 18px 0 0; max-width: 70ch; }
 
 @media (max-width: 720px) {
   .queue-head { grid-template-columns: 22px 46px 1fr; }
