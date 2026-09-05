@@ -709,6 +709,52 @@ def test_the_holdout_artefact_is_the_reproducible_arm_too():
     )
 
 
+def test_the_holdout_artefact_has_not_gone_stale_against_the_builder():
+    """
+    The guard above checks ONE property, and the file drifted on every other one.
+
+    Found at 05:00 the morning after four large commits: `run_output_holdout.json` was
+    committed at 06:45 the previous day and never regenerated, so it predated the
+    reconciliation summary, settlement groups and the debit ledger. It was missing
+    `reconciled`, `debits` and `settlement_groups` -- three entire blocks -- and
+    described an engine that no longer existed. The `llm_tier` assertion passed
+    throughout, because the tier was the one thing that had not changed.
+
+    **The invariant is that both artefacts come out of one builder.** `run_output.build`
+    produces the primary and the holdout alike, so their top-level shape cannot legitimately
+    differ; if it does, one of them was written by an older version of that function. That
+    is a shape check rather than a value check, which is what makes it cheap enough to run
+    every time and total enough to catch a block being added, renamed or removed.
+
+    It does not check the NUMBERS -- the two batches are meant to disagree about those --
+    so this is not a substitute for reading them. It is a substitute for noticing, months
+    later, that one of the two files has been describing a different engine.
+    """
+    primary = ROOT / "reports" / "run_output.json"
+    holdout = ROOT / "reports" / "run_output_holdout.json"
+    if not (holdout.is_file() and primary.is_file()):
+        import pytest
+
+        pytest.skip("both artefacts are needed to compare their shape")
+
+    a = json.loads(primary.read_text(encoding="utf-8"))
+    b = json.loads(holdout.read_text(encoding="utf-8"))
+    missing = sorted(set(a) - set(b))
+    extra = sorted(set(b) - set(a))
+    assert not missing and not extra, (
+        f"the two run artefacts have different shapes, so one was written by an older "
+        f"build(): the holdout is missing {missing} and carries {extra} that the primary "
+        f"does not. Regenerate with "
+        f"`python run.py match --dataset holdout --verify --no-llm`"
+    )
+
+    # The blocks the demo and the API actually read, spot-checked for presence rather
+    # than value -- a block that exists but is empty is the same failure wearing a
+    # different shape.
+    for block in ("reconciled", "debits", "verification"):
+        assert b.get(block), f"the holdout artefact's {block!r} block is missing or empty"
+
+
 def test_the_provenance_table_describes_the_batch_and_not_the_source_files():
     """
     The drift that an outside reviewer found before this suite did.

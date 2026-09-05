@@ -1,61 +1,46 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-04T06:42:02+00:00",
+  "generated_at": "2026-09-05T01:05:14+00:00",
   "dataset": "holdout",
   "seed": 8080808,
   "provenance": "Scored against ground truth the engine never received. The engine's own output is in run_output.json and contains none of this; ground-truth isolation is enforced by an audit hook over the recon package, not by convention.",
   "coverage": {
     "captured_payments": 194,
-    "payments_assigned": 164,
-    "match_rate": 0.845360824742268,
-    "reachable_payments": 179,
-    "ceiling": 0.9226804123711341,
-    "short_of_ceiling": 15,
-    "unreachable_payments": 15,
+    "payments_assigned": 168,
+    "match_rate": 0.865979381443299,
+    "reachable_payments": 181,
+    "ceiling": 0.9329896907216495,
+    "short_of_ceiling": 13,
+    "unreachable_payments": 13,
     "shortfall_by_defect": {
-      "mdr_fee": 15,
+      "mdr_fee": 13,
       "settlement_drift": 8,
-      "third_party_payer": 5,
+      "third_party_payer": 4,
+      "overpayment": 3,
       "near_duplicate_name": 3,
-      "many_to_one": 2,
       "weekend_bunching": 2,
-      "tds_deduction": 2,
       "partial_payment": 1,
       "advance_payment": 1
     }
   },
   "precision": {
-    "total_assignments": 104,
-    "correct_assignments": 104,
+    "total_assignments": 112,
+    "correct_assignments": 112,
     "match_precision": 1.0,
-    "precision_ci_lower": 0.965152,
-    "precision_ci_note": "exact two-sided 95% Clopper-Pearson lower bound on 104/104. A proportion of 1.0 has no normal-approximate interval, and this many observations cannot support a stronger claim however clean they are.",
+    "precision_ci_lower": 0.9676,
+    "precision_ci_note": "exact two-sided 95% Clopper-Pearson lower bound on 112/112. A proportion of 1.0 has no normal-approximate interval, and this many observations cannot support a stronger claim however clean they are.",
     "wrong_assignments": []
   },
   "refusals": {
-    "total": 23,
-    "rate": 0.18110236220472442,
-    "correct": 9,
-    "conservative": 14,
-    "correctness": 0.391304347826087
+    "total": 18,
+    "rate": 0.13846153846153847,
+    "correct": 5,
+    "conservative": 13,
+    "correctness": 0.2777777777777778
   },
   "short_of_ceiling_txns": [
     {
-      "bank_txn_id": "bank_txn_0041",
-      "payment_ids": [
-        "pay_SYN000725129"
-      ],
-      "defect_labels": [
-        "mdr_fee",
-        "tds_deduction",
-        "settlement_drift"
-      ],
-      "relation": "one_to_one",
-      "engine_verdict": "amount_name_conflict",
-      "paise": 4467484
-    },
-    {
-      "bank_txn_id": "bank_txn_0054",
+      "bank_txn_id": "bank_txn_0061",
       "payment_ids": [
         "pay_SYN000775790"
       ],
@@ -69,35 +54,21 @@
       "paise": 4009733
     },
     {
-      "bank_txn_id": "bank_txn_0028",
+      "bank_txn_id": "bank_txn_0126",
       "payment_ids": [
-        "pay_SYN000161596",
-        "pay_TWdoUNOlyGqTcU"
-      ],
-      "defect_labels": [
-        "many_to_one",
-        "mdr_fee",
-        "settlement_drift"
-      ],
-      "relation": "many_to_one",
-      "engine_verdict": "no_subset_fits",
-      "paise": 3677684
-    },
-    {
-      "bank_txn_id": "bank_txn_0096",
-      "payment_ids": [
-        "pay_SYN001231830"
+        "pay_SYN001423413"
       ],
       "defect_labels": [
         "mdr_fee",
-        "settlement_drift"
+        "settlement_drift",
+        "weekend_bunching"
       ],
       "relation": "one_to_one",
-      "engine_verdict": "amount_name_conflict",
-      "paise": 3545019
+      "engine_verdict": "no_subset_fits",
+      "paise": 2891729
     },
     {
-      "bank_txn_id": "bank_txn_0105",
+      "bank_txn_id": "bank_txn_0125",
       "payment_ids": [
         "pay_SYN001356490"
       ],
@@ -107,11 +78,38 @@
         "settlement_drift"
       ],
       "relation": "one_to_one",
-      "engine_verdict": "amount_name_conflict",
+      "engine_verdict": "no_subset_fits",
       "paise": 2776988
     },
     {
-      "bank_txn_id": "bank_txn_0109",
+      "bank_txn_id": "bank_txn_0082",
+      "payment_ids": [
+        "pay_SYN001042578"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "settlement_drift",
+        "overpayment"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 2484874
+    },
+    {
+      "bank_txn_id": "bank_txn_0122",
+      "payment_ids": [
+        "pay_SYN001243246"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "settlement_drift"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "no_subset_fits",
+      "paise": 2288605
+    },
+    {
+      "bank_txn_id": "bank_txn_0112",
       "payment_ids": [
         "pay_SYN001534288"
       ],
@@ -127,17 +125,47 @@
     {
       "bank_txn_id": "bank_txn_0093",
       "payment_ids": [
-        "pay_SYN900006854"
+        "pay_SYN001145387"
       ],
       "defect_labels": [
-        "mdr_fee"
+        "mdr_fee",
+        "settlement_drift",
+        "weekend_bunching",
+        "near_duplicate_name",
+        "overpayment"
       ],
       "relation": "one_to_one",
-      "engine_verdict": "no_subset_fits",
-      "paise": 2015386
+      "engine_verdict": "amount_name_conflict",
+      "paise": 2170259
     },
     {
-      "bank_txn_id": "bank_txn_0110",
+      "bank_txn_id": "bank_txn_0059",
+      "payment_ids": [
+        "pay_SYN000731755"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "settlement_drift"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 1492327
+    },
+    {
+      "bank_txn_id": "bank_txn_0002",
+      "payment_ids": [
+        "pay_SYN000087075"
+      ],
+      "defect_labels": [
+        "mdr_fee",
+        "overpayment"
+      ],
+      "relation": "one_to_one",
+      "engine_verdict": "amount_name_conflict",
+      "paise": 1263428
+    },
+    {
+      "bank_txn_id": "bank_txn_0113",
       "payment_ids": [
         "pay_SYN001503382"
       ],
@@ -151,7 +179,7 @@
       "paise": 1100665
     },
     {
-      "bank_txn_id": "bank_txn_0037",
+      "bank_txn_id": "bank_txn_0041",
       "payment_ids": [
         "pay_TWekRsHFrjfEBU"
       ],
@@ -164,20 +192,7 @@
       "paise": 917546
     },
     {
-      "bank_txn_id": "bank_txn_0085",
-      "payment_ids": [
-        "pay_SYN001126853"
-      ],
-      "defect_labels": [
-        "mdr_fee",
-        "weekend_bunching"
-      ],
-      "relation": "one_to_one",
-      "engine_verdict": "amount_name_conflict",
-      "paise": 910727
-    },
-    {
-      "bank_txn_id": "bank_txn_0079",
+      "bank_txn_id": "bank_txn_0086",
       "payment_ids": [
         "pay_SYN000912382"
       ],
@@ -189,7 +204,7 @@
       "paise": 437149
     },
     {
-      "bank_txn_id": "bank_txn_0021",
+      "bank_txn_id": "bank_txn_0025",
       "payment_ids": [
         "pay_TWSzxog1eMrPK6"
       ],
@@ -201,35 +216,6 @@
       "relation": "one_to_one",
       "engine_verdict": "amount_name_conflict",
       "paise": 336044
-    },
-    {
-      "bank_txn_id": "bank_txn_0031",
-      "payment_ids": [
-        "pay_R2XTWf07xIRgP3mLt"
-      ],
-      "defect_labels": [
-        "mdr_fee",
-        "third_party_payer",
-        "settlement_drift",
-        "weekend_bunching",
-        "near_duplicate_name"
-      ],
-      "relation": "one_to_one",
-      "engine_verdict": "amount_name_conflict",
-      "paise": 87274
-    },
-    {
-      "bank_txn_id": "bank_txn_0092",
-      "payment_ids": [
-        "pay_SYN001298256"
-      ],
-      "defect_labels": [
-        "mdr_fee",
-        "tds_deduction"
-      ],
-      "relation": "one_to_one",
-      "engine_verdict": "amount_name_conflict",
-      "paise": 57051
     }
   ]
 }

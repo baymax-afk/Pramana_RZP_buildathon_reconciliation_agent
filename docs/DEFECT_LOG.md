@@ -2348,3 +2348,65 @@ labelled as gaps in the model when the model was already right — the engine co
 everything it needed and was declining to say it. **A limitation that is really a
 reporting failure is the more expensive of the two, because writing it down as a
 limitation is what stops anyone looking at it again.**
+
+---
+
+## 2026-09-05-01 — a guard that checked one property, on a file that had drifted on every other
+
+**Timestamp:** 2026-09-05, 05:00 IST, on a verification pass the morning after four large
+commits. Not found by a failing test — found by reading a `git diff --stat` and asking why
+one number was large.
+
+**What broke.** Regenerating both batches produced a 26-line diff on
+`reports/run_output.json` (timestamps, as expected) and a **6,533-line** diff on
+`reports/run_output_holdout.json`. That asymmetry is the whole finding.
+
+    committed  2026-09-04T06:42   written by build() as it was that morning
+    HEAD       fa4b9a6            four commits later
+
+The committed holdout artefact predated the reconciliation summary, settlement groups and
+the reversal ledger. It was missing **three entire top-level blocks** — `reconciled`,
+`debits`, `settlement_groups` — and described an engine that no longer existed. Every one
+of yesterday's four commits shipped with it in that state.
+
+**Why nothing caught it, which is the part worth keeping.** There *is* a guard on this
+file: `test_the_holdout_artefact_is_the_reproducible_arm_too`, added after the two
+artefacts disagreed about which LLM tier produced them. It asserts
+`payload["llm_tier"] == "disabled"`.
+
+That assertion passed the entire time. **The tier was the one property that had not
+changed.** A guard written to catch one drift caught exactly that drift and nothing else,
+and its existence made the file look supervised.
+
+The primary artefact never went stale for a mundane reason: `run.py match` rewrites it,
+and I ran that after every change to check a number. The holdout is only written by
+`match --dataset holdout`, which I ran to *read* results rather than to publish them.
+**The file that gets regenerated as a side effect of curiosity stays fresh; the one that
+does not, rots.**
+
+**Fix.** The real invariant is that both artefacts come out of *one* builder —
+`run_output.build` produces the primary and the holdout alike — so their top-level shape
+cannot legitimately differ. If it does, one was written by an older version of that
+function. `test_the_holdout_artefact_has_not_gone_stale_against_the_builder` asserts the
+key sets are equal and that the blocks the demo actually reads are non-empty.
+
+Deliberately a **shape** check and not a value check: the two batches are supposed to
+disagree about their numbers, so comparing values would be wrong, and comparing shape is
+cheap enough to run every time and total enough to catch a block being added, renamed or
+removed. It does not tell you the numbers are right. It tells you the file is describing
+this engine.
+
+Verified by pointing the test at the stale file and watching it fail with the regeneration
+command in the message, then at the regenerated one and watching it pass.
+
+**Cost.** Twenty minutes, all of it diagnosis. The regeneration was one command.
+
+**The lesson, and it generalises past artefacts.** *A specific guard on a general risk
+reads like coverage.* The `llm_tier` assertion was written for a real drift, was correct,
+and left the impression that this file was being checked — which is worse than no guard at
+all, because no guard invites suspicion and a narrow one absorbs it. When a check is added
+in response to one incident, the question to ask immediately is **what else could go wrong
+with this object that this check would not see**, and whether the invariant can be stated
+over the object rather than over the symptom.
+
+The invariant here was available from the start: two files, one builder, same shape.
