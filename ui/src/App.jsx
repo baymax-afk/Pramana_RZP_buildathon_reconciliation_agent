@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Invoices from "./Invoices.jsx";
 
 /*
@@ -25,6 +25,39 @@ const RUPEES = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
+/*
+ * The mark: three sides converging on one verdict.
+ *
+ * Not decoration, and not an abstract shape chosen because it looked balanced. The whole
+ * engine is an argument about triangulation -- a payment record, a bank line and an
+ * invoice, none of which is trusted alone, resolving to a single posting only where all
+ * three agree. Three arcs meeting at one centre is that sentence as a shape, and the
+ * centre dot is the posting.
+ *
+ * Drawn from the palette tokens rather than hardcoded hexes so it cannot become the one
+ * element on the page that ignores the theme, and inline rather than fetched so it costs
+ * no request and cannot render as a broken image on a page whose whole claim is that it
+ * says what it knows.
+ */
+function Logo() {
+  return (
+    <svg className="logo" viewBox="0 0 48 48" role="img" aria-label="Pramana">
+      <g fill="none" strokeWidth="3.2" strokeLinecap="round">
+        <circle className="logo-arc a" cx="24" cy="24" r="15" strokeDasharray="24 70"
+                transform="rotate(-90 24 24)" />
+        <circle className="logo-arc b" cx="24" cy="24" r="15" strokeDasharray="24 70"
+                transform="rotate(30 24 24)" />
+        <circle className="logo-arc c" cx="24" cy="24" r="15" strokeDasharray="24 70"
+                transform="rotate(150 24 24)" />
+        <path className="logo-spoke" d="M24 24 L24 9.2" />
+        <path className="logo-spoke" d="M24 24 L36.8 31.4" />
+        <path className="logo-spoke" d="M24 24 L11.2 31.4" />
+      </g>
+      <circle className="logo-core" cx="24" cy="24" r="4.4" />
+    </svg>
+  );
+}
+
 const TIER_LABEL = {
   tier1_reference: "reference",
   tier2_amount_date: "amount + date",
@@ -47,6 +80,17 @@ const DEBIT_LABEL = {
   ambiguous_reversal: "several settlements match",
   no_settlement_named: "no settlement named — fee, payout or transfer",
 };
+
+// The views, in the order they appear. Data rather than six hand-written buttons, so
+// the tablist's arrow-key handler and the buttons cannot disagree about what comes next.
+const TABS = [
+  ["reconciled", "Reconciled"],
+  ["exceptions", "Exceptions"],
+  ["transactions", "All transactions"],
+  ["worklist", "Worklist"],
+  ["invoices", "Invoice ledger"],
+  ["glossary", "How to read this"],
+];
 
 const CATEGORY_LABEL = {
   order_dependent_assignment: "Order-dependent",
@@ -198,6 +242,81 @@ async function getJSON(url) {
   return body;
 }
 
+/*
+ * The view state that belongs in the address bar.
+ *
+ * A filter you cannot send to a colleague is half a filter. The page had no routing at
+ * all -- one `tab` string in component state -- so a reload lost where you were, the
+ * back button did nothing, and "look at the ICICI refusals" was a sentence rather than a
+ * link. That is tolerable on a dashboard and not on a triage tool, where the whole
+ * activity is narrowing to a subset and then talking to somebody about it.
+ *
+ * Hash rather than path, and `replaceState` rather than `push`: this is a client-only
+ * page served by Vite with no history API on the server, and typing in a filter box
+ * should not put twenty entries in the back stack. `hashchange` is still handled so the
+ * back button moves between the states a person deliberately navigated to.
+ */
+function readHash() {
+  const raw = window.location.hash.replace(/^#\/?/, "");
+  const [path, query = ""] = raw.split("?");
+  const params = new URLSearchParams(query);
+  const list = (k) => (params.get(k) ? params.get(k).split(",").filter(Boolean) : []);
+  return {
+    tab: path || "reconciled",
+    direction: params.get("direction") || "all",
+    status: list("status"),
+    category: list("category"),
+    customer: params.get("customer") || "",
+    bank: params.get("bank") || "",
+  };
+}
+
+function writeHash(state) {
+  const params = new URLSearchParams();
+  if (state.direction && state.direction !== "all") params.set("direction", state.direction);
+  if (state.status.length) params.set("status", state.status.join(","));
+  if (state.category.length) params.set("category", state.category.join(","));
+  if (state.customer) params.set("customer", state.customer);
+  if (state.bank) params.set("bank", state.bank);
+  const q = params.toString();
+  const next = `#/${state.tab}${q ? `?${q}` : ""}`;
+  if (next !== window.location.hash) {
+    window.history.replaceState(null, "", next);
+  }
+}
+
+function useUrlState() {
+  const [state, setState] = useState(readHash);
+
+  useEffect(() => {
+    writeHash(state);
+  }, [state]);
+
+  useEffect(() => {
+    const onPop = () => setState(readHash());
+    window.addEventListener("hashchange", onPop);
+    return () => window.removeEventListener("hashchange", onPop);
+  }, []);
+
+  const patch = useCallback((changes) => setState((s) => ({ ...s, ...changes })), []);
+  return [state, patch];
+}
+
+// What "no filter" is, so one definition decides both the Clear control's enabled state
+// and what it resets to. Two definitions of empty is how a Clear button ends up leaving
+// something set.
+const NO_FILTERS = { direction: "all", status: [], category: [], customer: "", bank: "" };
+
+function isFiltered(s) {
+  return (
+    s.direction !== "all" ||
+    s.status.length > 0 ||
+    s.category.length > 0 ||
+    Boolean(s.customer) ||
+    Boolean(s.bank)
+  );
+}
+
 function useRun() {
   const [state, setState] = useState({ status: "loading" });
   useEffect(() => {
@@ -220,15 +339,10 @@ function useRun() {
   return state;
 }
 
-function Stat({ label, value, sub, tone }) {
-  return (
-    <div className={`stat ${tone ?? ""}`}>
-      <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
-    </div>
-  );
-}
+/* `Stat` used to render the header's KPI tiles and was deleted with them. Its styles
+   went too -- see the note where `header .stats` used to be. A component nothing renders
+   is a component nobody maintains, and it reads in review as though the page still has a
+   tile row it does not. */
 
 function Candidates({ rows }) {
   if (!rows?.length) return null;
@@ -683,23 +797,54 @@ function OutcomeLegend({ assignments, groups = [], exceptions }) {
   );
 }
 
+/*
+ * One posted settlement.
+ *
+ * The head used to read an amount and `pay_SYN000911393`, and that pair is checkable by
+ * nobody: the payment id is the gateway's handle and the bank line's id is ours, so the
+ * row named two records a person cannot look up and none of the three facts -- who paid,
+ * when, through which bank -- that appear on a document they can. The exception rows have
+ * carried the date, the counterparty and the reference since they existed; the success
+ * side was the half nobody had to justify, so it never got them.
+ *
+ * The bank is DERIVED from the transaction reference, never supplied by the statement,
+ * and the expanded body says so where the other engine numbers are disclosed. A bank name
+ * on a settlement row is a claim, and this one comes with its provenance attached.
+ */
 function MatchCard({ row, rank }) {
   const [open, setOpen] = useState(false);
+  const who = row.customers ?? [];
   return (
     <li className="match">
       <button className="match-head" onClick={() => setOpen((v) => !v)}>
         <span className="rank">{rank}</span>
         <span className="amount">{RUPEES.format(row.rupees)}</span>
         <span className="ids">
-          {row.split
-            ? `${row.bank_txn_ids.length} bank lines → ${
-                row.payment_ids.length === 1
+          <span className="match-bank">
+            {row.bank_name || "bank not identified"}
+            {row.txn_date && <span className="match-date"> · {row.txn_date}</span>}
+          </span>
+          <span className="match-who">
+            {who.length > 0
+              ? `${who[0]}${who.length > 1 ? ` +${who.length - 1}` : ""}`
+              : row.split
+              ? `${row.bank_txn_ids.length} bank lines → ${
+                  row.payment_ids.length === 1
+                    ? "1 payment"
+                    : `${row.payment_ids.length} payments`
+                }`
+              : row.payment_ids.length === 1
+              ? row.payment_ids[0]
+              : `${row.payment_ids.length} payments`}
+            {who.length > 0 &&
+              ` · ${
+                row.split
+                  ? `${row.bank_txn_ids.length} bank lines`
+                  : row.payment_ids.length === 1
                   ? "1 payment"
                   : `${row.payment_ids.length} payments`
-              }`
-            : row.payment_ids.length === 1
-            ? row.payment_ids[0]
-            : `${row.payment_ids.length} payments`}
+              }`}
+          </span>
         </span>
         <span className="badges">
           {row.split && <OutcomeBadge kind="split" />}
@@ -738,6 +883,19 @@ function MatchBody({ row }) {
           <dl className="mini-facts">
             <div><dt>Tier</dt><dd>{TIER_LABEL[row.tier] ?? row.tier}</dd></div>
             <div><dt>Residual</dt><dd>{row.residual_paise} paise</dd></div>
+            <div>
+              <dt>Bank reference</dt>
+              <dd className="mono">{row.reference || "—"}</dd>
+            </div>
+            {/* Disclosed beside the engine's own numbers rather than under the bank name
+                on the head, because it qualifies a claim rather than making one: the
+                statement has no bank column, so the institution is read off the IFSC
+                prefix of the reference above. Correct on a direct remittance and
+                wrong-in-a-knowable-way on one routed through a correspondent. */}
+            <div>
+              <dt>Bank identified by</dt>
+              <dd>{row.bank_provenance || "—"}</dd>
+            </div>
             <div>
               <dt>Gateway fee</dt>
               <dd>
@@ -950,6 +1108,288 @@ function Ceiling() {
 // Inside a queue the rows keep the exception list's own descending-exposure order, so
 // the board answers "which desk first" and each desk answers "which row first".
 // --------------------------------------------------------------------------
+/* ======================================================================
+ * The statement, on one axis
+ *
+ * `Reconciled` and `Exceptions` are curated views and they stay that way: one row per
+ * SETTLEMENT, ordered by money, with the before/after a reader is walked through. They
+ * answer "what did the engine decide".
+ *
+ * This answers a different question, and it is the one an analyst actually opens with:
+ * *show me the money for this customer, or this bank, in this direction, whatever was
+ * decided about it.* One row per BANK LINE, credits and debits together, filtered on the
+ * server. The two coexist because they are not the same list -- a split settlement is one
+ * row there and several lines here, and collapsing either into the other loses something
+ * a person needs.
+ * ====================================================================== */
+
+const DIRECTION_CHOICES = [
+  ["all", "All"],
+  ["credit", "Money in"],
+  ["debit", "Money out"],
+];
+
+const STATUS_CHOICES = [
+  ["assigned", "Assigned"],
+  ["refused", "Refused"],
+  ["unmatched", "Unmatched"],
+  ["reversed", "Reversed"],
+];
+
+const STATUS_TONE = {
+  assigned: "ok",
+  refused: "warn",
+  unmatched: "warn",
+  reversed: "neutral",
+};
+
+function toQuery({ direction, status, category, customer, bank }) {
+  const p = new URLSearchParams();
+  if (direction && direction !== "all") p.set("direction", direction);
+  if (status.length) p.set("status", status.join(","));
+  if (category.length) p.set("category", category.join(","));
+  if (customer.trim()) p.set("customer", customer.trim());
+  if (bank.trim()) p.set("bank", bank.trim());
+  p.set("limit", "500");
+  return p.toString();
+}
+
+/*
+ * Fetch the filtered statement, debounced.
+ *
+ * The invoice search refetches on every keystroke and is copied here deliberately
+ * WITHOUT that: at one request per character a fast typist has six in flight and the
+ * answer that lands last wins, which is not necessarily the answer to what is in the box.
+ * 250ms is below the threshold where a control feels laggy and above the gap between
+ * keystrokes.
+ */
+function useTransactions(filters) {
+  const [state, setState] = useState({ status: "loading" });
+  const query = toQuery(filters);
+
+  useEffect(() => {
+    let alive = true;
+    const timer = setTimeout(() => {
+      getJSON(`/api/transactions?${query}`)
+        .then((data) => alive && setState({ status: "ready", data }))
+        .catch((e) =>
+          alive && setState({ status: "error", kind: e.kind, error: e.message })
+        );
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  return state;
+}
+
+function Filters({ value, patch, facets }) {
+  const clear = () => patch(NO_FILTERS);
+  const toggle = (key, v) => {
+    const set = new Set(value[key]);
+    set.has(v) ? set.delete(v) : set.add(v);
+    patch({ [key]: [...set] });
+  };
+  const categories = Object.entries(facets?.category ?? {});
+
+  return (
+    <div className="filterbar">
+      <div className="filter-row">
+        <span className="filter-label">Direction</span>
+        <nav className="filters">
+          {DIRECTION_CHOICES.map(([k, label]) => (
+            <button
+              key={k}
+              className={value.direction === k ? "on" : ""}
+              aria-pressed={value.direction === k}
+              onClick={() => patch({ direction: k })}
+            >
+              {label}
+              {facets?.direction?.[k] !== undefined && (
+                <span className="n">{facets.direction[k]}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div className="filter-row">
+        <span className="filter-label">Status</span>
+        <nav className="filters">
+          {STATUS_CHOICES.map(([k, label]) => (
+            <button
+              key={k}
+              className={value.status.includes(k) ? "on" : ""}
+              aria-pressed={value.status.includes(k)}
+              onClick={() => toggle("status", k)}
+            >
+              {label}
+              {facets?.status?.[k] !== undefined && (
+                <span className="n">{facets.status[k]}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div className="filter-row">
+        <span className="filter-label">Find</span>
+        <input
+          className="search"
+          placeholder="Customer or invoice number…"
+          value={value.customer}
+          onChange={(e) => patch({ customer: e.target.value })}
+        />
+        <input
+          className="search"
+          placeholder="Bank or transaction reference…"
+          value={value.bank}
+          onChange={(e) => patch({ bank: e.target.value })}
+        />
+        <button className="clear" onClick={clear} disabled={!isFiltered(value)}>
+          Clear all
+        </button>
+      </div>
+
+      {categories.length > 0 && (
+        <div className="filter-row">
+          <span className="filter-label">Exception</span>
+          <nav className="filters">
+            {categories.map(([cat, n]) => (
+              <button
+                key={cat}
+                className={value.category.includes(cat) ? "on" : ""}
+                aria-pressed={value.category.includes(cat)}
+                onClick={() => toggle("category", cat)}
+              >
+                {CATEGORY_LABEL[cat] ?? DEBIT_LABEL[cat] ?? cat}
+                <span className="n">{n}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TransactionRow({ row }) {
+  const [open, setOpen] = useState(false);
+  const credit = row.direction === "credit";
+  return (
+    <li className={`txn txn-${row.status}`}>
+      <button className="txn-head" onClick={() => setOpen((v) => !v)}>
+        <span className="chev">{open ? "▾" : "▸"}</span>
+        <span className={`txn-dir ${credit ? "in" : "out"}`} title={credit ? "money in" : "money out"}>
+          {credit ? "in" : "out"}
+        </span>
+        <span className="amount num">{RUPEES.format(row.rupees)}</span>
+        <span className="txn-who">
+          <span className="txn-bank">{row.bank_name || "—"}</span>
+          <span className="txn-meta">
+            {row.txn_date}
+            {row.customers.length > 0 && ` · ${row.customers[0]}`}
+            {row.customers.length > 1 && ` +${row.customers.length - 1}`}
+          </span>
+        </span>
+        <span className={`txn-status tone-${STATUS_TONE[row.status] ?? "neutral"}`}>
+          {row.status}
+          {row.category && (
+            <span className="txn-cat">
+              {CATEGORY_LABEL[row.category] ?? DEBIT_LABEL[row.category] ?? row.category}
+            </span>
+          )}
+        </span>
+      </button>
+      {open && (
+        <div className="txn-body">
+          <p className="txn-narration mono">{row.narration}</p>
+          <dl className="mini-facts">
+            <div>
+              <dt>Reference</dt>
+              <dd className="mono">{row.reference || "—"}</dd>
+            </div>
+            <div>
+              <dt>Bank</dt>
+              <dd>
+                {row.bank_name || "—"}
+                <span className="muted small"> · {row.bank_provenance}</span>
+              </dd>
+            </div>
+            {row.invoice_nos.length > 0 && (
+              <div>
+                <dt>Invoices</dt>
+                <dd className="mono">{row.invoice_nos.join(", ")}</dd>
+              </div>
+            )}
+            {row.rupees_at_risk > 0 && (
+              <div>
+                <dt>At risk</dt>
+                <dd className="num">{RUPEES.format(row.rupees_at_risk)}</dd>
+              </div>
+            )}
+          </dl>
+          {row.detail && <p className="muted">{row.detail}</p>}
+          {/* Debits reach a verdict in the reversal ledger rather than through the
+              matcher, so they have no decision transcript to render -- the detail line
+              above is the whole of what the engine concluded about them. */}
+          {credit && <Explanation txnId={row.bank_txn_id} open={open} />}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function Transactions({ filters, patch }) {
+  const tx = useTransactions(filters);
+
+  if (tx.status === "loading") return <p className="muted">Loading transactions…</p>;
+  if (tx.status === "error")
+    return (
+      <p className="ceiling not-run">
+        The transaction list could not be loaded: {tx.error}
+      </p>
+    );
+
+  const { count, total, rupees, rupees_at_risk, facets, transactions } = tx.data;
+  return (
+    <>
+      <Filters value={filters} patch={patch} facets={facets} />
+      <p className="showing">
+        Showing <strong>{count}</strong> of {total} bank lines ·{" "}
+        {RUPEES.format(rupees)} moved ·{" "}
+        <span className={rupees_at_risk > 0 ? "at-risk" : ""}>
+          {RUPEES.format(rupees_at_risk)} at risk
+        </span>
+        {count > transactions.length && ` · showing the first ${transactions.length}`}
+      </p>
+      {count === 0 ? (
+        <p className="muted">
+          Nothing matches these filters.{" "}
+          <button className="linky" onClick={() => patch(NO_FILTERS)}>
+            Clear them
+          </button>{" "}
+          to see all {total} lines.
+        </p>
+      ) : (
+        <ol className="txns">
+          {transactions.map((row) => (
+            <TransactionRow key={row.bank_txn_id} row={row} />
+          ))}
+        </ol>
+      )}
+      <p className="muted small">
+        Every line on the statement, credits and debits together, filtered on the server.
+        Bank names are derived from the transaction reference — see the Bank field on any
+        row. Exposure here counts unexplained debits as well as refused credits, so it
+        exceeds the credit-only figure on the exception list by exactly that amount.
+      </p>
+    </>
+  );
+}
+
 function useWorklist() {
   const [state, setState] = useState({ status: "loading" });
   useEffect(() => {
@@ -1017,19 +1457,65 @@ function Worklist({ exceptions }) {
       </section>
     );
 
-  const { queues, total_exceptions, total_rupees_at_risk, note } = wl.data;
+  /*
+   * The board shows the desks a finance team can work, and only those.
+   *
+   * Two of the five queues are system diagnostics. `Engineering — the engine
+   * contradicted itself` fires when the permutation gate catches an order-dependent
+   * assignment: that is a defect in the matcher, and the routing table's own rationale
+   * has always said it "does not go to finance". `Configuration — the search gave up`
+   * fires when a settlement window exceeds the search bound: the fix is a setting, not a
+   * document. Neither is work an accounts-receivable analyst can pick up, and putting
+   * them on the same board as Treasury and Collections asks somebody to triage work they
+   * cannot do -- while diluting a board whose entire value is that everything on it is
+   * actionable.
+   *
+   * **Nothing is un-detected, un-routed or un-counted.** Both desks are still in the
+   * routing table, still receive their categories, still carry their SLA and rationale,
+   * and still ship in the payload for metrics and audit. What changes is presentation,
+   * which is the only thing that should change.
+   *
+   * The counts are the reason `internal` is a served field rather than a list of desk
+   * keys in this file. Filtering the rows here and re-summing them in the browser would
+   * be a second implementation of the group-by that serving this block aggregated was
+   * meant to prevent -- so the split totals come from the same pass that built the rows.
+   */
+  const {
+    queues,
+    note,
+    finance_exceptions,
+    finance_rupees_at_risk,
+    internal_exceptions,
+  } = wl.data;
+  const desks = queues.filter((q) => !q.internal);
+  const staffed = desks.filter((q) => q.count > 0).length;
+
   return (
     <>
       <p className="showing">
-        {total_exceptions} open exceptions · {RUPEES.format(total_rupees_at_risk)} at
-        risk, across {queues.filter((q) => q.count > 0).length} of {queues.length} desks.
-        Soonest deadline first.
+        {finance_exceptions} open exceptions · {RUPEES.format(finance_rupees_at_risk)} at
+        risk, across {staffed} of {desks.length} desks. Soonest deadline first.
       </p>
       <ul className="queues">
-        {queues.map((q) => (
+        {desks.map((q) => (
           <QueueCard key={q.queue} row={q} exceptions={exceptions} />
         ))}
       </ul>
+      {internal_exceptions > 0 && (
+        /*
+         * Said, rather than silently subtracted. A reader comparing this board's total
+         * against the exception count on the tab beside it would otherwise find a gap
+         * with no explanation, and an unexplained gap in a reconciliation tool is the
+         * one thing this page cannot afford. One sentence, no desk names, nothing to
+         * click: enough to keep the arithmetic honest, not enough to put engineering
+         * work back in front of an analyst.
+         */
+        <p className="muted small">
+          {internal_exceptions} further{" "}
+          {internal_exceptions === 1 ? "item is" : "items are"} system diagnostics —
+          logged and routed, but not finance work.
+        </p>
+      )}
       <p className="worklist-note">{note}</p>
     </>
   );
@@ -1049,17 +1535,54 @@ function Worklist({ exceptions }) {
 // artefact looked exactly like a fresh one -- the failure mode behind P0-1 and behind a
 // run that silently lost its verification block twice more since. A timestamp is the
 // cheapest defence against demoing yesterday's numbers.
-function Freshness({ generatedAt, llmTier, verified }) {
+/*
+ * How old this run is, and whether the verification layers gated it.
+ *
+ * Two renderings of one fact, and the split is the point. The full sentence used to sit
+ * under the page title, where it was the third line a reader met -- ahead of the money,
+ * and written in vocabulary ("tier disabled") that means nothing to the person the page
+ * is for. It is still the single most important qualifier on every number below it,
+ * because an ungated artefact is indistinguishable from a gated one otherwise, which is
+ * how this project shipped P0-1.
+ *
+ * So: `compact` renders a status dot in the header, carrying the whole sentence in its
+ * tooltip and turning amber the moment there is something to be amber about. The full
+ * line renders in "How to read this", next to the other things a reader may need
+ * explained. Nothing is lost and nothing shouts at somebody who came to look at a
+ * settlement.
+ */
+function Freshness({ generatedAt, llmTier, verified, compact = false }) {
   if (!generatedAt) return null;
   const when = new Date(generatedAt);
   const mins = Math.round((Date.now() - when.getTime()) / 60000);
+  const stale = mins > 1440;
   const age =
     mins < 1 ? "just now"
     : mins < 60 ? `${mins} min ago`
     : mins < 1440 ? `${Math.round(mins / 60)} h ago`
     : `${Math.round(mins / 1440)} d ago`;
+  const full = `run ${age} · tier ${llmTier ?? "unknown"} · ${
+    verified ? "verification gated" : "NOT verification gated"
+  }`;
+
+  if (compact) {
+    // The dot is the signal and the word is its caption. A reader who wants the run
+    // time, the tier and the gate reads the tooltip or opens "How to read this"; a
+    // reader who wants to know whether to trust the page reads one word.
+    return (
+      <span
+        className={`runchip ${verified && !stale ? "ok" : "warn"}`}
+        title={`${full} — ${when.toISOString()}`}
+      >
+        <span className="runchip-dot" aria-hidden="true" />
+        {verified ? "Verified run" : "Not gated"}
+        {stale && " · stale"}
+      </span>
+    );
+  }
+
   return (
-    <span className={`freshness ${mins > 1440 ? "stale" : ""}`} title={when.toISOString()}>
+    <span className={`freshness ${stale ? "stale" : ""}`} title={when.toISOString()}>
       run {age} · tier {llmTier ?? "unknown"} ·{" "}
       {verified ? "verification gated" : "NOT verification gated"}
     </span>
@@ -1490,7 +2013,66 @@ function ErpRoadmap({ tierCounts }) {
 export default function App() {
   const run = useRun();
   const [filter, setFilter] = useState("all");
-  const [tab, setTab] = useState("reconciled");
+  /*
+   * `tab` stays a piece of component state AND is mirrored into the address bar.
+   *
+   * Every hook in this function has to sit above the early returns below -- a hook after
+   * them is called on some renders and not others, which crashed the whole page with
+   * "Rendered more hooks than during the previous render" the first time it was tried.
+   * That constraint is why `url` is read once here rather than where each control needs
+   * it.
+   */
+  const [url, patchUrl] = useUrlState();
+  const tab = url.tab;
+  const setTab = useCallback((next) => patchUrl({ tab: next }), [patchUrl]);
+
+  /*
+   * Scrolling to the explainer, after the tab has actually rendered it.
+   *
+   * "What do these mean?" used to swap the tab and leave the reader at the top of a page
+   * they had not asked to be at the top of -- the answer was three screens down and
+   * nothing said so. The scroll cannot happen in the click handler because the section
+   * does not exist until the tab commits, so the intent is recorded and an effect on
+   * `tab` acts on it.
+   */
+  const howToReadRef = useRef(null);
+  const tabsRef = useRef(null);
+  const firstRender = useRef(true);
+  const [scrollToExplainer, setScrollToExplainer] = useState(false);
+  const explain = useCallback(() => {
+    setScrollToExplainer(true);
+    setTab("glossary");
+  }, [setTab]);
+
+  useEffect(() => {
+    if (tab === "glossary" && scrollToExplainer) {
+      howToReadRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setScrollToExplainer(false);
+      return;
+    }
+    /*
+     * Switching tabs brings the panel into view; landing on the page does not.
+     *
+     * The summary is a screenful, deliberately -- the page leads with what was
+     * reconciled rather than with what failed, and that ordering is load-bearing. But it
+     * only needs reading once. A reader who has clicked "All transactions" has already
+     * read it and is now looking at the same summary again, with the thing they asked
+     * for below the fold. Scrolling on a CHANGE and not on the first render keeps both:
+     * the outcome leads, and a deliberate navigation arrives somewhere.
+     */
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [tab, scrollToExplainer]);
+
+  // The category chips on the exception tab are a different control from the filter bar
+  // on the transaction tab, and leaving one set while the reader moves to the other
+  // shows them a filtered list they did not ask for and cannot see the cause of.
+  useEffect(() => {
+    setFilter("all");
+  }, [tab]);
 
   const categories = useMemo(() => {
     if (run.status !== "ready") return [];
@@ -1587,63 +2169,96 @@ export default function App() {
   return (
     <div className="shell">
       <header>
-        <div>
-          <h1>
-            Pramana <span className="wordmark">· three-way reconciliation</span>
-          </h1>
-          <p className="sub">
-            Razorpay payments × bank statement × invoice ledger. Seed {seed} · density{" "}
-            {density} · {totals.bank_credits} bank credits —{" "}
-            <button className="linky" onClick={() => setTab("glossary")}>
-              what do these mean?
-            </button>
-          </p>
-          <p className="sub">
-            <Freshness
-              generatedAt={generatedAt}
-              llmTier={run.data.llm_tier}
-              verified={verification?.status === "verified"}
-            />
-          </p>
+        <div className="brand">
+          <Logo />
+          <div>
+            <h1>
+              Pramana <span className="wordmark">· three-way reconciliation</span>
+            </h1>
+            <p className="sub">
+              Razorpay payments × bank statement × invoice ledger. Seed {seed} · density{" "}
+              {density} · {totals.bank_credits} bank credits —{" "}
+              <button className="linky" onClick={explain}>
+                what do these mean?
+              </button>
+            </p>
+          </div>
         </div>
+        <Freshness
+          generatedAt={generatedAt}
+          llmTier={run.data.llm_tier}
+          verified={verification?.status === "verified"}
+          compact
+        />
       </header>
 
       <ReconciliationSummary reconciled={run.data.reconciled} totals={totals} />
 
       {debits.lines > 0 && <DebitLedger data={debits} />}
 
-      <nav className="tabs">
-        <button className={tab === "reconciled" ? "on" : ""} onClick={() => setTab("reconciled")}>
-          Reconciled <span className="n">{reconciledRows.length}</span>
-        </button>
-        <button className={tab === "exceptions" ? "on" : ""} onClick={() => setTab("exceptions")}>
-          Exceptions <span className="n">{run.data.exceptions.length}</span>
-        </button>
-        <button className={tab === "worklist" ? "on" : ""} onClick={() => setTab("worklist")}>
-          Worklist
-        </button>
-        <button className={tab === "invoices" ? "on" : ""} onClick={() => setTab("invoices")}>
-          Invoice ledger
-        </button>
-        <button className={tab === "glossary" ? "on" : ""} onClick={() => setTab("glossary")}>
-          How to read this
-        </button>
+      {/* A real tablist. These were plain buttons, so a keyboard user tabbed through six
+          controls to reach the sixth panel and a screen reader announced six unrelated
+          buttons rather than one set of six choices. `role` and `aria-selected` say what
+          the visual grouping already says; arrow keys make the roving focus behave the
+          way every other tab strip does. */}
+      <nav
+        className="tabs"
+        ref={tabsRef}
+        role="tablist"
+        aria-label="Views"
+        onKeyDown={(e) => {
+          const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+          if (!step) return;
+          e.preventDefault();
+          const i = TABS.findIndex((t) => t[0] === tab);
+          setTab(TABS[(i + step + TABS.length) % TABS.length][0]);
+        }}
+      >
+        {TABS.map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            tabIndex={tab === key ? 0 : -1}
+            className={tab === key ? "on" : ""}
+            onClick={() => setTab(key)}
+          >
+            {label}
+            {key === "reconciled" && <span className="n">{reconciledRows.length}</span>}
+            {key === "exceptions" && (
+              <span className="n">{run.data.exceptions.length}</span>
+            )}
+            {key === "transactions" && (
+              <span className="n">{(run.data.transactions ?? []).length}</span>
+            )}
+          </button>
+        ))}
       </nav>
+
+      {tab === "transactions" && <Transactions filters={url} patch={patchUrl} />}
 
       {tab === "worklist" && <Worklist exceptions={run.data.exceptions} />}
 
       {tab === "invoices" && <Invoices />}
 
       {tab === "glossary" && (
-        <>
+        <section id="how-to-read" ref={howToReadRef}>
           <Glossary
             tolerances={tolerances}
             seed={seed}
             density={density}
             totals={totals}
           />
+          <p className="sub">
+            This run:{" "}
+            <Freshness
+              generatedAt={generatedAt}
+              llmTier={run.data.llm_tier}
+              verified={verification?.status === "verified"}
+            />
+          </p>
           <ErpRoadmap tierCounts={run.data.tier_counts} />
-        </>
+        </section>
       )}
 
       {tab === "reconciled" && (
@@ -1716,12 +2331,12 @@ export default function App() {
         <p className="params">
           <span className="params-lead">How careful it is being:</span>
           <button className="param" title={PARAM_HELP.tolerance}
-                  onClick={() => setTab("glossary")}>
+                  onClick={explain}>
             amounts may differ by{" "}
             <strong>{RUPEES.format(tolerances.tol_abs_paise / 100)}</strong>
           </button>
           <button className="param" title={PARAM_HELP.mdr}
-                  onClick={() => setTab("glossary")}>
+                  onClick={explain}>
             gateway fee{" "}
             <strong>
               {(tolerances.mdr_rate_band[0] * 100).toFixed(1)}–
@@ -1729,15 +2344,15 @@ export default function App() {
             </strong>
           </button>
           <button className="param" title={PARAM_HELP.lookback}
-                  onClick={() => setTab("glossary")}>
+                  onClick={explain}>
             settles within <strong>{tolerances.lookback_days} days</strong>
           </button>
           <button className="param" title={PARAM_HELP.pool}
-                  onClick={() => setTab("glossary")}>
+                  onClick={explain}>
             searches up to <strong>{tolerances.max_pool} payments</strong>
           </button>
           <button className="param" title={PARAM_HELP.materiality}
-                  onClick={() => setTab("glossary")}>
+                  onClick={explain}>
             audit threshold{" "}
             <strong>{RUPEES.format(tolerances.materiality_rupees)}</strong>
           </button>

@@ -16,9 +16,12 @@ uvicorn api.main:app --port 8000          # terminal 1, leave running
 cd ui && npm run dev                      # terminal 2 -> http://localhost:5173
 ```
 
-Open the page once and check the header says **`verification gated`** and a recent run
-time. If it says `NOT verification gated`, the artefact was produced without `--verify`
-and the four-layer claim will render as a warning strip instead of a result.
+Open the page once and check the chip on the right of the header reads a green
+**`Verified run`**. Hover it for the full line — run age, LLM tier, and whether the
+verification layers gated the artefact; the same line is spelled out under **How to read
+this**. If the chip is amber (`Not gated`, or `· stale`), the artefact was produced
+without `--verify` or is over a day old, and the four-layer claim will render as a
+warning strip instead of a result.
 
 Do **not** set `ANTHROPIC_API_KEY` for the demo. The served run is the deterministic arm
 and reproduces bit-for-bit; the live tier moves one assignment in nine runs out of ten.
@@ -46,7 +49,12 @@ And read the amber line under it: **₹35,20,805.75 net** of seven chargebacks t
 back afterwards. That is two facts, so we report two numbers."* Two of the seven are
 **partial** — one payment disputed inside a settlement batch, where the rest still stands.
 
-**If you have thirty seconds spare, open "Money out".** Nine debit lines; seven tied to
+**If you have thirty seconds spare, open "All transactions" and click `Money out`.**
+That tab is the whole statement on one axis — every bank line, credit and debit, filtered
+on the server by direction, status, customer or bank. The filters combine, clear in one
+action, and live in the address bar, so `#/transactions?bank=ICICI&status=refused` is a
+link you can send someone. The same nine debit lines are also summarised under
+"Money out". Nine debit lines; seven tied to
 the settlement they reverse, and the two that cannot be say *which kind* of untieable
 they are — one reverses an earlier statement, one reverses a credit this engine refused
 and **names the exception it waits on**. The line to land: *"declining is the right answer

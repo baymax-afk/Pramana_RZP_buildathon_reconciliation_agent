@@ -38,19 +38,39 @@ header {
   align-items: flex-start; justify-content: space-between;
   padding-bottom: 24px; border-bottom: 1px solid var(--line);
 }
-h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
-.sub { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+h1 { margin: 0; font-size: 34px; letter-spacing: -0.025em; line-height: 1.1; }
+.sub { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
 
-.stats { display: flex; gap: 14px; flex-wrap: wrap; }
-.stat {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  padding: 12px 16px; min-width: 132px;
+/* The mark and the title as one unit, so the heading does not float free of it at any
+   width. `align-items: center` rather than `flex-start` because the mark is optically
+   centred on the title line, not on the subtitle under it. */
+.brand { display: flex; gap: 15px; align-items: center; min-width: 0; }
+.logo { width: 42px; height: 42px; flex: 0 0 42px; }
+.logo-arc { stroke: var(--accent); opacity: 0.85; }
+.logo-arc.b { stroke: #2c6b41; }
+.logo-arc.c { stroke: var(--warn); }
+.logo-spoke { stroke: var(--line); }
+.logo-core { fill: var(--ink); }
+
+/* Run status, as a dot and a word.
+   The full sentence lives in the tooltip and in "How to read this"; what belongs in the
+   header is whether to trust the page, which is one bit. Amber the moment it is not
+   simply "verified and current" -- an ungated artefact is indistinguishable from a gated
+   one otherwise, which is how this project shipped P0-1. */
+.runchip {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  font-size: 12px; font-weight: 600; border-radius: 999px;
+  padding: 5px 12px; border: 1px solid var(--line); background: var(--panel);
+  cursor: help;
 }
-.stat.warn { background: var(--warn-bg); border-color: #f0dfbe; }
-.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
-.stat-value { font-size: 22px; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; }
-.stat.warn .stat-value { color: var(--warn); }
-.stat-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.runchip-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.runchip.ok { color: #2c6b41; border-color: #d8e8dd; background: #f2f9f4; }
+.runchip.warn { color: var(--warn); border-color: #f0dfbe; background: var(--warn-bg); }
+
+@media (max-width: 720px) {
+  h1 { font-size: 27px; }
+  .logo { width: 34px; height: 34px; flex: 0 0 34px; }
+}
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 6px; }
 .filters button {
@@ -148,7 +168,15 @@ footer p { margin: 0 0 6px; }
 }
 
 /* ---- tabs ---- */
-.tabs { display: flex; gap: 6px; margin: 22px 0 4px; border-bottom: 1px solid var(--line); }
+/* Sticky, because the list under it runs to 153 rows and the tab you are on is the
+   only thing that says what you are looking at. `--bg` rather than transparent so rows
+   scroll under it rather than through it. */
+.tabs {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin: 22px 0 4px; border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 5; background: var(--bg);
+  scroll-margin-top: 0;
+}
 .tabs button {
   font: inherit; font-size: 14px; cursor: pointer; background: none; border: 0;
   padding: 9px 15px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
@@ -315,7 +343,19 @@ ol.matches { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem
 .match-head:hover { background: #f7f9fb; }
 .match .rank { color: #98a2b3; font-size: 0.78rem; min-width: 2rem; }
 .match .amount { font-weight: 600; min-width: 8rem; }
-.match .ids { color: #45505f; font-size: 0.84rem; flex: 1; }
+/* Two lines now: the bank and date the money arrived by, then who it was from and how
+   many records it covers. A settlement row that names only an amount and an internal
+   handle is checkable against no document a person can put their hands on. */
+.match .ids {
+  color: #45505f; font-size: 0.84rem; flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.match-bank { color: #1b1b19; font-size: 0.88rem; }
+.match-date { color: #6b7686; }
+.match-who {
+  color: #6b7686; font-size: 0.8rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .match .tier {
   font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px;
   background: #eef1f5; color: #45505f;
@@ -443,20 +483,11 @@ dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
 .freshness { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
 .freshness.stale { color: var(--warn); font-weight: 600; }
 
-/* Five KPI tiles rather than three: the header now carries the metrics the track is
-   scored on, which previously lived only below a fifteen-row exception list.
-   They share the width evenly rather than sizing to content, so the row reads as one
-   band of numbers instead of four tiles and an orphan. */
-header .stats {
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px;
-  flex: 1 1 640px;
-}
-header .stats .stat { min-width: 0; padding: 11px 13px; }
-header .stats .stat-value { font-size: 20px; }
-header .stats .stat-sub { font-size: 11.5px; line-height: 1.35; }
-@media (max-width: 1100px) {
-  header .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+/* The five KPI tiles that used to live here are gone, and so are their styles.
+   `ReconciliationSummary` reports the same figures better and in a better place, and
+   keeping both put a warning-toned "At risk" tile ABOVE the success story -- leading
+   with the failure again, one row higher up the page. Rules for elements nothing renders
+   are how a stylesheet stops describing the page it styles. */
 
 /* ==========================================================================
    Reconciliation summary — the success story, first on the page
@@ -508,6 +539,87 @@ header .stats .stat-sub { font-size: 11.5px; line-height: 1.35; }
 .summary-resolved {
   margin: 20px 0 0; padding-top: 16px; border-top: 1px solid #dceae1;
   font-size: 13.5px; line-height: 1.6; max-width: 92ch;
+}
+
+/* ==========================================================================
+   The filter bar and the statement list
+   ========================================================================== */
+
+/* Labelled rows rather than a single wrapping strip of chips.
+   Direction, status and exception category are three different questions, and a reader
+   scanning an unlabelled row of eleven pills cannot tell which pills are alternatives to
+   each other. The label column is the cheapest way to say "these four go together". */
+.filterbar {
+  margin: 18px 0 4px; padding: 14px 16px 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+}
+.filter-row {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.filter-label {
+  flex: 0 0 74px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--muted); padding-top: 4px;
+}
+.filterbar .filters { margin: 0 0 6px; flex: 1 1 320px; }
+.filterbar .search { flex: 1 1 210px; min-width: 170px; }
+
+/* One control clears everything. Disabled when there is nothing to clear, because a
+   button that does nothing when pressed teaches a reader to distrust the others. */
+.clear {
+  font: inherit; font-size: 13px; cursor: pointer; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 13px;
+}
+.clear:hover:not(:disabled) { border-color: #cfcec9; }
+.clear:disabled { opacity: 0.4; cursor: default; }
+
+.showing strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.at-risk { color: var(--warn); font-weight: 600; }
+
+.txns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.txn { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.txn-head {
+  width: 100%; display: grid;
+  grid-template-columns: 22px 42px 132px 1fr 172px;
+  gap: 12px; align-items: center; text-align: left;
+  background: none; border: 0; font: inherit; color: inherit;
+  padding: 11px 14px; cursor: pointer;
+}
+.txn-head:hover { background: #fbfbfa; }
+
+/* Direction as a word rather than an arrow glyph. An arrow needs a legend; "in" and
+   "out" do not, and this page is read by people who have never seen it before. */
+.txn-dir {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+  border-radius: 4px; padding: 2px 0; text-align: center;
+}
+.txn-dir.in { color: #2c6b41; background: #eaf5ee; }
+.txn-dir.out { color: #45505f; background: #eef1f5; }
+
+.txn-head .amount { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.txn-who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.txn-bank { font-size: 13.5px; }
+.txn-meta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.txn-status { display: flex; flex-direction: column; gap: 1px; align-items: flex-end; font-size: 12px; }
+.txn-status { text-transform: capitalize; }
+.tone-ok { color: #2c6b41; }
+.tone-warn { color: var(--warn); }
+.tone-neutral { color: #45505f; }
+.txn-cat { color: var(--muted); font-size: 11.5px; text-transform: none; }
+
+.txn-body { padding: 4px 14px 16px; border-top: 1px solid var(--line); }
+.txn-narration { margin: 12px 0 10px; color: var(--muted); word-break: break-word; }
+
+@media (max-width: 860px) {
+  .txn-head { grid-template-columns: 20px 38px 1fr; row-gap: 6px; }
+  .txn-who, .txn-status { grid-column: 1 / -1; align-items: flex-start; }
+  .txn-status { flex-direction: row; gap: 8px; }
+}
+
+@media (max-width: 720px) {
+  .filter-label { flex-basis: 100%; padding-top: 0; }
 }
 
 /* Application title */

@@ -623,6 +623,16 @@ def _worklist(exceptions: list[ExceptionRow]) -> dict:
     Queues with nothing on them are INCLUDED, with zeroes. A desk that has no work today
     is a fact about today; omitting it makes the board silently change shape from run to
     run, and a reader cannot tell an empty queue from a queue that stopped existing.
+
+    **Two of the five desks are system diagnostics, and the split is computed here.**
+    `engineering` and `config_review` hold work no accounts-receivable team can do -- a
+    matcher defect and a search bound respectively -- so the presentation layer shows
+    only the finance desks. That decision is made in the client, but the ARITHMETIC for
+    it is made here: a client that filtered the rows and then re-summed them would be a
+    second implementation of the group-by, which is exactly what serving this block
+    aggregated was meant to prevent. So the totals are served three ways -- all desks,
+    finance desks, system desks -- and every one of them is a sum over the same rows.
+    Nothing is hidden from the payload; what is hidden is a board a person cannot work.
     """
     by_queue: dict[str, list[ExceptionRow]] = {q.key: [] for q in _routing.queues()}
     for e in exceptions:
@@ -638,6 +648,7 @@ def _worklist(exceptions: list[ExceptionRow]) -> dict:
                 "queue": q.key,
                 "label": q.label,
                 "owner": q.owner,
+                "internal": q.internal,
                 "sla_hours": q.sla_hours,
                 "action": q.action,
                 "rationale": q.rationale,
@@ -648,14 +659,28 @@ def _worklist(exceptions: list[ExceptionRow]) -> dict:
                 "bank_txn_ids": [e.bank_txn_id for e in items],
             }
         )
+    internal_keys = {q.key for q in _routing.queues() if q.internal}
+    finance = [e for e in exceptions if e.routing.get("queue") not in internal_keys]
+    internal = [e for e in exceptions if e.routing.get("queue") in internal_keys]
+
     return {
         "queues": rows,
         "total_exceptions": len(exceptions),
         "total_rupees_at_risk": round(sum(e.rupees_at_risk for e in exceptions), 2),
+        # The same rows, split by whether a finance team can act on them. Served rather
+        # than derived in the client for the reason in the docstring above.
+        "finance_desks": sum(1 for r in rows if not r["internal"]),
+        "finance_exceptions": len(finance),
+        "finance_rupees_at_risk": round(sum(e.rupees_at_risk for e in finance), 2),
+        "internal_desks": sum(1 for r in rows if r["internal"]),
+        "internal_exceptions": len(internal),
+        "internal_rupees_at_risk": round(sum(e.rupees_at_risk for e in internal), 2),
         "note": (
             "Category, exposure and candidates are MEASURED by the engine. Queue, owner "
             "and SLA are configured defaults -- nothing here fits or validates them "
             "against an org chart. Materiality (PCAOB AS 2315) halves the clock and is "
-            "the one input that is not a choice."
+            "the one input that is not a choice. The board shows the desks a finance "
+            "team can work; system diagnostics are routed and counted the same way and "
+            "reported in this payload, but they are not finance work items."
         ),
     }
