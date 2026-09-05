@@ -935,13 +935,33 @@ function MatchBody({ row }) {
 // putting the two in one file would make the isolation claim unprovable by opening it.
 // Two artefacts, and the panel says which is which.
 // --------------------------------------------------------------------------
+/*
+ * The scorecard, fetched once however many components ask for it.
+ *
+ * Two do -- `ReconciliationSummary` above the fold and `Ceiling` inside two of the tabs --
+ * and each was issuing its own request for the same immutable artefact. Not a performance
+ * problem at this size; a correctness smell at any size, because two components could
+ * briefly disagree about the same numbers while one request was still in flight.
+ *
+ * A module-level promise rather than a cache object: the second caller joins the first
+ * request instead of starting a second, which is the behaviour the duplicate had wrong.
+ * The page has no refresh control, so there is nothing to invalidate.
+ */
+let _scorecard = null;
+
 function useScorecard() {
   const [state, setState] = useState({ status: "loading" });
   useEffect(() => {
     let alive = true;
-    getJSON("/api/scorecard")
+    _scorecard = _scorecard || getJSON("/api/scorecard");
+    _scorecard
       .then((data) => alive && setState({ status: "ready", data }))
-      .catch((e) => alive && setState({ status: "error", error: String(e.message ?? e) }));
+      .catch((e) => {
+        // Not cached on failure: a dead API on first load should not make the page
+        // permanently believe there is no scorecard.
+        _scorecard = null;
+        if (alive) setState({ status: "error", error: String(e.message ?? e) });
+      });
     return () => {
       alive = false;
     };

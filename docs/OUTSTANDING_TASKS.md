@@ -321,6 +321,54 @@ distinct timestamps. Memoised. `match_once` **41.6ms → 26.0ms**; end-to-end th
 
 ## Still open
 
+### O11. The five deduction channels are built and cannot fire on this data
+
+**Status:** working as designed, and the design has a cost worth naming.
+
+The agent gained eight evidence channels. Five carry money into `fees.known_deductions` --
+refund, TDS, credit note, bank charge, part payment -- and `agent/validate.py` will accept
+one only when the cited record NAMES the figure.
+
+These three sides name exactly two deducted amounts, `Invoice.tds_amount` and
+`Payment.amount_refunded`, and the engine already subtracts both. There is no
+settled-to-date column, no credit-note line, no bank-charge field. **So on both batches,
+no deduction channel can be accepted at all.**
+
+That rule is strict because two weaker versions of it were measured and both cost
+precision:
+
+| version of the check | primary batch | holdout |
+|---|--:|--:|
+| assert the residual as a short payment | **1.0000 -> 0.9854** | -- |
+| require `part_settled` corroboration first | 1.0000 (hidden) | **1.0000 -> 0.9913** |
+| require the record to name the amount | 1.0000 | 1.0000 |
+
+The middle row is the interesting one: the primary batch stopped showing the fault while
+the mechanism was unchanged, and only the holdout caught it. A status corroborates that a
+shortfall happened, not how large it was, so the amount was still coming from the gap it
+was closing.
+
+**What would close this**, and it is a data question rather than a code one: an invoice
+ledger carrying a credit-note line or a settled-to-date column, or a bank statement with a
+charges column. The channel, the validation, the routing and the tests are all in place;
+the moment a real ERP export carries one of those fields the deduction path is live with
+no change to the engine. Until then the specialists produce an *evidenced exception* --
+the gap quantified, the invoice named, the records read listed -- which is the second of
+the two wins `docs/AGENTIC.md` set out to produce.
+
+### O13. Debit-side exceptions are routed to desks and not to investigators
+
+`report/routing.py` sends the four `DebitCategory` values to a desk, and
+`agent/routing.py` sends none of them to a specialist. Debits reach a verdict through the
+reversal ledger rather than the matcher, so there is no candidate pool, no subset search
+and no Fellegi-Sunter vector for an investigator to gather evidence against.
+
+Not a limitation anyone has hit -- the two unexplained debits at the reported seed are
+correctly classified and correctly parked -- but it is an asymmetry the architecture
+should not leave implicit, and `chargeback_status` exists as a channel precisely so this
+can be built without a new field.
+
+
 ### ~~O1. `partial` recall is 0/5~~ — **fixed: 7/7** · `DEFECT_LOG` 2026-09-02-08
 
 It was a missing-evidence problem, as predicted — but the evidence was missing because
