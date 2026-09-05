@@ -24,9 +24,11 @@ import config as cfg
 
 from ..engine.results import MatchOutput
 from ..schemas import ReconInputs
+from . import banks as _banks
 from . import routing as _routing
+from . import transactions as _transactions
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Plain-language explanations of each refusal category. These are DETERMINISTIC and
 # live here, not in the LLM tier: the reason an exception exists is a fact about the
@@ -114,6 +116,33 @@ class AssignmentRow:
     certain_fee: bool
     permutation_stability: float
     confidence: float | None
+    # The bank line's own particulars, carried on the assignment row rather than looked
+    # up per card. A reconciled row used to render an amount and `bank_txn_0077`, which
+    # names nothing a person recognises -- the date, the counterparty and the bank that
+    # sent the money are what makes a posted match checkable at a glance. The exception
+    # rows have carried exactly these three since they existed; the success side was the
+    # half nobody had to justify, so it never got them.
+    txn_date: str = ""
+    reference: str = ""
+    # DERIVED from `reference`, never supplied by the statement -- see report/banks.py.
+    # `bank_provenance` travels with it so the page can say which it is.
+    bank_name: str = ""
+    bank_provenance: str = ""
+    customers: list[str] = field(default_factory=list)
+
+
+def _customers_of(payment_ids, pay) -> list[str]:
+    """
+    The distinct ledger customers behind a set of payments, sorted, blanks dropped.
+
+    One helper rather than the same set-comprehension in three places: the exception
+    rows, the assignment rows and the transaction list all answer "who is this money
+    from" and they must answer it identically, or a filter on the transaction list will
+    disagree with the card it opens.
+    """
+    return sorted(
+        {pay[p].notes.get("customer_name", "") for p in payment_ids if p in pay} - {""}
+    )
 
 
 def build(
@@ -251,6 +280,15 @@ def build(
             certain_fee=a.certain_fee,
             permutation_stability=a.permutation_stability,
             confidence=round(a.confidence, 4) if a.confidence is not None else None,
+            txn_date=txn[a.bank_txn_id].txn_date if a.bank_txn_id in txn else "",
+            reference=txn[a.bank_txn_id].ref_no if a.bank_txn_id in txn else "",
+            bank_name=_banks.bank_of_reference(
+                txn[a.bank_txn_id].ref_no if a.bank_txn_id in txn else ""
+            )[0],
+            bank_provenance=_banks.bank_of_reference(
+                txn[a.bank_txn_id].ref_no if a.bank_txn_id in txn else ""
+            )[1],
+            customers=_customers_of(a.payment_ids, pay),
         )
         for a in sorted(
             out.assignments,
@@ -259,6 +297,35 @@ def build(
     ]
 
     credits = [t for t in inputs.bank_txns if t.is_credit]
+
+    # Hoisted out of the payload literal so `transactions.build` can be handed the SAME
+    # rows the debits block ships rather than a second construction of them. Two
+    # renderings of one debit that disagree about whether it was a reversal is precisely
+    # the drift the flat list exists to prevent.
+    _debit_rows = [
+        {
+            "bank_txn_id": t.id,
+            "txn_date": t.txn_date,
+            "narration": t.narration,
+            "ref_no": t.ref_no,
+            "rupees": round(t.debit / 100, 2),
+            "reverses": _reversal_by_txn.get(t.id, {}).get("settled_by"),
+            "payment_ids": _reversal_by_txn.get(t.id, {}).get("payment_ids", []),
+            "status": (
+                ("partial reversal" if _reversal_by_txn[t.id]["partial"] else "reversal")
+                if t.id in _reversal_by_txn
+                else "unexplained"
+            ),
+            "detail": (
+                _reversal_by_txn.get(t.id, {}).get("reason")
+                or _unexplained_by_txn.get(t.id, {}).get("reason", "")
+            ),
+            "category": _unexplained_by_txn.get(t.id, {}).get("category", ""),
+            "depends_on": _unexplained_by_txn.get(t.id, {}).get("depends_on", ""),
+        }
+        for t in sorted(debits, key=lambda x: -x.debit)[:50]
+    ]
+
     payload = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -311,35 +378,7 @@ def build(
                 "next steps. A reversal does not undo the settlement it reverses: both "
                 "events happened, so the reconciled total is reported gross and net."
             ),
-            "rows": [
-                {
-                    "bank_txn_id": t.id,
-                    "txn_date": t.txn_date,
-                    "narration": t.narration,
-                    "ref_no": t.ref_no,
-                    "rupees": round(t.debit / 100, 2),
-                    "reverses": _reversal_by_txn.get(t.id, {}).get("settled_by"),
-                    "payment_ids": _reversal_by_txn.get(t.id, {}).get("payment_ids", []),
-                    "status": (
-                        (
-                            "partial reversal"
-                            if _reversal_by_txn[t.id]["partial"]
-                            else "reversal"
-                        )
-                        if t.id in _reversal_by_txn
-                        else "unexplained"
-                    ),
-                    "detail": (
-                        _reversal_by_txn.get(t.id, {}).get("reason")
-                        or _unexplained_by_txn.get(t.id, {}).get("reason", "")
-                    ),
-                    "category": _unexplained_by_txn.get(t.id, {}).get("category", ""),
-                    "depends_on": _unexplained_by_txn.get(t.id, {}).get(
-                        "depends_on", ""
-                    ),
-                }
-                for t in sorted(debits, key=lambda x: -x.debit)[:50]
-            ],
+            "rows": _debit_rows,
         },
         # Kept, and now almost always zero: bank lines that reached no verdict at all.
         # A disclosure that vanishes when it reads zero is one nobody can check.
@@ -383,6 +422,12 @@ def build(
         # The success side, first in the payload because it is first on the page.
         "reconciled": _reconciled(inputs, out, len(debits)),
         "assignments": [asdict(a) for a in assignments],
+        # Every bank line, credit and debit, on one axis. Built from the blocks above
+        # rather than beside them -- see report/transactions.py for why the client is not
+        # asked to stitch four lists together itself.
+        "transactions": _transactions.build(
+            inputs, out, exceptions, assignments, _debit_rows, _customers_of
+        ),
         "verification": _verification_block(relations, ensemble),
         "throughput_records_per_s": (
             round(
