@@ -70,8 +70,13 @@ def test_an_agent_that_proposes_nothing_also_changes_nothing(batch):
             return t
 
     run = orchestrate(batch.inputs, Silent(), batch.payer_directory)
-    assert run.investigated == run.exceptions_seen
-    assert run.declined == run.exceptions_seen
+    # Not `investigated == exceptions_seen` any more, and the difference is the point:
+    # routing skips the categories no agent may work, so the counts RECONCILE rather than
+    # being equal. That is the stronger assertion -- a run that quietly dropped an
+    # exception would fail it, where the old equality could only notice one that was
+    # dropped from the list entirely.
+    assert run.investigated + len(run.not_routed) + run.resumed == run.exceptions_seen
+    assert run.declined == run.investigated
     assert run.baseline.assignment_map == run.enriched.assignment_map
 
 
@@ -128,9 +133,19 @@ def test_gain_is_zero_rather_than_undefined_with_no_proposals(batch):
 # --------------------------------------------------------------------------
 def test_an_arithmetic_refusal_is_declined_not_argued_with(batch):
     """
-    A payer register cannot speak to a credit no subset of payments accounts for.
-    Asserting anyway is how an investigator starts manufacturing evidence, so the
-    out-of-scope case must be recognised and named.
+    A credit no subset of payments accounts for is not closed by asserting something.
+
+    The specialists CAN speak to arithmetic now -- a refund on the gateway record, a
+    part settlement in the ledger -- which is the point of routing them. What none of
+    them may do is produce the missing figure from the gap itself, because a figure taken
+    from the residual will always close the residual. On this batch the records carry no
+    such deduction, so the honest outcome is a decline that NAMES what it looked at and
+    what it did not find.
+
+    The wording is no longer pinned. It used to be "not a question about who paid",
+    which was one investigator's sentence about one register; three specialists give
+    three different true reasons and pinning any of them would test the prose. What is
+    pinned is the property: nothing asserted, and a reason given.
     """
     run = orchestrate(batch.inputs, RecordedInvestigator(), batch.payer_directory)
     arithmetic = {
@@ -146,8 +161,12 @@ def test_an_arithmetic_refusal_is_declined_not_argued_with(batch):
     for trace in run.traces:
         if trace.bank_txn_id in arithmetic:
             assert trace.outcome == "insufficient_evidence"
-            assert "not a question about who paid" in trace.note
             assert not trace.proposals
+            assert len(trace.note) > 40, (
+                "an arithmetic refusal was declined without saying what was looked at; "
+                "a bare decline is indistinguishable from an investigator that did "
+                "nothing"
+            )
 
 
 def test_absence_from_the_register_is_declined_with_a_caveat(batch):
@@ -231,7 +250,8 @@ def test_an_investigator_that_errors_is_counted_and_does_not_stop_the_run(batch)
             return t
 
     run = orchestrate(batch.inputs, Broken(), batch.payer_directory)
-    assert run.errors == run.exceptions_seen
+    assert run.errors == run.investigated
+    assert run.investigated + len(run.not_routed) + run.resumed == run.exceptions_seen
     assert run.baseline.assignment_map == run.enriched.assignment_map
 
 
@@ -290,5 +310,6 @@ def test_a_saved_ledger_is_resumed_rather_than_re_investigated(batch, tmp_path):
         batch.inputs, RecordedInvestigator(), batch.payer_directory, ledger_path=path
     )
     assert run.resumed == 1
-    assert run.investigated == run.exceptions_seen - 1
+    assert run.resumed == 1
+    assert run.investigated + len(run.not_routed) + run.resumed == run.exceptions_seen
     assert not any(t.bank_txn_id == target for t in run.traces)

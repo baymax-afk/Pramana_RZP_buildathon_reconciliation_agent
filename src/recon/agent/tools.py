@@ -31,7 +31,9 @@ import config as cfg
 from ..engine import fees, tier2_amount_date
 from ..engine.results import MatchOutput
 from ..schemas import PayerAuthorisation, ReconInputs
+from .validate import EvidenceContext, validate_proposal
 from .schemas import (
+    BankLineView,
     EvidenceField,
     EvidenceProposal,
     EvidenceReceipt,
@@ -39,9 +41,11 @@ from .schemas import (
     InvoiceSearchResult,
     InvoiceView,
     PayerRelation,
+    PaymentRecord,
     PoolPayment,
     RegisterEntry,
     PoolView,
+    SourceType,
     SubsetVerdict,
 )
 
@@ -175,11 +179,45 @@ class Toolbox:
         self._by_payer: dict[str, list[PayerAuthorisation]] = {}
         for row in directory:
             self._by_payer.setdefault(row.payer_name, []).append(row)
+        # Two logs, and the split is a bug fix.
+        #
+        # `calls` accumulates across the whole run, because the global budget has to see
+        # every call. `_scoped` is one investigation's worth, and it is what a proposal
+        # records. Before the split there was one list and `propose_evidence` snapshotted
+        # all of it, so every proposal inherited the tool calls of every exception
+        # investigated before it -- and `sources.sources_of` reads exactly that field, so
+        # source attribution was per-run rather than per-proposal. It happened not to
+        # misreport while one investigator always called the register first; routing
+        # several specialists would have made every proposal cite every source.
         self.calls: list[str] = []
+        self._scoped: list[str] = []
+        self._asserted: set[tuple[str, str]] = set()
+        self._ctx = EvidenceContext(inputs, out, directory)
+
+    def begin(self, bank_txn_id: str) -> None:
+        """Start a fresh per-investigation call log. Called by the orchestrator."""
+        self._scoped = []
+
+    def _record(self, call: str) -> None:
+        self.calls.append(call)
+        self._scoped.append(call)
+
+    @property
+    def batch_horizon(self) -> str:
+        """
+        The last date on the statement, as an ISO string.
+
+        Offline investigators stamp their assertions with this instead of reading a
+        clock. `RecordedInvestigator` exists so a run reproduces bit for bit, and
+        `datetime.now()` anywhere inside it would make the ledger differ between two runs
+        of the same batch -- which would break the replay test and, worse, make an
+        evidence trail depend on when it was printed.
+        """
+        return max((t.txn_date for t in self._inputs.bank_txns if t.txn_date), default="")
 
     # ---- reads ---------------------------------------------------------
     def get_exception(self, bank_txn_id: str) -> ExceptionView | dict:
-        self.calls.append(f"get_exception({bank_txn_id})")
+        self._record(f"get_exception({bank_txn_id})")
         r = self._refusal.get(bank_txn_id)
         if r is None:
             return {"error": f"{bank_txn_id} is not a refused credit in this run"}
@@ -205,7 +243,7 @@ class Toolbox:
         the same date-window blocking the matcher used rather than a wider or narrower
         set it might reason wrongly from.
         """
-        self.calls.append(f"get_candidate_pool({bank_txn_id})")
+        self._record(f"get_candidate_pool({bank_txn_id})")
         t = self._txn.get(bank_txn_id)
         if t is None:
             return {"error": f"no bank transaction {bank_txn_id}"}
@@ -234,7 +272,7 @@ class Toolbox:
         Would these payments account for this credit? Answered by the engine's own
         arithmetic, so the agent cannot talk itself into a different sum.
         """
-        self.calls.append(f"test_subset({bank_txn_id}, {len(payment_ids)} payments)")
+        self._record(f"test_subset({bank_txn_id}, {len(payment_ids)} payments)")
         t = self._txn.get(bank_txn_id)
         if t is None:
             return {"error": f"no bank transaction {bank_txn_id}"}
@@ -259,6 +297,83 @@ class Toolbox:
             fee_known_exactly=interval.certain,
         )
 
+    def get_payment_record(self, payment_id: str) -> PaymentRecord | dict:
+        """
+        The gateway's own record for one payment: status, capture, fee, refund.
+
+        **Every field here is one the engine already reads, and no field here is one the
+        engine decided.** `Assignment` carries `confidence`, `fs_weight`,
+        `uniqueness_margin` and `permutation_stability`, and none of them is projected by
+        any tool -- an investigator that could see how confident the engine was would be
+        investigating the engine's opinion rather than the merchant's records.
+        """
+        self._record(f"get_payment_record({payment_id})")
+        p = self._pay.get(payment_id)
+        if p is None:
+            return {"error": f"no payment {payment_id} in this batch"}
+        return PaymentRecord(
+            payment_id=p.id,
+            rupees=round(p.amount / 100, 2),
+            status=p.status,
+            captured=p.captured,
+            method=p.method,
+            settled_on=tier2_amount_date.payment_date(p).isoformat(),
+            customer_name=p.notes.get("customer_name", ""),
+            invoice_no=p.notes.get("invoice_no", ""),
+            fee_paise=p.fee,
+            amount_refunded_paise=p.amount_refunded or 0,
+            refund_status=p.refund_status or "none",
+        )
+
+    def get_bank_line(self, bank_txn_id: str) -> BankLineView | dict:
+        """
+        One statement line as the bank wrote it, plus any line sharing its reference.
+
+        **The duplicate-reference read is here, and it is deliberately not a routing
+        key.** A repeated UTR is a real defect and worth seeing -- it is what makes a
+        reference resolve to two unclaimed payments. But the engine's answer to that is
+        `multiple_candidates`, which is a tie, and `docs/AGENTIC.md` names breaking a tie
+        as the first thing an agent must never do. So an investigator may LOOK at the
+        duplicates while working some other question, and there is no path by which
+        noticing them resolves one.
+        """
+        self._record(f"get_bank_line({bank_txn_id})")
+        t = self._txn.get(bank_txn_id)
+        if t is None:
+            return {"error": f"no bank transaction {bank_txn_id}"}
+        siblings = tuple(
+            sorted(
+                x.id
+                for x in self._inputs.bank_txns
+                if x.ref_no and x.ref_no == t.ref_no and x.id != t.id
+            )
+        )
+        return BankLineView(
+            bank_txn_id=t.id,
+            txn_date=t.txn_date,
+            value_date=t.value_date,
+            narration=t.narration,
+            reference=t.ref_no,
+            credit_paise=t.credit,
+            debit_paise=t.debit,
+            shares_reference_with=siblings,
+        )
+
+    def get_invoice(self, invoice_no: str) -> InvoiceView | dict:
+        """One invoice: gross, TDS, net receivable, status."""
+        self._record(f"get_invoice({invoice_no})")
+        i = self._inv.get(invoice_no)
+        if i is None:
+            return {"error": f"no invoice {invoice_no} in the ledger"}
+        return InvoiceView(
+            invoice_no=i.invoice_no,
+            customer_name=i.customer_name,
+            rupees=round(i.gross_amount / 100, 2),
+            tds_rupees=round(i.tds_amount / 100, 2),
+            invoice_date=i.invoice_date,
+            status=i.status,
+        )
+
     def lookup_payer_relationship(self, payer_name: str) -> PayerRelation:
         """
         Ask the merchant's authorised-payer register about a name on the statement.
@@ -268,7 +383,7 @@ class Toolbox:
         register is deliberately incomplete, so some genuine relationships are simply
         not on it and declining is the correct outcome.
         """
-        self.calls.append(f"lookup_payer_relationship({payer_name!r})")
+        self._record(f"lookup_payer_relationship({payer_name!r})")
         query = _normalise(payer_name)
         if not query:
             return PayerRelation(payer_name, False, note="empty name")
@@ -320,7 +435,7 @@ class Toolbox:
         )
 
     def search_invoices(self, query: str, limit: int = 10) -> InvoiceSearchResult:
-        self.calls.append(f"search_invoices({query!r})")
+        self._record(f"search_invoices({query!r})")
         q = _normalise(query)
         matches = [
             InvoiceView(
@@ -338,7 +453,15 @@ class Toolbox:
 
     # ---- the one write -------------------------------------------------
     def propose_evidence(
-        self, bank_txn_id: str, field: str, value: str, rationale: str
+        self,
+        bank_txn_id: str,
+        field: str,
+        value: str,
+        rationale: str,
+        source_type: str = "model_assertion",
+        source_ref: str = "",
+        retrieved_at: str = "",
+        amount_paise: int | None = None,
     ) -> EvidenceReceipt:
         """
         Assert one fact about one credit. The only call here that changes anything.
@@ -347,10 +470,16 @@ class Toolbox:
         re-run afterwards with the enriched inputs and reaches its own conclusion. That
         indirection is not ceremony -- it is what keeps precision a property of the
         engine rather than of the agent's judgement.
+
+        **Two checks, in two places, on purpose.** The enum is resolved here because a
+        misspelled channel should come back as a readable error the model can correct
+        rather than as an exception. Everything else -- shape, format, source, staleness,
+        agreement with the ledger -- goes to `agent/validate.py`, so a proposal arriving
+        from a replayed ledger or a test fixture is checked exactly as one arriving from
+        a live model. Two validation paths would eventually disagree, and the one that
+        disagreed quietly would be the one running in production.
         """
-        self.calls.append(f"propose_evidence({bank_txn_id}, {field})")
-        if bank_txn_id not in self._txn:
-            return EvidenceReceipt(False, error=f"no bank transaction {bank_txn_id}")
+        self._record(f"propose_evidence({bank_txn_id}, {field})")
         try:
             enum_field = EvidenceField(field)
         except ValueError:
@@ -363,18 +492,40 @@ class Toolbox:
                     f"would be ignored silently, which is why this is an enum."
                 ),
             )
+        try:
+            enum_source = SourceType(source_type)
+        except ValueError:
+            allowed = ", ".join(t.value for t in SourceType)
+            return EvidenceReceipt(
+                False,
+                error=(
+                    f"{source_type!r} is not a source this engine recognises. "
+                    f"Allowed: {allowed}."
+                ),
+            )
         proposal = EvidenceProposal(
             bank_txn_id=bank_txn_id,
             field=enum_field,
             value=value,
             rationale=rationale,
-            tool_calls=tuple(self.calls),
+            tool_calls=tuple(self._scoped),
+            amount_paise=amount_paise,
+            source_type=enum_source,
+            source_ref=source_ref,
+            retrieved_at=retrieved_at,
         )
-        try:
-            proposal.validate()
-        except ValueError as e:
-            return EvidenceReceipt(False, error=str(e))
-        return EvidenceReceipt(True, proposal=proposal)
+        return validate_proposal(proposal, self._ctx, already=set(self._asserted))
+
+    def note_accepted(self, proposal: EvidenceProposal) -> None:
+        """
+        Tell the toolbox a proposal was accepted, so the next duplicate is refused here
+        rather than only at the ledger.
+
+        Called by the orchestrator after the ledger accepts. The toolbox does not own the
+        ledger -- it must not, or a tool could write to it directly -- so the duplicate
+        set is mirrored rather than shared.
+        """
+        self._asserted.add((proposal.bank_txn_id, proposal.field.value))
 
 
 # --------------------------------------------------------------------------
@@ -460,24 +611,112 @@ TOOL_SPECS: tuple[dict, ...] = (
         },
     },
     {
+        "name": "get_payment_record",
+        "description": (
+            "Read the gateway's record for one payment: status, whether it was "
+            "captured, the method, the fee, and any refund already netted against it. "
+            "Use this before asserting a refund -- if the refund is already on the "
+            "record the engine has already subtracted it, and asserting a different "
+            "figure will be rejected as a contradiction."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"payment_id": {"type": "string"}},
+            "required": ["payment_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_bank_line",
+        "description": (
+            "Read one statement line exactly as the bank wrote it, including its "
+            "reference and any OTHER line sharing that reference. A shared reference is "
+            "a duplicate UTR: it explains why a reference resolved to more than one "
+            "payment. It does not tell you which one is right, and you may not decide "
+            "that -- the engine's answer to an unresolvable tie is to refuse."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"bank_txn_id": {"type": "string"}},
+            "required": ["bank_txn_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_invoice",
+        "description": (
+            "Read one invoice: gross amount, TDS withheld, invoice date and status. "
+            "The TDS figure here is the one the engine already subtracts."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"invoice_no": {"type": "string"}},
+            "required": ["invoice_no"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "propose_evidence",
         "description": (
-            "Assert ONE fact about this credit, with your reasoning. This does not post "
-            "a match: the deterministic engine is re-run afterwards with your evidence "
-            "included and reaches its own verdict, which may still be a refusal. "
-            "`field` must be 'authorised_payer_for' and `value` must be a CUSTOMER "
-            "NAME -- a payment id, order id or bank reference will be rejected. If the "
-            "evidence does not support an assertion, do not make one."
+            "Assert ONE fact about this credit, with your reasoning and its source. "
+            "This does not post a match: the deterministic engine is re-run afterwards "
+            "with your evidence included and reaches its own verdict, which may still "
+            "be a refusal. If the evidence does not support an assertion, do not make "
+            "one -- an unresolved exception on a human's desk costs far less than a "
+            "wrong posting.\n\n"
+            "`value` is drawn from a fixed vocabulary per field, and MONEY NEVER GOES "
+            "IN `value` -- put it in `amount_paise` as whole paise:\n"
+            "  authorised_payer_for      a customer name, as the LEDGER spells it\n"
+            "  refund_status             none | partial | full     (amount for the last two)\n"
+            "  tds_confirmed             withheld | not_withheld   (amount for withheld)\n"
+            "  credit_note_confirmed     issued | none             (amount for issued)\n"
+            "  bank_charge_confirmed     levied | none             (amount for levied)\n"
+            "  invoice_part_payment      short_paid | paid_in_full (amount for short_paid)\n"
+            "  settlement_date_confirmed an ISO date, YYYY-MM-DD\n"
+            "  chargeback_status         none | raised | won | lost\n\n"
+            "`source_type` and `source_ref` name the record you read: the invoice "
+            "number, the payment id, the statement reference or the registered payer "
+            "name. Any assertion that money was kept back REQUIRES an external source; "
+            "'model_assertion' is for a judgement you made from what you were shown, and "
+            "it cannot carry an amount. A record identifier in `value` will be rejected "
+            "-- cite it in `source_ref`, where it is checked rather than weighed."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "bank_txn_id": {"type": "string"},
-                "field": {"type": "string", "enum": ["authorised_payer_for"]},
+                "field": {
+                    "type": "string",
+                    "enum": [
+                        "authorised_payer_for",
+                        "refund_status",
+                        "tds_confirmed",
+                        "credit_note_confirmed",
+                        "settlement_date_confirmed",
+                        "bank_charge_confirmed",
+                        "chargeback_status",
+                        "invoice_part_payment",
+                    ],
+                },
                 "value": {"type": "string"},
                 "rationale": {"type": "string"},
+                "source_type": {
+                    "type": "string",
+                    "enum": [
+                        "payer_register",
+                        "invoice_ledger",
+                        "payment_record",
+                        "bank_statement",
+                        "model_assertion",
+                    ],
+                },
+                "source_ref": {"type": "string"},
+                "retrieved_at": {"type": "string"},
+                "amount_paise": {"type": "integer"},
             },
-            "required": ["bank_txn_id", "field", "value", "rationale"],
+            "required": [
+                "bank_txn_id", "field", "value", "rationale", "source_type"
+            ],
             "additionalProperties": False,
         },
     },

@@ -68,6 +68,176 @@ what is asserted about names.
 
 ---
 
+## What shipped second: eight channels, three specialists, and a rule that cost two
+## attempts to find
+
+The first version had one evidence channel (`authorised_payer_for`), one investigator, and
+no routing. It worked, and its ceiling was structural: the channel enters Layer 3 as a
+name comparison, so it can stop a contradiction veto on a credit whose arithmetic ALREADY
+balanced and it can do nothing else. Every arithmetic refusal got a polite decline.
+
+### The eight channels
+
+| field | value | carries money | reaches |
+|---|---|:--:|---|
+| `authorised_payer_for` | a ledger customer name | no | Layer 3, as one Fellegi–Sunter comparison |
+| `refund_status` | `none` / `partial` / `full` | yes | `fees.known_deductions` |
+| `tds_confirmed` | `withheld` / `not_withheld` | yes | `fees.known_deductions` |
+| `credit_note_confirmed` | `issued` / `none` | yes | `fees.known_deductions` |
+| `bank_charge_confirmed` | `levied` / `none` | yes | `fees.known_deductions` |
+| `invoice_part_payment` | `short_paid` / `paid_in_full` | yes | `fees.known_deductions` |
+| `settlement_date_confirmed` | an ISO date | no | the candidate window's anchor |
+| `chargeback_status` | `none` / `raised` / `won` / `lost` | no | the reversal ledger |
+
+**Money never travels in `value`.** It goes in `amount_paise` as an integer, so `value` is
+always a name, a date or a token from a fixed vocabulary — which makes "reject a value
+that looks like a score" a one-line check rather than a judgement, and means a channel
+cannot smuggle a number through the text field at all.
+
+**The five deduction channels are a different kind of thing from the first one, and the
+document should say so plainly.** `authorised_payer_for` argues about a name. These change
+what the engine expects the bank to have credited, which changes what the subset search
+can find. That is the amount channel — the one this engine treats as primary.
+
+They are admitted because the alternative is worse and this project has already proved it.
+`DEFECT_LOG` 2026-09-02-05 item 4 is a batch where money was deducted and recorded
+**nowhere**: five credits refused on arithmetic, every one scored as a miss. The tempting
+fix was a wider tolerance. The correct fix was to stop hiding the money — and all five
+then matched with no change to the matcher. A deduction an investigator goes and finds,
+with a source, is that same fix arriving by a different route.
+
+### The rule that makes them safe, and the two attempts it took to find it
+
+**Attempt one.** The invoice specialist asked the engine for the residual on a refused
+candidate and asserted it as a short payment. Every step was defensible. The composite was
+circular: a figure taken from the gap will always close the gap. It bought four payments
+of coverage and two wrong postings — **precision 1.0000 → 0.9854**. This is
+prohibition 4, *explain your way past a refusal*, arriving as arithmetic instead of prose.
+
+**Attempt two.** Require the ledger to corroborate: only assert a shortfall against an
+invoice the ledger marks `part_settled`. Principled, and still wrong — a status says a
+shortfall happened, not how large it was, so the amount was still coming from the
+residual. The primary batch stopped showing it and the holdout caught it:
+**1.0000 → 0.9913**, one wrong posting, the same mechanism wearing a corroborating flag.
+
+**The rule that survived.** *A deduction is admissible when a record NAMES the figure*, and
+a figure the engine already subtracts is a restatement rather than evidence.
+
+### What that costs, stated rather than engineered around
+
+These three sides name exactly two deducted amounts: `Invoice.tds_amount` and
+`Payment.amount_refunded`. `fees.known_deductions` already reads both. There is no
+settled-to-date column, no credit-note line, and no bank-charge field.
+
+> **So on these batches, no deduction channel can be accepted at all.** The machinery is
+> built, validated and tested; the ledger cannot feed it.
+
+That is a fact about the generator's invoice schema, not a fault in the channel, and it
+changes the moment a real ERP export carries a credit-note line. Reporting it is worth
+more than a coverage number bought by relaxing `agent/validate.py`. What the specialists
+produce on this data instead is an **evidenced exception**: the gap quantified, the
+invoice named, the records that were read listed — which `docs/AGENTIC.md` argued for from
+the start as the second of two wins.
+
+### The three specialists, and what each may assert
+
+* **`PaymentInvestigator`** — the gateway record: status, capture, method, refunds.
+  Asserts `refund_status`, `chargeback_status`.
+* **`BankInvestigator`** — the statement: narration, references, duplicate lines, value
+  dates. Asserts `settlement_date_confirmed`, `bank_charge_confirmed`.
+* **`InvoiceInvestigator`** — the ledger: invoice status, TDS, credit notes, part
+  payments, and the authorised-payer register. Asserts `tds_confirmed`,
+  `credit_note_confirmed`, `invoice_part_payment`, `authorised_payer_for`.
+
+`RecordedInvestigator` keeps its name and becomes a router over the three, so every
+reported offline figure still refers to the same thing. `ClaudeInvestigator` takes a
+`role` and appends a role brief to the system prompt — one class parameterised, not three
+copies of a tool loop. `ClaudeFleet` is one live investigator per role.
+
+**Several agents may investigate; only the engine decides.** There is no vote, no
+confidence-weighted merge, no tie-break. Each specialist proposes evidence, the ledger
+records what the boundary accepts, and `match_once` runs once over all of it. A fleet that
+agreed with itself would look exactly like a fleet that was right.
+
+### Routing, and the categories that get none
+
+| refusal category | routed to |
+|---|---|
+| `amount_name_conflict` | `InvoiceInvestigator` |
+| `unexplained_residual` | `PaymentInvestigator`, then `BankInvestigator` |
+| `no_subset_fits` | `InvoiceInvestigator`, then `PaymentInvestigator` |
+| `pool_exceeded` | `BankInvestigator` — window and data scope only |
+| `multiple_candidates`, `ambiguous_grouping`, `contested_payment`, `solution_cap_reached`, `order_dependent_assignment`, `narration_count_conflict`, `no_candidate` | **never** |
+
+**Two categories in the original brief do not exist in this engine, and inventing them
+would have been the easy mistake.**
+
+`partial` is a ground-truth `Relation` and a `Reversal.partial` flag; `match_once` cannot
+emit it. A customer who short-pays arrives as `no_subset_fits` with the closest subset a
+few hundred paise short — `bank_txn_0056` at `−498p` in the reported batch. So the routing
+key is `no_subset_fits`.
+
+`duplicate_reference` is a generator defect label (`duplicate_utr`), not a refusal.
+Duplicate UTRs reach the engine as `multiple_candidates` or `contested_payment` — ties,
+and breaking a tie is prohibition 1. So duplicate detection ships as a **read**
+(`get_bank_line` returns the lines sharing a reference) that a specialist may consult
+while working another question. An agent can see the duplicate; there is no path by which
+seeing it resolves the tie.
+
+Debit-side categories are out of scope: debits reach a verdict through the reversal ledger
+rather than the matcher, and none is investigated today.
+
+### The window: anchor, never width
+
+`settlement_date_confirmed` moves where the candidate window is counted FROM. It does not
+make it wider. `tier2_amount_date.window_for`'s own docstring forbids per-record widening
+— "widening the window for a stubborn credit would be exactly the sort of per-record
+tuning `docs/METRICS.md` forbids" — and that stands. Re-anchoring cannot be used that way:
+moving the window discards as many days as it gains, and the validator will not accept a
+settlement date later than the credit or further back than `LOOKBACK_DAYS + 10`.
+
+### The validation layer
+
+`agent/validate.py` is deterministic, checks eight things in order, and **reaches no
+verdict** — a test parses its AST and fails if it imports `match_once`, `Verdict` or
+`Assignment`, or mentions an assignment map. Shape; identifier/verdict/number shapes;
+the transaction exists; no duplicate on the channel; a source that resolves AND is
+reachable from this credit; not stale; corroborated by the cited record; bounded by the
+credit.
+
+Staleness is measured against **the batch's latest bank date**, never a wall clock. Two
+reasons, and the second is the one that matters: a clock would make every test race the
+calendar, and "is this stale" means "was it read after the money moved", which is a
+question about the batch.
+
+### Budgets, versions, and the approval gate
+
+Three budgets — total investigations, per-investigator investigations, total tool calls.
+The module docstring used to promise a global budget that did not exist; it does now.
+
+Results are **versions**, not overwrites: `v0` baseline, `v1` enriched, and any subsequent
+version produced by holding material changes back or withdrawing evidence. Each records
+its evidence set and a hash of its assignment map. The baseline is always kept.
+
+A newly-assigned credit at or above `cfg.MATERIALITY_PAISE` is **held for human
+approval** — reported, and its evidence withheld from the applied result unless
+`--approve-high-value` is passed. Materiality rather than a new number: PCAOB AS 2315 is
+the line Layer 4 already uses to decide what is verified in full rather than sampled, and
+inventing a second one here would have been a threshold chosen to make the auto-applied
+set look good. The engine's verdict is unchanged either way; what waits is the posting.
+
+**Holding means withholding the evidence and re-running, never patching the result.** A
+held posting is one the engine was not given the evidence for — a state it can reach on
+its own. Editing an assignment out of a `MatchOutput` is the one thing no part of this
+system does.
+
+The precision interlock lives in the CLI, not the loop: the trigger is precision,
+precision needs ground truth, and `recon.agent` may not read it. The orchestrator produces
+versions and their outputs; the scorer measures them; `cmd_agent` withdraws the evidence
+behind any version that costs precision, re-runs, and exits non-zero if it still falls.
+
+---
+
 ## The question that has to be answered first
 
 The project's central constraint is one sentence:

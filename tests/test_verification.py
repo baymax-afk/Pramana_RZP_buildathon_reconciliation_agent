@@ -80,10 +80,18 @@ def _tied_batch() -> ReconInputs:
     return ReconInputs(pays, (txn,), invs, seed=cfg.SEED_PRIMARY, payments_per_window=2)
 
 
-def _greedy_first_in_iteration_order(txn, payments, claimed, invoices_by_no):
+def _greedy_first_in_iteration_order(
+    txn, payments, claimed, invoices_by_no, declared_paise=0, settled_on=None
+):
     """
     The mutant matcher: take the FIRST candidate encountered while walking the pool,
     instead of refusing when several fit.
+
+    The last two parameters mirror the real `tier2_amount_date.match` and are ignored:
+    this stub is monkeypatched over it, so its signature has to accept everything
+    `match_once` passes. They carry agent-supplied evidence, which is irrelevant to what
+    this mutant exists to demonstrate -- and a stub that quietly dropped them would fail
+    with a TypeError rather than mis-reporting, which is the right failure mode.
 
     It must pick in genuine iteration order, not from tier 2's sorted candidate list.
     The real tier 2 sorts its candidates before returning them, so a mutant that picked

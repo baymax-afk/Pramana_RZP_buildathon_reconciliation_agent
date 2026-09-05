@@ -41,7 +41,9 @@ def payment_date(p: Payment) -> date:
     return date_of(p.created_at)
 
 
-def window_for(txn: BankTxn, extra_days: int = 0) -> tuple[date, date]:
+def window_for(
+    txn: BankTxn, extra_days: int = 0, settled_on: date | None = None
+) -> tuple[date, date]:
     """
     The inclusive date range a credit may draw payments from.
 
@@ -50,13 +52,35 @@ def window_for(txn: BankTxn, extra_days: int = 0) -> tuple[date, date]:
     and it is a CONFIG-level decision rather than a per-record one -- widening the
     window for a stubborn credit would be exactly the sort of per-record tuning
     `docs/METRICS.md` forbids.
+
+    **`settled_on` moves the window's ANCHOR and never its WIDTH, and the distinction is
+    the whole argument for letting it exist.** The window is `LOOKBACK_DAYS` counted back
+    from the date the money reached the bank, which is a proxy: what actually bounds
+    which payments could be in a settlement is the date the gateway SETTLED it. Those are
+    normally the same day and occasionally are not.
+
+    So an investigator that produces an external record saying "this batch settled on the
+    14th, it merely credited on the 21st" is not asking for a bigger search. It is
+    correcting which day the same-sized search is counted from. The bound is untouched,
+    the pool does not grow, and a credit that had the wrong seven days looked at now has
+    the right seven.
+
+    Widening would be tuning: keep failing, add a day, try again. Re-anchoring cannot be
+    used that way, because moving the window forwards discards as many days as it gains
+    -- and `agent/validate.py` will not accept a settlement date later than the credit
+    or further back than `LOOKBACK_DAYS + EVIDENCE_WINDOW_SLACK_DAYS`. A caller who
+    passes `settled_on` on a hunch gets a different wrong answer, not a better chance.
     """
     d = date.fromisoformat(txn.txn_date)
-    return d - timedelta(days=cfg.LOOKBACK_DAYS + extra_days), d
+    anchor = settled_on or d
+    return anchor - timedelta(days=cfg.LOOKBACK_DAYS + extra_days), d
 
 
 def candidate_pool(
-    txn: BankTxn, payments: tuple[Payment, ...], claimed: set[str]
+    txn: BankTxn,
+    payments: tuple[Payment, ...],
+    claimed: set[str],
+    settled_on: date | None = None,
 ) -> list[Payment]:
     """
     Every unclaimed, captured payment that could possibly belong to this credit.
@@ -65,8 +89,10 @@ def candidate_pool(
     far more importantly, the rate at which unrelated subsets land within tolerance by
     coincidence. `run.py` reports the worst realised pool alongside the metrics for
     exactly that reason.
+
+    `settled_on` re-anchors the window without widening it; see `window_for`.
     """
-    lo, hi = window_for(txn)
+    lo, hi = window_for(txn, settled_on=settled_on)
     return [
         p
         for p in payments
@@ -79,21 +105,28 @@ def match(
     payments: tuple[Payment, ...],
     claimed: set[str],
     invoices_by_no: dict[str, Invoice],
+    declared_paise: int = 0,
+    settled_on: date | None = None,
 ) -> tuple[list[Candidate], RefusalCategory | None, str]:
     """
     Try to match one bank credit to exactly one payment on amount and date.
 
     Returns (candidates, refusal_category, reason). Zero candidates means fall through
     to tier 3 (subset-sum); it is not a refusal.
+
+    `declared_paise` is money an investigator evidenced as kept back that no side of
+    this batch records. Zero by default -- every reported number is produced by the
+    default -- and it reaches `fees.expected_credit_interval` unchanged. See
+    `agent/validate.py` for what it has to survive before it gets here.
     """
-    pool = candidate_pool(txn, payments, claimed)
+    pool = candidate_pool(txn, payments, claimed, settled_on)
     if not pool:
         return [], None, ""
 
     tol = fees.tolerance_for(txn.credit)
     hits: list[Candidate] = []
     for p in pool:
-        interval = fees.expected_credit_interval([p], invoices_by_no)
+        interval = fees.expected_credit_interval([p], invoices_by_no, declared_paise)
         resid = fees.residual(txn.credit, interval)
         if abs(resid) <= tol:
             hits.append(

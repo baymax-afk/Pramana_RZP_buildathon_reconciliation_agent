@@ -18,6 +18,7 @@ and are labelled as such.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 import config as cfg
 
@@ -80,8 +81,87 @@ def _assignment_from(
 
 
 
+@dataclass(frozen=True, slots=True)
+class _EvidenceFacts:
+    """
+    One credit's externally-gathered facts, resolved into what the engine reads.
+
+    Three separate channels, and the engine keeps them separate on purpose:
+
+      * `declared_paise` -- money kept back that no side of the batch records. Enters
+        `fees.known_deductions`, exactly where TDS and `amount_refunded` enter.
+      * `settled_on` -- the date the gateway actually settled. Re-anchors the candidate
+        window without widening it; see `tier2_amount_date.window_for`.
+      * `authorised_payer_for` -- a counterparty identity. Enters Layer 3 as one named
+        Fellegi-Sunter comparison and nothing else.
+
+    Nothing else in the evidence map reaches the matcher. `chargeback_status` is read by
+    the reversal ledger, not here; an unrecognised key is IGNORED rather than rejected,
+    because `match_once` is a pure function that must not raise on its inputs -- the
+    place a bad key is refused loudly is `agent/validate.py`, before it ever gets here.
+    """
+
+    declared_paise: int = 0
+    settled_on: object = None
+    authorised_payer_for: str | None = None
+
+
+_NO_FACTS = _EvidenceFacts()
+
+# Channels whose value names an amount that was kept back, and the token that means it
+# was. Mirrors `agent/schemas._FIELD_RULES`, deliberately re-stated rather than imported:
+# `recon.engine` does not depend on `recon.agent`, and inverting that would let the agent
+# package's imports run inside the matcher. The two are pinned together by a test.
+_DEDUCTION_TOKENS = {
+    "refund_status": {"partial", "full"},
+    "tds_confirmed": {"withheld"},
+    "credit_note_confirmed": {"issued"},
+    "bank_charge_confirmed": {"levied"},
+    "invoice_part_payment": {"short_paid"},
+}
+
+
+def _facts_for(evidence, txn_id: str) -> _EvidenceFacts:
+    """
+    Resolve one credit's evidence entry. Absent, empty or unrecognised -> no facts at all.
+
+    The empty case has to be `_NO_FACTS` rather than a freshly-built equivalent, and the
+    unrecognised case has to be silent, because `tests/test_agent_evidence.py` pins that
+    four spellings of "no evidence" -- `None`, `{}`, an unknown transaction key, an empty
+    inner dict -- all produce a byte-identical run. That is the null-agent control arm.
+    """
+    if not evidence:
+        return _NO_FACTS
+    entry = evidence.get(txn_id)
+    if not entry:
+        return _NO_FACTS
+
+    declared = 0
+    settled_on = None
+    for field, tokens in _DEDUCTION_TOKENS.items():
+        raw = entry.get(field)
+        if isinstance(raw, dict) and raw.get("value") in tokens:
+            declared += max(0, int(raw.get("amount_paise") or 0))
+
+    raw_date = entry.get("settlement_date_confirmed")
+    value = raw_date.get("value") if isinstance(raw_date, dict) else raw_date
+    if isinstance(value, str) and value:
+        try:
+            settled_on = date.fromisoformat(value)
+        except ValueError:
+            settled_on = None
+
+    payer = entry.get("authorised_payer_for")
+    if isinstance(payer, dict):
+        payer = payer.get("value")
+
+    if not declared and settled_on is None and not payer:
+        return _NO_FACTS
+    return _EvidenceFacts(declared, settled_on, payer or None)
+
+
 def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm=None,
-                 rec=None):
+                 rec=None, declared_paise=0, settled_on=None):
     """
     Run the three tiers against one credit, in descending order of evidence strength.
 
@@ -148,7 +228,7 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
         )
 
     cands, cat, reason = tier1_reference.match(
-        txn, parsed, index, by_id, claimed, invoices_by_no
+        txn, parsed, index, by_id, claimed, invoices_by_no, declared_paise
     )
     if cat is not None:
         note(tier1_reference.TIER, "refuse", cands, cat, reason)
@@ -160,7 +240,7 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
     note(tier1_reference.TIER, "conflict" if tier1_conflict else "fell_through", cands)
 
     cands, cat, reason = tier2_amount_date.match(
-        txn, payments, claimed, invoices_by_no
+        txn, payments, claimed, invoices_by_no, declared_paise, settled_on
     )
     if cat is not None:
         note(tier2_amount_date.TIER, "refuse", cands, cat, reason)
@@ -172,7 +252,7 @@ def _verdict_for(txn, payments, by_id, index, claimed, invoices_by_no, u_est, ll
     note(tier2_amount_date.TIER, "conflict" if tier2_conflict else "fell_through", cands)
 
     cands, cat, reason, uniq = tier3_subsetsum.match_with_margin(
-        txn, payments, claimed, invoices_by_no
+        txn, payments, claimed, invoices_by_no, declared_paise, settled_on
     )
     if cat is not None:
         note(tier3_subsetsum.TIER, "refuse", cands, cat, reason, uniq)
@@ -418,9 +498,12 @@ def match_once(
             # fixpoint rounds and again by the K=8 permutation passes. Nothing in the
             # path memoises, so the cost was real rather than theoretical.
             # REVIEW_2026-09-02 R11.
+            facts = _facts_for(evidence, txn.id)
             verdict, cands, cat, reason, uniq, parsed = _verdict_for(
                 txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm,
                 rec=recorder,
+                declared_paise=facts.declared_paise,
+                settled_on=facts.settled_on,
             )
             if recorder is not None and (r := recorder.active) is not None:
                 r.parsed_payer = parsed.payer_name
@@ -437,9 +520,7 @@ def match_once(
                     [by_id[pid] for pid in cand.payment_ids if pid in by_id],
                     u_est,
                     pool_size=blocking_pool_size[txn.id],
-                    authorised_payer_for=(
-                        (evidence or {}).get(txn.id, {}).get("authorised_payer_for")
-                    ),
+                    authorised_payer_for=facts.authorised_payer_for,
                 )
                 if recorder is not None and (r := recorder.active) is not None:
                     r.fs_weight = ev.weight

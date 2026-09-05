@@ -10,6 +10,12 @@ data/benchrec/
 # serves it and no test pins it, so a committed copy would only ever be a stale one.
 # Re-create it by running the agent; the run itself is the artefact.
 reports/evidence_ledger.json
+# The agent's metrics artefact. Derived like the scorecard, but unlike the scorecard it
+# depends on whether a live key was present and on a ledger that is itself ignored -- so
+# a committed copy would be a stale-artefact hazard of exactly the kind the holdout
+# staleness test exists to catch. Regenerate with `python run.py agent`.
+reports/agent_run.json
+reports/agent_run_holdout.json
 
 # A foreign audit is a report ABOUT somebody else's output, produced on demand by
 # `run.py verify-foreign`. Committing one would freeze a claim about a third party in

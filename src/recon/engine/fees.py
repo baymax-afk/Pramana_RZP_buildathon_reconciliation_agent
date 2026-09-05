@@ -151,9 +151,11 @@ def residual_tightness(credit_paise: int, interval: NetInterval) -> float:
 def known_deductions(
     payments: tuple[Payment, ...] | list[Payment],
     invoices_by_no: dict[str, Invoice],
+    declared_paise: int = 0,
 ) -> int:
     """
-    Deductions the LEDGER already knows about, in paise. Currently TDS.
+    Deductions the LEDGER already knows about, in paise. TDS, refunds, and -- when an
+    investigator has gone and found one -- a validated declared deduction.
 
     This is the single most important thing separating a tractable search from an
     intractable one. TDS is withheld by the payer and recorded on the invoice, so it is
@@ -186,19 +188,37 @@ def known_deductions(
         # the engine refused all of them while ground truth expected an assignment.
         total += p.amount_refunded or 0
 
-    return total
+    # `declared_paise` is money an investigator established was kept back and that NO
+    # side of this batch records: a credit note cut after the invoice, a bank charge
+    # outside the gateway fee model, a customer's short payment. It arrives here by
+    # exactly the route TDS and `amount_refunded` do, and that is the argument for
+    # admitting it at all -- `DEFECT_LOG` 2026-09-02-05 item 4 is a batch where money was
+    # deducted and recorded nowhere, five credits were refused on the arithmetic, and the
+    # correct fix was not a wider tolerance but telling the engine where the money went.
+    #
+    # It is zero by default, so every existing call site behaves exactly as it did and
+    # the null-agent arm reproduces the baseline byte for byte. And it is not a back door:
+    # the figure has already been through `agent/validate.py`, which checks it against the
+    # ledger's own numbers where the ledger has any and bounds it by the credit where it
+    # does not -- and it changes what the arithmetic is asked to explain, never what the
+    # engine concludes from it. The search still has to find a subset that fits.
+    return total + max(0, declared_paise)
 
 
 def expected_credit_interval(
     payments: tuple[Payment, ...] | list[Payment],
     invoices_by_no: dict[str, Invoice],
+    declared_paise: int = 0,
 ) -> NetInterval:
     """
     What the bank should have credited for these payments: settled amounts less the
-    deductions the ledger already accounts for.
+    deductions the ledger already accounts for, and any an investigator has evidenced.
+
+    `declared_paise` defaults to zero, which is what every reported number is produced
+    by. See `known_deductions` for what it is and why it is allowed to be here.
     """
     gross = sum_intervals(payments)
-    tds = known_deductions(payments, invoices_by_no)
-    if not tds:
+    deducted = known_deductions(payments, invoices_by_no, declared_paise)
+    if not deducted:
         return gross
-    return NetInterval(gross.lo - tds, gross.hi - tds, gross.certain)
+    return NetInterval(gross.lo - deducted, gross.hi - deducted, gross.certain)

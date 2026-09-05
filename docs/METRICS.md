@@ -470,6 +470,65 @@ imply otherwise.
 > which is what the original finding said was missing. The density sweep is still the
 > place the *trend* is demonstrated — these are one seed, not five.
 
+## The agent: what is measured, and what it is measured against
+
+`python run.py agent` writes `reports/agent_run.json` and prints the same figures. Every
+one of them is a DELTA against a baseline anyone can reproduce without an agent --
+`--null-agent` investigates nothing and must produce a byte-identical run, and the suite
+asserts it.
+
+### Three arms, not two
+
+    BASELINE    the deterministic run, no evidence at all
+    APPLIED     baseline + evidence the system applies unattended
+    APPROVED    APPLIED + changes held for a human, i.e. --approve-high-value
+
+Reported side by side because quoting either of the last two alone misdescribes the
+system. APPLIED is what happens when nobody is watching; APPROVED is what is on offer. The
+headline delta is baseline -> APPLIED, because that is the claim the system makes on its
+own.
+
+### What is counted
+
+| metric | what it is |
+|---|---|
+| exceptions seen / investigated / not routed | the exception list, and how it was split. These RECONCILE: `investigated + not_routed + resumed = exceptions_seen`, and a test asserts it |
+| proposals accepted / rejected | assertions the boundary carried, and refused. Rejections are kept in the ledger |
+| declined -- insufficient evidence | an investigation that concluded honestly. A correct outcome, not a failure |
+| verdicts changed | credits whose verdict moved, each attributed to a named proposal |
+| payments newly assigned | coverage, in payments |
+| rupees released | coverage, in money |
+| evidence-attributable gain | payments gained per accepted assertion |
+| precision before / applied / if approved | the interlock. A fall triggers withdrawal |
+| by investigator | per specialist: worked, asserted, declined, errored |
+| by refusal category | per category: seen, worked, asserted, moved |
+| by source | a SEPARATE counterfactual re-run carrying only that source's evidence |
+| requiring human approval | newly-assigned credits at or above materiality |
+| withdrawn for precision | evidence taken back because a version cost precision |
+| tool calls, rounds, budgets | what the run spent against what it was allowed |
+
+### Two qualifications, both of which cut against the agent
+
+**Gain per assertion is the honest denominator.** An agent that asserts more without
+moving more scores WORSE. That is why the live arm's 0.75 was reported next to the offline
+arm's 1.00 rather than quietly dropped.
+
+**The deduction channels currently fire zero times, by design of the checks rather than by
+accident.** Five of the eight evidence fields carry money into `fees.known_deductions`, and
+`agent/validate.py` requires the cited record to NAME the figure. These three sides name
+two deducted amounts and the engine already subtracts both, so no deduction is admissible
+on this data. Two earlier versions of the invoice specialist were accepted by weaker
+checks and cost precision -- 1.0000 -> 0.9854 on the primary batch and 1.0000 -> 0.9913 on
+the holdout. `docs/AGENTIC.md` has the full account. The number this buys today is zero,
+and the number it would buy with a weaker check is negative.
+
+**Per-source rows do not sum to the total, and that is honest rather than sloppy.** Each
+row is what that source buys ALONE, measured by re-running the engine with only its
+evidence. Two sources that close the same exception both count it. A re-run is 36 ms; an
+apportionment rule is an argument.
+
+---
+
 ## LLM tier: measured
 
 `docs/ARCHITECTURE.md` requires precision to be reported with the LLM tier on and off.
