@@ -35,6 +35,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 import config as cfg
+from recon.report import transactions as _tx
 
 RUN_OUTPUT = cfg.REPORTS / "run_output.json"
 # Scoring lives in its OWN file, and that separation is load-bearing rather than
@@ -174,6 +175,112 @@ def get_exceptions(limit: int = 200, category: str | None = None) -> dict:
         "rupees_at_risk": round(sum(r["rupees_at_risk"] for r in rows), 2),
         "exceptions": rows[:limit],
     }
+
+
+@app.get("/api/transactions")
+def get_transactions(
+    direction: str = "all",
+    status: str | None = None,
+    customer: str | None = None,
+    bank: str | None = None,
+    category: str | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> dict:
+    """
+    Every bank line, credit and debit, filtered server-side.
+
+    **Filtering belongs here, not in the client.** This batch is 153 rows and would fit
+    in a browser twice over, so nothing about the current data forces the decision -- but
+    the shape of the answer does. A client that filters locally has to hold the whole
+    statement to answer "show me ICICI debits", which stops working at the first merchant
+    with a real month-end, and it has to reimplement `status` and `direction` to do it,
+    which is a second opinion about what the engine decided. Both problems are permanent;
+    the row count is not.
+
+    Every parameter is optional and they COMBINE -- each narrows what the previous ones
+    left. `status` and `category` accept comma-separated lists, because "assigned or
+    reversed" is one question rather than two requests.
+
+        direction   all | credit | debit
+        status      assigned | refused | unmatched | reversed  (comma-separated)
+        customer    substring of a customer name or an invoice number
+        bank        substring of the bank name or the transaction reference
+        category    refusal category  (comma-separated)
+
+    `count` is what matched and `total` is what exists, so a caller can tell an empty
+    filter from an empty batch. `rupees` and `rupees_at_risk` are summed over the WHOLE
+    match rather than over the returned page -- a total that changed when you paged
+    through it would not be a total.
+    """
+    data = _load()
+    rows = data.get("transactions") or []
+    total = len(rows)
+
+    if direction and direction != "all":
+        if direction not in _tx.DIRECTIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"unknown direction {direction!r}; expected one of "
+                    f"'all', {', '.join(repr(d) for d in _tx.DIRECTIONS)}"
+                ),
+            )
+        rows = [r for r in rows if r["direction"] == direction]
+
+    wanted_status = _split(status)
+    if wanted_status:
+        unknown = wanted_status - set(_tx.STATUSES)
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"unknown status {sorted(unknown)}; expected any of "
+                    f"{list(_tx.STATUSES)}"
+                ),
+            )
+        rows = [r for r in rows if r["status"] in wanted_status]
+
+    wanted_category = _split(category)
+    if wanted_category:
+        rows = [r for r in rows if r["category"] in wanted_category]
+
+    if customer:
+        needle = customer.casefold()
+        rows = [r for r in rows if needle in _customer_haystack(r)]
+
+    if bank:
+        needle = bank.casefold()
+        rows = [r for r in rows if needle in f"{r['bank_name']} {r['reference']}".casefold()]
+
+    return {
+        "count": len(rows),
+        "total": total,
+        "rupees": round(sum(r["rupees"] for r in rows), 2),
+        "rupees_at_risk": round(sum(r["rupees_at_risk"] for r in rows), 2),
+        "facets": _tx.facets(rows),
+        "transactions": rows[offset : offset + limit],
+    }
+
+
+def _split(raw: str | None) -> set[str]:
+    """A comma-separated filter value as a set. Blank entries are dropped, not matched."""
+    if not raw:
+        return set()
+    return {part.strip() for part in raw.split(",") if part.strip()}
+
+
+def _customer_haystack(row: dict) -> str:
+    """
+    What a customer search reads: the counterparty names AND the invoice numbers.
+
+    One field rather than two controls because they are the same question asked two ways
+    -- an analyst chasing an account has either the name or the invoice in front of them,
+    and being made to choose the right box first is friction with no payoff. The
+    narration is deliberately NOT included: it carries references, amounts and bank
+    codes, so searching it would make a customer filter quietly match on everything.
+    """
+    return " ".join(row["customers"] + row["invoice_nos"]).casefold()
 
 
 @app.get("/api/summary")

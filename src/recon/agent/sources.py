@@ -41,6 +41,9 @@ from dataclasses import dataclass, field
 _SOURCE_OF_TOOL: dict[str, str] = {
     "lookup_payer_relationship": "authorised_payer_register",
     "search_invoices": "invoice_ledger",
+    "get_invoice": "invoice_ledger",
+    "get_payment_record": "gateway_payment_record",
+    "get_bank_line": "bank_statement",
 }
 
 # Recorded calls look like `lookup_payer_relationship('ACME INDUSTRIAL SU')`.

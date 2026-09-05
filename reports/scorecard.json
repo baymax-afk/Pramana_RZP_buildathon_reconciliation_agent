@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-05T07:10:15+00:00",
+  "generated_at": "2026-09-05T10:24:15+00:00",
   "dataset": "primary",
   "seed": 20260905,
   "provenance": "Scored against ground truth the engine never received. The engine's own output is in run_output.json and contains none of this; ground-truth isolation is enforced by an audit hook over the recon package, not by convention.",

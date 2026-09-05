@@ -119,7 +119,16 @@ def test_the_summary_carries_no_ground_truth(payload):
 
 # ---- the ordering ---------------------------------------------------------
 def test_the_page_opens_on_the_outcome_not_the_exception_list():
-    assert 'useState("reconciled")' in JSX, (
+    """
+    The property is unchanged and the mechanism moved. The default tab used to be
+    `useState("reconciled")` in the component; it is now the fallback in `readHash`,
+    because the view a reader is looking at is reflected in the address bar and a filter
+    you cannot send to a colleague is half a filter. What must not change is which view
+    an empty address lands on: opening on the exception list tells a reader what went
+    wrong before anyone has told them what went right.
+    """
+    fallback = JSX.split("function readHash", 1)[1].split("\n}", 1)[0]
+    assert 'path || "reconciled"' in fallback, (
         "the default tab is not the reconciled view; the page opens on failures again"
     )
     assert "function ReconciliationSummary" in JSX

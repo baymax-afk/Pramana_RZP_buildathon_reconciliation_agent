@@ -33,19 +33,60 @@ def box(request):
 # --------------------------------------------------------------------------
 def test_no_tool_can_post_unpost_or_rescore_a_match(box):
     """
-    The surface is five reads and one write, and the write appends to a ledger. If a
+    The surface is eight reads and one write, and the write appends to a ledger. If a
     mutating verb ever appears here, this fails -- which is a cruder check than reading
     the code, and survives the code being edited by someone who has not read this file.
+
+    The exact set is spelled out so that ADDING a tool fails this test on purpose. A new
+    read is a new thing an agent can see, and widening what an investigator sees is a
+    decision worth making deliberately rather than noticing later.
     """
     from recon.agent.tools import TOOL_NAMES
 
     assert set(TOOL_NAMES) == {
         "get_exception", "get_candidate_pool", "test_subset",
-        "lookup_payer_relationship", "search_invoices", "propose_evidence",
+        "lookup_payer_relationship", "search_invoices",
+        "get_payment_record", "get_bank_line", "get_invoice",
+        "propose_evidence",
     }
     for name in TOOL_NAMES:
         for verb in ("assign", "post", "match", "score", "approve", "resolve", "set_"):
             assert verb not in name, f"{name} reads like a mutation"
+
+
+def test_no_read_exposes_the_engines_own_confidence(box):
+    """
+    `Assignment` carries `confidence`, `fs_weight`, `uniqueness_margin` and
+    `permutation_stability`. None of them is projected by any tool, and that is not an
+    oversight: an investigator that could see how sure the engine was would be
+    investigating the engine's opinion rather than the merchant's records -- and the
+    first thing it would learn is which credits are worth arguing about.
+    """
+    import json
+
+    b, out, tb = box
+    refused = out.refusals[0].bank_txn_id
+    assigned = next(iter(out.assignment_map))
+    payment = sorted(out.assignment_map[assigned])[0]
+    invoice = next(
+        (p.notes.get("invoice_no") for p in b.inputs.payments if p.id == payment), ""
+    )
+
+    seen = []
+    for result in (
+        tb.get_exception(refused),
+        tb.get_candidate_pool(refused),
+        tb.get_bank_line(assigned),
+        tb.get_payment_record(payment),
+        tb.get_invoice(invoice),
+        tb.test_subset(refused, (payment,)),
+    ):
+        if hasattr(result, "as_dict"):
+            seen.append(json.dumps(result.as_dict()))
+    assert len(seen) >= 5, "the reads under test did not return typed results"
+    blob = " ".join(seen)
+    for leak in ("confidence", "fs_weight", "uniqueness_margin", "permutation_stability"):
+        assert leak not in blob, f"a tool projects the engine's own {leak}"
 
 
 def test_test_subset_answers_with_the_engines_own_arithmetic(box):
@@ -217,8 +258,15 @@ def test_the_ledger_is_append_only():
     replaced = led.add(EvidenceReceipt(True, second))
     assert replaced.accepted is False
     assert "append-only" in replaced.error
+    # The map carries the FIRST fact and only the first. Each entry is
+    # `{value, amount_paise}` rather than a bare string because five of the eight
+    # channels carry money and the amount has to travel with the token that makes it a
+    # deduction; `match._facts_for` still accepts the flat form, so a ledger written
+    # before that change replays unchanged.
     assert led.as_evidence_map() == {
-        "bank_txn_0001": {"authorised_payer_for": "Acme Ltd"}
+        "bank_txn_0001": {
+            "authorised_payer_for": {"value": "Acme Ltd", "amount_paise": None}
+        }
     }
 
 

@@ -97,7 +97,7 @@ class SearchResult:
 
 
 def _effective_intervals(
-    pool: list[Payment], invoices_by_no: dict[str, Invoice]
+    pool: list[Payment], invoices_by_no: dict[str, Invoice], declared_paise: int = 0
 ) -> list[tuple[str, int, int, bool]]:
     """
     Per-payment settled-amount intervals, already net of KNOWN ledger deductions.
@@ -109,7 +109,7 @@ def _effective_intervals(
     """
     out = []
     for p in pool:
-        iv = fees.expected_credit_interval([p], invoices_by_no)
+        iv = fees.expected_credit_interval([p], invoices_by_no, declared_paise)
         out.append((p.id, iv.lo, iv.hi, iv.certain))
     # Sorted by (lo, id): a total order derived from the DATA, so enumeration depends on
     # the set of candidates rather than the order they were handed to us.
@@ -117,10 +117,12 @@ def _effective_intervals(
     return out
 
 
-def _gap(credit: int, payment_ids, pool, invoices_by_no) -> int:
+def _gap(credit: int, payment_ids, pool, invoices_by_no, declared_paise: int = 0) -> int:
     """The residual between a credit and a named subset, recomputed from the records."""
     chosen = [p for p in pool if p.id in set(payment_ids)]
-    return fees.residual(credit, fees.expected_credit_interval(chosen, invoices_by_no))
+    return fees.residual(
+        credit, fees.expected_credit_interval(chosen, invoices_by_no, declared_paise)
+    )
 
 
 def search(
@@ -130,6 +132,7 @@ def search(
     tolerance: int | None = None,
     max_k: int | None = None,
     max_solutions: int | None = None,
+    declared_paise: int = 0,
 ) -> SearchResult:
     """
     Find every subset of `pool` (size 1..max_k) whose summed interval covers `target`
@@ -148,7 +151,7 @@ def search(
     kmax = max_k or cfg.MAX_SUBSET_K
     cap = max_solutions or cfg.MAX_SOLUTIONS
 
-    items = _effective_intervals(pool, invoices_by_no)
+    items = _effective_intervals(pool, invoices_by_no, declared_paise)
     n = len(items)
 
     # suffix_hi[i] = the largest additional amount items[i:] could contribute.
@@ -310,6 +313,8 @@ def _decompose(
     payments: tuple[Payment, ...],
     claimed: set[str],
     invoices_by_no: dict[str, Invoice],
+    declared_paise: int = 0,
+    settled_on=None,
 ) -> tuple[list[Candidate], RefusalCategory | None, str, float]:
     """
     Decompose one bank credit into the payments it covers, in a SINGLE search.
@@ -327,7 +332,7 @@ def _decompose(
     already produced. Computing it here keeps the two derived from the same search by
     construction, so they cannot disagree.
     """
-    pool = tier2_amount_date.candidate_pool(txn, payments, claimed)
+    pool = tier2_amount_date.candidate_pool(txn, payments, claimed, settled_on)
     if not pool:
         return [], None, "", 0.0
 
@@ -345,7 +350,9 @@ def _decompose(
         )
 
     tol = fees.tolerance_for(txn.credit)
-    result = search(txn.credit, pool, invoices_by_no, tolerance=tol)
+    result = search(
+        txn.credit, pool, invoices_by_no, tolerance=tol, declared_paise=declared_paise
+    )
 
     def to_candidate(s: Solution) -> Candidate:
         return Candidate(
@@ -378,7 +385,9 @@ def _decompose(
         shown = result.best_miss_ids or result.nearest_ids
         if shown:
             payments = [p for p in pool if p.id in set(shown)]
-            interval = fees.expected_credit_interval(payments, invoices_by_no)
+            interval = fees.expected_credit_interval(
+                payments, invoices_by_no, declared_paise
+            )
             near.append(
                 Candidate(
                     payment_ids=tuple(shown),
@@ -400,7 +409,8 @@ def _decompose(
                 # only, and once the candidate could come from `nearest_ids` instead,
                 # the refusal listed a subset the reason never mentioned.
                 f"; the closest is {len(shown)} payment(s) "
-                f"{_gap(txn.credit, shown, pool, invoices_by_no):+d}p away, listed below"
+                f"{_gap(txn.credit, shown, pool, invoices_by_no, declared_paise):+d}p away, "
+            f"listed below"
                 if shown
                 else (
                     f" (closest miss {result.best_miss:+d}p)"
@@ -437,6 +447,8 @@ def match_with_margin(
     payments: tuple[Payment, ...],
     claimed: set[str],
     invoices_by_no: dict[str, Invoice],
+    declared_paise: int = 0,
+    settled_on=None,
 ) -> tuple[list[Candidate], RefusalCategory | None, str, float]:
     """
     `match`, plus the uniqueness margin for the accepted solution.
@@ -445,4 +457,6 @@ def match_with_margin(
     composite confidence score: a lone solution with nothing else nearby deserves more
     confidence than a lone solution that only just outran a rival.
     """
-    return _decompose(txn, payments, claimed, invoices_by_no)
+    return _decompose(
+        txn, payments, claimed, invoices_by_no, declared_paise, settled_on
+    )

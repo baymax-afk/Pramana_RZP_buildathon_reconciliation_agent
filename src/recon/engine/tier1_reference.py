@@ -77,6 +77,7 @@ def match(
     payments_by_id: dict[str, Payment],
     claimed: set[str],
     invoices_by_no: dict[str, Invoice],
+    declared_paise: int = 0,
 ) -> tuple[list[Candidate], RefusalCategory | None, str]:
     """
     Try to match one bank credit on reference alone.
@@ -105,7 +106,9 @@ def match(
         # duplicate UTR. Surface every candidate rather than choosing one.
         candidates = []
         for pid in sorted(hits):
-            interval = fees.expected_credit_interval([payments_by_id[pid]], invoices_by_no)
+            interval = fees.expected_credit_interval(
+                [payments_by_id[pid]], invoices_by_no, declared_paise
+            )
             candidates.append(
                 Candidate(
                     payment_ids=(pid,),
@@ -127,7 +130,7 @@ def match(
     payment = payments_by_id[pid]
     # TDS is a ledger-side fact, not an unknown -- deduct what is already known before
     # declaring the amount inconsistent. See fees.known_deductions.
-    interval = fees.expected_credit_interval([payment], invoices_by_no)
+    interval = fees.expected_credit_interval([payment], invoices_by_no, declared_paise)
     resid = fees.residual(txn.credit, interval)
 
     candidate = Candidate(

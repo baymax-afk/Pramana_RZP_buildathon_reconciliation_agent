@@ -465,6 +465,7 @@ def cmd_agent(args: argparse.Namespace) -> int:
     right response is to revert the evidence layer rather than to report the coverage.
     """
     from recon.agent import EvidenceLedger, orchestrate, select_investigator
+    from recon.agent.orchestrate import withdraw as _withdraw
     from recon.agent.investigate import RecordedInvestigator
     from recon.llm import select as _select_llm
     from scorer.score import load_truth, score
@@ -515,6 +516,7 @@ def cmd_agent(args: argparse.Namespace) -> int:
             )
         ) if args.write else None,
         max_exceptions=args.max_exceptions,
+        approve_high_value=args.approve_high_value,
     )
     elapsed = time.perf_counter() - t0
 
@@ -525,15 +527,49 @@ def cmd_agent(args: argparse.Namespace) -> int:
             ("authorised-payer register", f"{len(directory)} row(s)"),
             ("exceptions in the baseline", run.exceptions_seen),
             ("investigated", run.investigated),
+            ("not routed -- no agent may work it", len(run.not_routed)),
             ("resumed from a saved ledger", run.resumed),
             ("evidence asserted", run.proposals_accepted),
             ("assertions refused by the boundary", run.proposals_rejected),
             ("declined -- insufficient evidence", run.declined),
             ("errors", run.errors),
             ("budget exhausted", run.budget_exhausted),
+            ("tool calls", f"{run.tool_calls} of {run.budget.tool_calls}"),
             ("wall clock", f"{elapsed:.2f}s"),
         ],
     )
+
+    if run.by_investigator:
+        print("\n  BY INVESTIGATOR")
+        print("  " + "-" * 62)
+        print(
+            f"    {'role':14s} {'worked':>7s} {'asserted':>9s} {'declined':>9s} "
+            f"{'errors':>7s}"
+        )
+        for role, st in sorted(run.by_investigator.items()):
+            print(
+                f"    {role:14s} {st['investigated']:>7d} {st['asserted']:>9d} "
+                f"{st['declined']:>9d} {st['errors']:>7d}"
+            )
+
+    if run.by_category:
+        print("\n  BY REFUSAL CATEGORY")
+        print("  " + "-" * 62)
+        print(
+            f"    {'category':30s} {'seen':>5s} {'worked':>7s} {'asserted':>9s} "
+            f"{'moved':>6s}"
+        )
+        for cat, st in sorted(run.by_category.items()):
+            print(
+                f"    {cat:30s} {st['seen']:>5d} {st['investigated']:>7d} "
+                f"{st['asserted']:>9d} {st['moved']:>6d}"
+            )
+        if run.not_routed:
+            print(
+                "\n    A category with 0 worked is one no agent may touch -- a tie the\n"
+                "    engine correctly refused, or a defect for an engineer. Skipping it\n"
+                "    is the decision, not an omission; see recon/agent/routing.py."
+            )
 
     truth_path = (
         (generated_dir / "_truth" / "ground_truth.json")
@@ -555,22 +591,89 @@ def cmd_agent(args: argparse.Namespace) -> int:
             seed=inputs.seed,
         )
 
-    before, after = _score(run.baseline), _score(run.enriched)
-    print("\n  BASELINE vs ENRICHED")
+    # ---- the precision interlock ----------------------------------------
+    #
+    # Every version the orchestrator produced is scored, and any whose precision falls
+    # below the baseline has its evidence WITHDRAWN and the engine re-run. This is
+    # requirement 9's rollback, and it lives here rather than in the loop because the
+    # trigger is precision, precision needs ground truth, and `recon.agent` may not read
+    # it -- the audit hook would raise. The orchestrator makes versions; the scorer
+    # measures them; this decides.
+    #
+    # A run that still loses precision after the withdrawal exits non-zero at the end.
+    before = _score(run.baseline)
+    damaging = {
+        d.bank_txn_id
+        for version in run.versions[1:]
+        if version.output is not None
+        and _score(version.output).match_precision < before.match_precision
+        for d in version.deltas
+        if d.after == "assign"
+    }
+    if damaging:
+        print("\n  ** EVIDENCE WITHDRAWN -- a version cost precision **")
+        print("  " + "-" * 62)
+        for txn_id in sorted(damaging):
+            print(f"    {txn_id}  evidence withdrawn, engine re-run without it")
+        print(
+            "\n    Coverage bought at the cost of correctness is the one thing this\n"
+            "    project exists to argue against, so the evidence is dropped rather\n"
+            "    than the number reported. The ledger keeps what was withdrawn."
+        )
+        run = _withdraw(inputs, run, damaging, llm=llm)
+
+    after = _score(run.enriched)
+    # The third arm: what the evidence would have bought had a human approved every
+    # material change. Reported beside the applied figure rather than instead of it --
+    # one is what happens unattended and the other is what is on offer, and quoting
+    # either alone misdescribes the system.
+    full = next(
+        (v for v in run.versions if v.label == "enriched" and v.output is not None), None
+    )
+    approved = _score(full.output) if full is not None else after
+
+    print("\n  BASELINE vs APPLIED vs APPROVED")
     print("  " + "-" * 62)
-    print(f"  {'':22s} {'BASELINE':>12s} {'ENRICHED':>12s} {'DELTA':>10s}")
+    print(
+        f"  {'':22s} {'BASELINE':>11s} {'APPLIED':>10s} {'APPROVED':>10s} {'DELTA':>8s}"
+    )
     rows = [
-        ("match rate", before.match_rate, after.match_rate, "pct"),
-        ("match precision", before.match_precision, after.match_precision, "pct"),
-        ("refusal rate", before.refusal_rate, after.refusal_rate, "pct"),
-        ("assignments", before.total_assignments, after.total_assignments, "int"),
-        ("wrong assignments", len(before.wrong_assignments), len(after.wrong_assignments), "int"),
+        ("match rate", before.match_rate, after.match_rate, approved.match_rate, "pct"),
+        ("match precision", before.match_precision, after.match_precision,
+         approved.match_precision, "pct"),
+        ("refusal rate", before.refusal_rate, after.refusal_rate,
+         approved.refusal_rate, "pct"),
+        ("assignments", before.total_assignments, after.total_assignments,
+         approved.total_assignments, "int"),
+        ("wrong assignments", len(before.wrong_assignments),
+         len(after.wrong_assignments), len(approved.wrong_assignments), "int"),
     ]
-    for label, b, a, kind in rows:
+    for label, b, a, ap, kind in rows:
         if kind == "pct":
-            print(f"  {label:22s} {b:>11.2%} {a:>12.2%} {a - b:>+10.2%}")
+            print(f"  {label:22s} {b:>10.2%} {a:>10.2%} {ap:>10.2%} {a - b:>+8.2%}")
         else:
-            print(f"  {label:22s} {b:>12d} {a:>12d} {a - b:>+10d}")
+            print(f"  {label:22s} {b:>11d} {a:>10d} {ap:>10d} {a - b:>+8d}")
+    print(
+        "\n    APPLIED is what runs unattended. APPROVED is APPLIED plus the changes\n"
+        "    held for a human, which is what --approve-high-value posts. DELTA is\n"
+        "    baseline to APPLIED, because that is the claim the system makes on its own."
+    )
+
+    if run.pending_approval:
+        print("\n  HELD FOR HUMAN APPROVAL")
+        print("  " + "-" * 62)
+        for pending in run.pending_approval:
+            print(
+                f"    {pending.bank_txn_id}  Rs {pending.rupees:>12,.2f}  "
+                f"{len(pending.payment_ids)} payment(s)"
+            )
+        print(
+            f"\n    At or above materiality (Rs {cfg.MATERIALITY_PAISE / 100:,.2f}, "
+            f"PCAOB AS 2315 -- the\n"
+            "    same line Layer 4 uses to decide what is verified in full rather than\n"
+            "    sampled). The engine reached these verdicts by its own rules; what\n"
+            "    waits is the posting. Re-run with --approve-high-value to apply them."
+        )
 
     print("\n  EVIDENCE-ATTRIBUTABLE COVERAGE GAIN")
     print("  " + "-" * 62)
@@ -663,11 +766,40 @@ def cmd_agent(args: argparse.Namespace) -> int:
         if len(declined) > 8:
             print(f"    ... and {len(declined) - 8} more")
 
+    # ---- the metrics artefact -------------------------------------------
+    #
+    # `AgentRun.as_dict()` was fully written and never called: every figure the agent
+    # produced lived in this terminal and nowhere else, so nothing downstream could read
+    # a run and nothing could compare two. Written beside the other artefacts, with the
+    # precision numbers -- which the orchestrator may not compute -- filled in here.
+    if args.write:
+        metrics = run.as_dict()
+        metrics |= {
+            "dataset": args.dataset,
+            "seed": inputs.seed,
+            "wall_clock_s": round(elapsed, 3),
+            "precision_before": round(before.match_precision, 6),
+            "precision_applied": round(after.match_precision, 6),
+            "precision_if_approved": round(approved.match_precision, 6),
+            "match_rate_before": round(before.match_rate, 6),
+            "match_rate_applied": round(after.match_rate, 6),
+            "match_rate_if_approved": round(approved.match_rate, 6),
+            "wrong_assignments_before": len(before.wrong_assignments),
+            "wrong_assignments_applied": len(after.wrong_assignments),
+        }
+        path = cfg.REPORTS / (
+            "agent_run_holdout.json" if generated_dir is not None else "agent_run.json"
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+        print(f"\n  metrics written to {path}")
+
     if after.match_precision < before.match_precision:
         print(
-            "\n  ** PRECISION FELL. The evidence layer bought coverage by loosening\n"
-            "     correctness, which is the one thing this project argues against.\n"
-            "     Revert B4 rather than reporting the coverage gain. **"
+            "\n  ** PRECISION FELL, and the withdrawal did not recover it. The evidence\n"
+            "     layer bought coverage by loosening correctness, which is the one thing\n"
+            "     this project argues against. Revert the evidence layer rather than\n"
+            "     reporting the coverage gain. **"
         )
         return 1
     return 0
@@ -1200,6 +1332,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="investigate only the N largest exceptions")
     g2.add_argument("--no-write", dest="write", action="store_false", default=True,
                     help="do not persist the evidence ledger")
+    g2.add_argument("--approve-high-value", action="store_true", default=False,
+                    help="apply newly-assigned credits at or above materiality instead "
+                         "of holding them for a human. Off by default: the engine "
+                         "reaches these verdicts by its own rules either way, and what "
+                         "waits is the posting")
     g2.set_defaults(func=cmd_agent)
 
     h = sub.add_parser(

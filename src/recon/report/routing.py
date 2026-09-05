@@ -54,6 +54,21 @@ class Queue:
     sla_hours: int
     action: str
     rationale: str
+    # Whether this desk is finance work or a system diagnostic.
+    #
+    # **Detection, routing and exposure are unchanged by this flag.** Every category
+    # still reaches a desk, every exception still carries its queue, and both desks below
+    # still appear in this table, in the payload and in the metrics. What the flag says
+    # is narrower: an `order_dependent_assignment` is a defect in the matcher and a
+    # `pool_exceeded` is a setting, and neither is a task an accounts-receivable team can
+    # pick up. Putting them on the same board as Treasury and Collections asks a person
+    # to triage work they cannot do, and -- worse -- dilutes a board whose entire value
+    # is that everything on it is actionable.
+    #
+    # The rationale for `engineering` already said as much in prose ("the only queue that
+    # does not go to finance"); this makes it a field the presentation layer can read
+    # instead of a sentence a human has to.
+    internal: bool = False
 
 
 # The nine categories the engine can actually emit, each to one desk.
@@ -103,6 +118,7 @@ _QUEUES: dict[str, Queue] = {
         label="Configuration — the search gave up",
         owner="Reconciliation lead",
         sla_hours=72,
+        internal=True,
         action="Narrow the settlement window or supply a remittance advice; then re-run.",
         rationale=(
             "The engine declined to search rather than searching and failing. Nothing is "
@@ -115,6 +131,7 @@ _QUEUES: dict[str, Queue] = {
         label="Engineering — the engine contradicted itself",
         owner="Platform engineer",
         sla_hours=4,
+        internal=True,
         action="Escalate immediately: an assignment depended on input order and was refused by the gate.",
         rationale=(
             "`order_dependent_assignment` means the runtime permutation gate caught a "
@@ -179,6 +196,9 @@ class Routing:
     due_at: str
     material: bool
     rationale: str
+    # Carried per exception as well as per desk, so a caller can tell a system item from
+    # finance work without knowing which desk keys are which.
+    internal: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -190,6 +210,7 @@ class Routing:
             "due_at": self.due_at,
             "material": self.material,
             "rationale": self.rationale,
+            "internal": self.internal,
         }
 
 
@@ -229,4 +250,5 @@ def route(category: str, paise_at_risk: int, *, now: datetime | None = None) -> 
         due_at=(at + timedelta(hours=hours)).isoformat(timespec="seconds"),
         material=material,
         rationale=q.rationale,
+        internal=q.internal,
     )

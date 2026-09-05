@@ -173,3 +173,73 @@ def test_the_board_says_which_of_its_numbers_are_chosen(payload):
     note = payload["worklist"]["note"]
     assert "MEASURED" in note and "configured defaults" in note
     assert "PCAOB" in note
+
+
+# ---- finance desks vs system diagnostics ----------------------------------
+#
+# Two of the five desks hold work no accounts-receivable team can pick up: an
+# `order_dependent_assignment` is a defect in the matcher and a `pool_exceeded` is a
+# setting. Presenting them beside Treasury and Collections asks a person to triage work
+# they cannot do, and dilutes a board whose whole value is that everything on it is
+# actionable.
+#
+# The rule these tests defend is that hiding them is a PRESENTATION decision and nothing
+# more. Detection, routing, exposure and the audit trail are untouched -- so the tests
+# below assert both halves: the flag exists and is set on exactly the right desks, AND
+# every category still reaches a desk, every exception still carries its queue, and the
+# arithmetic still reconciles.
+def test_exactly_the_two_non_finance_desks_are_marked_internal():
+    internal = {q.key for q in routing.queues() if q.internal}
+    assert internal == {"engineering", "config_review"}, (
+        "the set of desks a finance team cannot work has changed; that is a product "
+        "decision and must be made deliberately, not by a default on a new queue"
+    )
+
+
+def test_every_category_still_reaches_a_desk_after_the_split():
+    """Hiding a desk must not unroute what lands on it."""
+    for category in RefusalCategory:
+        assert routing.route(category.value, 0).queue in {
+            q.key for q in routing.queues()
+        }
+
+
+def test_an_exception_carries_whether_its_desk_is_internal(payload):
+    """
+    So a client can tell a system item from finance work without hardcoding desk keys --
+    the failure mode being a UI that filters on a string the backend later renames.
+    """
+    internal = {q.key for q in routing.queues() if q.internal}
+    for e in payload["exceptions"]:
+        assert e["routing"]["internal"] is (e["routing"]["queue"] in internal)
+
+
+def test_the_split_totals_reconcile_with_the_whole(payload):
+    wl = payload["worklist"]
+    assert wl["finance_exceptions"] + wl["internal_exceptions"] == wl["total_exceptions"]
+    assert round(
+        wl["finance_rupees_at_risk"] + wl["internal_rupees_at_risk"], 2
+    ) == wl["total_rupees_at_risk"]
+    assert wl["finance_desks"] + wl["internal_desks"] == len(wl["queues"])
+
+
+def test_the_internal_desks_are_still_in_the_payload(payload):
+    """
+    Hidden from the board, not removed from the record. An operator, an auditor or a
+    metric that needs to know the engine contradicted itself must still be able to find
+    out -- the requirement was to stop presenting it as finance work, not to stop
+    detecting it.
+    """
+    rows = {q["queue"]: q for q in payload["worklist"]["queues"]}
+    for key in ("engineering", "config_review"):
+        assert key in rows, f"{key} was dropped from the payload rather than hidden"
+        assert rows[key]["internal"] is True
+        assert rows[key]["action"] and rows[key]["rationale"]
+
+
+def test_the_board_says_the_split_exists(payload):
+    note = payload["worklist"]["note"]
+    assert "finance" in note.lower() and "diagnostic" in note.lower(), (
+        "the payload hides two desks from the board without saying it does; a reader "
+        "comparing the desk count against the routing table would find it unexplained"
+    )

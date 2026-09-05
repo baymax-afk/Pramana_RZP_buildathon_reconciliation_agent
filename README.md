@@ -126,11 +126,19 @@ layers still run identically.
 orchestration that re-runs the engine on what it finds.
 
 **The agent may never decide a match.** Its one lever is to supply evidence the engine
-did not have and re-run it. Five typed read tools (`get_exception`,
-`get_candidate_pool`, `test_subset`, `lookup_payer_relationship`, `search_invoices`) and
-one validated write (`propose_evidence`). `test_subset` calls the matcher's own
+did not have and re-run it. Eight typed read tools (`get_exception`,
+`get_candidate_pool`, `test_subset`, `lookup_payer_relationship`, `search_invoices`,
+`get_payment_record`, `get_bank_line`, `get_invoice`) and one validated write
+(`propose_evidence`). `test_subset` calls the matcher's own
 `fees.expected_credit_interval` rather than reimplementing conservation, so the agent can
 ask any question the engine can answer and cannot answer one itself.
+
+**Three specialists, routed by what the engine objected to.** `PaymentInvestigator` reads
+the gateway record, `BankInvestigator` the statement, `InvoiceInvestigator` the ledger and
+the payer register. A category where refusing is the right answer — two subsets fit, two
+credits want the same payment, the permutation gate caught a defect — is routed to nobody
+and the reason is recorded. Several agents may investigate independently; there is no
+vote and no tie-break, because only `match_once` produces an assignment or a refusal.
 
 | | Offline (`--offline`) | Live (`claude-sonnet-5`) |
 |---|---|---|
@@ -152,7 +160,24 @@ Evidence is asserted, never applied: proposals enter an append-only ledger, the
 deterministic engine re-runs, and it reaches its own verdict — still a refusal for most
 of them. `EvidenceProposal` carries no payment id, and its value is rejected if it merely
 *looks* like one, because [`REVIEW.md`](REVIEW.md) §5 showed that a free-text field one
-hop from an identifier is a way to name a record.
+hop from an identifier is a way to name a record. Money never travels in that field at
+all: amounts go in a separate integer the validation layer checks against the ledger.
+
+**A newly-assigned credit at or above materiality is held for a human.** Not because the
+engine is less sure of it — it reached the same verdict by the same rules — but because
+the consequence of being wrong scales with the amount, and PCAOB AS 2315 is the line
+Layer 4 already draws for exactly that reason. `--approve-high-value` posts them. Holding
+means withholding the evidence and re-running, never patching a result.
+
+**The eight evidence channels are not equally consequential, and five of them currently
+fire zero times.** `authorised_payer_for` argues about a name. The five deduction channels
+change what the engine expects the bank to have credited — the amount channel, which this
+engine treats as primary. They are admissible only when a record NAMES the figure, and
+these three sides name two deducted amounts that the engine already subtracts. So on this
+data no deduction is accepted. Two earlier, weaker versions of that check were accepted
+and cost precision (1.0000 → 0.9854, then 1.0000 → 0.9913 on the holdout); the account is
+in [`docs/AGENTIC.md`](docs/AGENTIC.md). The number this buys today is zero, and the
+number a weaker check buys is negative.
 
 Details, including the four name-matching bugs found by reading its output, in
 [`docs/AGENTIC.md`](docs/AGENTIC.md).
@@ -590,7 +615,7 @@ would be worse than none.
 pytest tests/
 ```
 
-552 tests, including the end-to-end isolation test — which deletes the ground-truth
+635 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,
