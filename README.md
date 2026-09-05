@@ -245,8 +245,16 @@ would be worth less than an accurate account of what is real.
 | **R2 — settlements simulated on real orders** | Real orders created through the API — genuine Razorpay-issued IDs, receipts, notes and server timestamps. **The orders were never completed, so the capture, `fee` and `tax` are SYNTHESISED** from the rate model measured on R1, and the records enter the batch `captured`. Real identity, modelled money. | **12** |
 | **S — synthetic** | Schema-conformant records generated locally, carrying the injected defects. | **164** |
 
-Total batch: **200 payments**, 153 bank transactions, 187 invoices, across 34
-settlement windows.
+Total batch: **200 payments**, 153 bank transactions (144 credits and 9 debits), 187
+invoices, across 34 settlement windows.
+
+Two of those figures are worth reading twice, because both used to be rounder and the
+change is the point. The statement carries **debits** now — chargebacks and claw-backs,
+which the engine structurally cannot read and therefore discloses rather than scores. And
+there are fewer invoices than payments because **13 payments carry none at all**: money on
+account, which is ordinary and which the batch had none of while every payment had an
+invoice number and exact-reference matching was available far more often than reality
+allows.
 
 The R1 slice spans **7 distinct payer contacts**, **7 banks** (BARB_R, CNRB, DEUT,
 IBKL, KVBL, PUNB_R, UTBI), two payment methods (netbanking, wallet), and ₹215 to
@@ -582,7 +590,7 @@ would be worse than none.
 pytest tests/
 ```
 
-597 tests, including the end-to-end isolation test — which deletes the ground-truth
+614 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
 
 The percentages in the build order below are **what each block achieved when it landed**,
@@ -620,8 +628,16 @@ layers are never cut; if the schedule slips, the UI degrades to a static table.
 broke. [`docs/FLOWCHARTS.md`](docs/FLOWCHARTS.md) diagrams how the system actually
 behaves — including the places where measurement contradicted the original design.
 [`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) lists what is knowingly
-incomplete, including two claims the project deliberately **withholds** because the
-evidence does not support them.
+incomplete, including one claim the project deliberately **withholds** because the
+evidence does not support it.
+
+**The second withheld claim is now measured.** `python run.py llm-compare` ran against
+live `claude-sonnet-5`: the tier contributes **+0.52pp coverage and one additional
+correct assignment, with precision unmoved at 100.00%**. The more interesting result is
+that across five runs the model filled 6–8 of 13 unreadable narrations — a 46–62% spread
+— and produced **identical verdicts every time**. Model variance does not reach the
+money, which is what the trust boundary was built to guarantee and is now measured rather
+than asserted. See [`METRICS.md`](docs/METRICS.md).
 [`docs/AGENTIC.md`](docs/AGENTIC.md) is a design note on where agency can safely live in
 a system like this — the short answer being everywhere except the verdict, and the
 argument being that the trust boundary is what *permits* autonomy rather than what

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -112,6 +113,47 @@ def cmd_holdout(args: argparse.Namespace) -> int:
             "  nothing. The one change a holdout may motivate is a correctness fix."
         )
     return 0
+
+
+def _load_dotenv() -> list[str]:
+    """
+    Load `.env` into the environment, without overriding anything already set.
+
+    **Nothing read this file until now.** `.gitignore` describes it as "Secrets. The LLM
+    tier and the Razorpay MCP both read from here", `OUTSTANDING_TASKS.md` instructed the
+    reader to put `ANTHROPIC_API_KEY` and `ANTHROPIC_WORKSPACE_ID` in it, and
+    `recon.llm.select()` then read `os.environ` and found nothing -- so it silently chose
+    the offline stand-in and every reported run said `llm=recorded`.
+
+    That did not produce a false claim, because `llm-compare` names the active tier and
+    refuses to call a stand-in comparison valid. But it did mean following the documented
+    instructions had no effect, which is the same doc-vs-code gap this project keeps
+    finding, on the one file whose entire purpose is to be read.
+
+    Deliberately stdlib-only and about twenty lines. The engine, its four verification
+    layers and the scorer have NO third-party dependencies, and a secrets loader in the
+    CLI is not worth being the first -- `python-dotenv` would put a package in the
+    dependency graph of a system whose main claim is that money decisions are made by
+    code you can read end to end.
+
+    An already-exported variable always wins, so CI and a one-off `ANTHROPIC_API_KEY=...
+    python run.py ...` behave the way anyone would expect.
+    """
+    path = cfg.ROOT / ".env"
+    if not path.exists():
+        return []
+    loaded = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+            loaded.append(key)
+    return loaded
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
@@ -222,7 +264,20 @@ def cmd_match(args: argparse.Namespace) -> int:
 
     from recon.llm import select as _select_llm
 
-    llm = _select_llm(disabled=args.no_llm)
+    # The REPORTED run is deterministic by default, even when a live key is present.
+    #
+    # `_load_dotenv` made a key visible to `select()`, and `match` immediately started
+    # using the live tier -- which changed reports/run_output.json, the artifact the API,
+    # the UI and the submission all read. That artifact would then depend on a paid,
+    # non-deterministic service, and nobody without a key could reproduce it. Measured
+    # over five runs the live tier's field extraction varies (6-8 of 13 gaps filled)
+    # while its verdicts do not, but "happens to be stable" is not the same guarantee as
+    # "cannot vary", and the whole project rests on the second one.
+    #
+    # So the live tier is opt-in here via --live-llm. It is NOT hidden: the metrics block
+    # prints the active tier on every run, and `llm-compare` exists precisely to exercise
+    # the live model and report the difference as evidence.
+    llm = _select_llm(disabled=args.no_llm, allow_live=args.live_llm)
     # Recording is inert -- see recon/explain/trace.py and the fingerprint test in
     # tests/test_explain.py. The transcript costs a dict per credit and buys the UI its
     # entire "why" view, so it is always on for a reported run.
@@ -759,6 +814,12 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
     seed = inputs.seed
     tier_on = select_llm(disabled=False)
     tier_off = select_llm(disabled=True)
+    # Two checks, and they must happen at different times.
+    #
+    # The tier IDENTITY check is a pre-check: it costs nothing and stops a pointless
+    # paid run against an offline stand-in. Tier HEALTH cannot be judged until the
+    # calls have actually been made, so it is re-evaluated below -- and it can only
+    # ever downgrade the verdict, never upgrade it.
     valid, why = tier_is_measurable(tier_on)
 
     print(_RULE)
@@ -778,6 +839,13 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
         out_on = match_once(inputs, llm=tier_on)
         out_off = match_once(inputs, llm=tier_off)
     elapsed = time.perf_counter() - t0
+
+    # Now that calls have been made, ask again. A tier whose requests never reached the
+    # model returns empty fields -- which is precisely what a SUCCESSFUL call returns
+    # for an unreadable narration -- so without this the harness would report a null
+    # result as a finding about the model instead of about the transport.
+    if valid:
+        valid, why = tier_is_measurable(tier_on)
 
     changes = diff_verdicts(out_on, out_off)
 
@@ -854,10 +922,28 @@ def cmd_llm_compare(args: argparse.Namespace) -> int:
         for line in _wrap(why, 70):
             print(f"    {line}")
         print("")
-        print("    The parse-yield and verdict-delta numbers above are real")
-        print("    measurements OF THE STAND-IN. They are not a null result for a")
-        print("    model, and quoting them as one would be the overclaim this")
-        print("    project exists to argue against.")
+        # The two withholding reasons need different sentences. Calling a transport
+        # failure "a measurement of the stand-in" would be its own small false claim.
+        errs = list(getattr(tier_on, "transport_errors", None) or ())
+        if errs:
+            made = getattr(tier_on, "calls_made", 0)
+            # Quote the counts instead of asserting "every". Under a partial failure
+            # most fields DID come from the model, and this is the branch whose whole
+            # job is to not overstate what the run established.
+            scope = (
+                f"all {made} calls" if len(errs) >= made else f"{len(errs)} of {made} calls"
+            )
+            print("    The numbers above are real, and they measure a BROKEN")
+            print(f"    TRANSPORT: {scope} never reached the model, so the")
+            print("    fields behind them are empty for a reason that has nothing to")
+            print("    do with the model. An empty field is also what a successful")
+            print("    call returns for an unreadable narration, which is exactly why")
+            print("    this cannot be read as a null result for a model.")
+        else:
+            print("    The parse-yield and verdict-delta numbers above are real")
+            print("    measurements OF THE STAND-IN. They are not a null result for a")
+            print("    model, and quoting them as one would be the overclaim this")
+            print("    project exists to argue against.")
 
     print(f"\n  both arms in {elapsed:.2f}s")
     print(_RULE)
@@ -1032,6 +1118,10 @@ def cmd_verify_foreign(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Before anything reads os.environ -- notably recon.llm.select(), which picks the
+    # live tier or the offline stand-in purely on whether ANTHROPIC_API_KEY is present.
+    _load_dotenv()
+
     ap = argparse.ArgumentParser(prog="pramana", description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -1069,6 +1159,10 @@ def main(argv: list[str] | None = None) -> int:
                         f"relations. Never used for reported numbers.")
     m.add_argument("--no-llm", action="store_true", default=False,
                    help="disable the LLM narration tier and report precision without it")
+    m.add_argument("--live-llm", action="store_true", default=False,
+                   help="use the live model for THIS run. Off by default so the reported "
+                        "artifact stays reproducible without an API key; "
+                        "`llm-compare` is the command that measures the live tier.")
     m.add_argument("--compare-density", type=int, default=cfg.HEADLINE_COMPARE_DENSITY,
                    help="report a second density beside the reported one in the "
                         "headline (generated in-process, never written to disk). "

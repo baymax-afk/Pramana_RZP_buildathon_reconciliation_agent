@@ -22,6 +22,7 @@ answer key.
 
 from __future__ import annotations
 
+import hashlib
 import json
 
 # The project installs as a package (`pip install -e .`), so `config`, `loaders`,
@@ -61,23 +62,28 @@ app.add_middleware(
 )
 
 
-# Cache of the parsed run payload, keyed by the file's (mtime_ns, size).
+# Cache of the parsed run payload, keyed by a HASH of the file's bytes.
 #
-# Every request re-read and re-parsed run_output.json -- a ~500 KB document -- so the
-# exception list, its filters and each detail view each paid a full JSON parse. That is
-# invisible at 200 records and wasteful well before the scale this is meant to handle.
+# Every request used to re-read and re-parse run_output.json -- a ~500 KB document -- so
+# the exception list, its filters and each detail view each paid a full JSON parse.
 #
-# Keyed on the stat signature rather than on a TTL, so a re-run of the engine is picked
-# up on the very next request with no staleness window and no cache-invalidation
-# endpoint. Size is included alongside mtime because mtime alone can collide when a file
-# is rewritten inside the same filesystem timestamp tick.
-_CACHE: tuple[tuple[int, int], dict] | None = None
+# The key was `(mtime_ns, size)` and that is **provably collidable**: two writes of the
+# same length inside one filesystem timestamp tick produce an identical signature, and a
+# changed file is then served from a stale cache. It was caught as an INTERMITTENT test
+# failure -- passing on rerun, which is exactly how a real defect gets waved through as
+# flakiness. Rewriting run_output.json with a different seed but the same structure is
+# the realistic version of that write.
+#
+# Hashing the bytes is correct on every platform and every filesystem granularity. It
+# still buys what the cache is for: reading and hashing 500 KB is cheap, and parsing it
+# into Python objects is what was expensive.
+_CACHE: tuple[str, dict] | None = None
 
 
 def _load() -> dict:
     global _CACHE
     try:
-        st = RUN_OUTPUT.stat()
+        raw = RUN_OUTPUT.read_bytes()
     except FileNotFoundError:
         raise HTTPException(
             status_code=503,
@@ -87,11 +93,11 @@ def _load() -> dict:
             ),
         ) from None
 
-    signature = (st.st_mtime_ns, st.st_size)
+    signature = hashlib.sha256(raw).hexdigest()
     if _CACHE is not None and _CACHE[0] == signature:
         return _CACHE[1]
 
-    payload = json.loads(RUN_OUTPUT.read_text(encoding="utf-8"))
+    payload = json.loads(raw.decode("utf-8"))
     _CACHE = (signature, payload)
     return payload
 

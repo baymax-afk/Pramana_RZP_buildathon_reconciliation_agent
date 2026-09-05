@@ -166,8 +166,13 @@ population*, and settling that needs labelled data from that population — a me
 reconciled history, not a public benchmark. That is a different piece of work and it is
 now the honest description of the gap.
 
-### ~~W2. The LLM on/off precision comparison is unmeasured~~ — **measured 2026-09-03**
-**Status:** RESOLVED. A key was supplied, the command was run, and it reported VALID ·
+### ~~W2. The LLM on/off precision comparison is unmeasured~~ — **MEASURED 2026-09-03**
+**Status:** settled. `claude-sonnet-5`, live, five runs. +0.52pp coverage, +1 correct
+assignment, **precision unmoved at 100.00%**. Full result and the variance finding in
+`METRICS.md`; the blocker was `ANTHROPIC_WORKSPACE_ID` plus the fact that nothing loaded
+`.env`. Original entry kept below.
+
+**Was:** boundary enforced and tested; harness built; comparison still withheld ·
 `DEFECT_LOG` 2026-09-02-02, 2026-09-02-06
 
 The trust boundary is real: `NarrationFields` carries no payment id, candidate or score,
@@ -338,15 +343,22 @@ Unchanged and still blocked on BenchRec. See above.
 
 ### ~~O3. W2 — the LLM comparison is still withheld~~ — **closed 2026-09-03**
 A key was supplied and the comparison ran live: **+1 assignment, precision unmoved at
-1.0000**, and the verdict-level output identical across 5 runs. Full numbers under W2
-above.
+1.0000**. Full numbers under W2 above.
 
-Two things had to be fixed before it could run at all, and both are recorded because
-they were real rather than incidental. `select()` could not read a gitignored `.env`,
-and this environment strips `ANTHROPIC_API_KEY` from the inherited shell — so the key
-had arrived three times and the code had never once seen it. And the first live run had
-to be killed: nothing on the tier's path memoised, so the same 13 narrations were bought
-on every fixpoint round and every permutation pass. See `REVIEW.md` P0-3.
+Three things had to be fixed before it could run at all cleanly, and all are recorded
+because they were real rather than incidental. The key was **identity-linked**, so every
+request 400'd with `anthropic-workspace-id is required` until `ANTHROPIC_WORKSPACE_ID`
+was set alongside it (Console → Settings → Workspaces) — and the tier had swallowed all
+of those failures silently, so the harness was one command from publishing "the measured
+contribution of the LLM is zero" as a finding about Claude. See `DEFECT_LOG`
+2026-09-03-03. `select()` also could not read a gitignored `.env`, and this environment
+strips `ANTHROPIC_API_KEY` from the inherited shell — so the key had arrived three times
+and the code had never once seen it. And the first live run had to be killed: nothing on
+the tier's path memoised, so the same 13 narrations were bought on every fixpoint round
+and every permutation pass. See `REVIEW.md` P0-3.
+
+The verdict-level output is **not** identical across every observed run — see the
+correction above and `DEFECT_LOG` 2026-09-03-04: 9 of 10 runs assign 127, one assigns 126.
 
 ### ~~O4. Density sweep has not been re-run since C2 and C3~~ — **re-run**
 
@@ -944,3 +956,82 @@ kept as written so the order and the reasoning stay legible.
 **The pattern worth noting:** three of the top four are *incomplete fixes rather than new
 mistakes*. The session's own lesson — the metric that looked right — held for the
 session's own work.
+
+---
+
+## Blocked on something only the account owner can supply (re-verified 2026-09-03)
+
+Three external unblocks were attempted this session. All three are blocked on a value or
+a permission that cannot be obtained from inside the repository, and each was checked
+against the live service rather than assumed from a previous note.
+
+### ~~B1. W2 — the LLM comparison needs `ANTHROPIC_WORKSPACE_ID`~~ — **RESOLVED**
+The id was supplied and the comparison ran. A second blocker sat behind it that no note
+had caught: **nothing in the codebase read `.env` at all**, so a correctly-populated file
+still left `select()` choosing the offline stand-in. `pramana_cli` now loads it,
+stdlib-only, without overriding anything already exported. Original entry below.
+
+**Was:**
+
+The code is ready: `ClaudeTier` already reads the variable and sets the
+`anthropic-workspace-id` header. A live call confirms the exact and only remaining
+blocker:
+
+```
+400 invalid_request_error — anthropic-workspace-id is required when authenticating
+with an identity-linked API key; send the id of the workspace this request acts in.
+```
+
+A workspace lookup through the Admin API was attempted and correctly refused — the key
+in `.env` is a standard API key, not an admin key (`403 permission_error`), so the id
+cannot be discovered from here.
+
+**To resolve:** Console → Settings → Workspaces, copy the workspace id, add
+`ANTHROPIC_WORKSPACE_ID=...` to `.env` beside the key, then run
+`python run.py llm-compare --verify`. Everything else is in place, including the
+false-zero guard that now refuses a run whose calls never reached the model.
+
+### B2. Razorpay connector — the merchant account is not activated
+
+This session had live Razorpay tools available, which is what `AGENTIC.md` Ring 2
+proposes for an investigating agent. They do not reach this project's data:
+
+```
+fetch_payment(pay_TWewgg8dNUUSrb)  → The Merchant is not activated
+fetch_all_payments()               → Authentication failed
+```
+
+The connector authenticates as a different merchant from the test-mode account that
+produced the R1 records, so the R1 provenance claim could not be re-verified against
+the live API and no settlement data could be fetched.
+
+**Worth noting for the record:** this is the precondition `AGENTIC.md` assumes and does
+not state. Ring 2's investigating agent needs an activated merchant on the *same*
+account as the data, not merely a connector that answers.
+
+### B3. W1 — BenchRec is blocked two independent ways
+
+Unchanged: no Kaggle credentials, and the outbound network policy refuses the host
+(`CONNECT tunnel failed, 403`).
+
+---
+
+## Documentation drift, found and closed 2026-09-03
+
+An audit of every checkable claim in `README.md` against the live system found three
+stale numbers, all in the figures a reader checks first:
+
+| Claim | README said | Actual |
+|---|---:|---:|
+| bank transactions | 136 | **147** (141 credits + 6 debits) |
+| invoices | 200 | **187** |
+| tests | 287 | **300** |
+
+The two batch figures had been wrong since debits and payments-on-account were added —
+the statement gained chargeback debits, and 13 payments now carry no invoice at all.
+Both are the *interesting* numbers, which is why the corrected sentence now says why
+they are not round.
+
+`tests/test_readme_claims.py` now derives each of these from the generator and the suite,
+so the README cannot drift from the system again without a test failing. It caught its
+own arrival on the first run — adding the file changed the test count it asserts.

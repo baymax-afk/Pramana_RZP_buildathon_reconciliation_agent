@@ -133,9 +133,23 @@ def test_the_gate_actually_catches_order_dependence(monkeypatch):
 
     The gate must notice, strip the assignment, and replace it with an
     `order_dependent_assignment` refusal naming both variants it saw.
+
+    **Forced onto the sequential path, and that is not a dodge.** A monkeypatch lives in
+    THIS process. `ProcessPoolExecutor` uses fork on Linux, where the workers inherit it,
+    and spawn on Windows and macOS, where they re-import the module and the mutant
+    silently disappears -- so every pass runs the correct matcher, the ensemble sees no
+    instability, and the test fails for a reason that has nothing to do with the gate.
+
+    That is what it did the first time this suite ran on Windows. The deeper problem is
+    that the test's coverage was platform-dependent WITHOUT SAYING SO: it exercised the
+    gate on Linux and, had the assertion been any weaker, would have passed vacuously
+    elsewhere. Pinning the path makes the detection logic testable everywhere, and
+    `test_the_parallel_and_sequential_paths_agree` separately proves the parallel path is
+    interchangeable with the one tested here.
     """
     from recon.engine import tier2_amount_date as t2
 
+    monkeypatch.setattr(cfg, "PERMUTATION_PARALLEL", False)
     monkeypatch.setattr(t2, "match", _greedy_first_in_iteration_order)
 
     inputs = _tied_batch()
@@ -400,3 +414,87 @@ def test_headline_without_a_comparison_is_unchanged(batch):
     assert " vs " not in text.splitlines()[1]
     assert "match rate            " in text
     assert "Everything below this block" not in text
+
+
+def test_the_parallel_and_sequential_paths_agree(monkeypatch):
+    """
+    The parallel path is an optimisation, so it must be indistinguishable from the
+    sequential one -- not merely close.
+
+    This is the other half of `test_the_gate_actually_catches_order_dependence`, which
+    pins itself to the sequential path so a monkeypatched mutant survives on every
+    platform. That pinning is only honest if the path it skips is proven equivalent
+    here, on the real matcher, where no monkeypatch is involved and the process start
+    method therefore does not matter.
+
+    Results are collected by pass INDEX rather than completion order, so equality is a
+    property of the design and not of the scheduler.
+    """
+    from loaders import load_inputs
+
+    inputs = load_inputs()
+
+    monkeypatch.setattr(cfg, "PERMUTATION_PARALLEL", False)
+    seq_out, seq_ens = match_gated(inputs, k=4)
+
+    monkeypatch.setattr(cfg, "PERMUTATION_PARALLEL", True)
+    par_out, par_ens = match_gated(inputs, k=4)
+
+    # Without this the test is unfalsifiable. `_run_passes` swallows every exception and
+    # falls back to the sequential path, so a pool that never started would leave this
+    # comparing sequential against sequential -- passing, and proving nothing.
+    from recon.verify.stability import LAST_RUN
+
+    assert LAST_RUN["path"] == "parallel", (
+        "the parallel arm silently fell back to sequential, so this test compared the "
+        f"sequential path with itself: {LAST_RUN.get('fell_back_from_parallel')}"
+    )
+
+    assert seq_ens.summary() == par_ens.summary(), (
+        "the two paths disagree about stability"
+    )
+    assert seq_out.assignment_map == par_out.assignment_map, (
+        "the two paths produced different assignments"
+    )
+    assert (
+        sorted((r.bank_txn_id, r.category) for r in seq_out.refusals)
+        == sorted((r.bank_txn_id, r.category) for r in par_out.refusals)
+    ), "the two paths produced different refusals"
+
+
+def test_the_parallel_path_is_actually_taken_when_it_can_be():
+    """
+    An optimisation that silently never runs is worse than none: it costs the
+    complexity and delivers nothing, and every "the paths agree" assertion above it
+    passes trivially because only one path ever executes.
+    """
+    from recon.llm.null import NullTier
+    from recon.verify import stability
+
+    assert cfg.PERMUTATION_PARALLEL, "the parallel path is disabled in config"
+    assert stability._is_picklable(NullTier()), (
+        "the default LLM tier is unpicklable, so the parallel path can never be taken"
+    )
+
+
+def test_a_self_reporting_tier_never_crosses_a_process_boundary():
+    """
+    `ClaudeTier` counts its own transport failures in instance attributes. Fork it into
+    K workers and those counts are recorded in children and dropped on join: the parent
+    sees an empty list, `tier_is_measurable` calls the run clean, and `llm-compare`
+    publishes a null result over calls that all failed.
+
+    That is the exact false zero the counters exist to prevent, so it is closed by
+    construction rather than by the accident that today's SDK client fails to pickle.
+    """
+    from recon.verify.stability import _is_picklable
+
+    class _Counting:
+        def __init__(self):
+            self.transport_errors = []
+            self.calls_made = 0
+
+    assert not _is_picklable(_Counting()), (
+        "a tier that counts its own failures was allowed into a worker process, where "
+        "those counts would be silently discarded"
+    )

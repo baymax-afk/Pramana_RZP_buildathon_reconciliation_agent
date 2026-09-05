@@ -418,8 +418,9 @@ def test_the_readme_batch_shape_matches_the_generated_manifest():
     readme = (cfg.ROOT / "README.md").read_text(encoding="utf-8")
 
     row = re.search(
-        r"Total batch: \*\*(\d+) payments\*\*, (\d+) bank transactions, "
-        r"(\d+) invoices, across (\d+)\s*\n?settlement windows",
+        r"Total batch: \*\*(\d+) payments\*\*, (\d+) bank transactions "
+        r"\(\d+ credits and \d+ debits\), "
+        r"(\d+)\s*\n?invoices, across (\d+)\s*\n?settlement windows",
         readme,
     )
     assert row, "the README's batch-shape sentence has moved or been reworded"
