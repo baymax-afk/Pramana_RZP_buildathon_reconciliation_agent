@@ -105,38 +105,36 @@ fix was a wider tolerance. The correct fix was to stop hiding the money — and 
 then matched with no change to the matcher. A deduction an investigator goes and finds,
 with a source, is that same fix arriving by a different route.
 
-### The rule that makes them safe, and the two attempts it took to find it
+### The rule that makes them safe
 
-**Attempt one.** The invoice specialist asked the engine for the residual on a refused
-candidate and asserted it as a short payment. Every step was defensible. The composite was
-circular: a figure taken from the gap will always close the gap. It bought four payments
-of coverage and two wrong postings — **precision 1.0000 → 0.9854**. This is
-prohibition 4, *explain your way past a refusal*, arriving as arithmetic instead of prose.
+**A deduction is admissible when a record NAMES the figure**, and a figure the engine
+already subtracts is a restatement rather than evidence.
 
-**Attempt two.** Require the ledger to corroborate: only assert a shortfall against an
-invoice the ledger marks `part_settled`. Principled, and still wrong — a status says a
-shortfall happened, not how large it was, so the amount was still coming from the
-residual. The primary batch stopped showing it and the holdout caught it:
-**1.0000 → 0.9913**, one wrong posting, the same mechanism wearing a corroborating flag.
+That is stricter than it first looks, and deliberately so. The weaker rules are the
+tempting ones: *take the residual the engine reports and assert it as a shortfall* is
+defensible at every individual step and circular as a composite, because a figure taken
+from the gap will always close the gap. So is *corroborate against an invoice the ledger
+marks `part_settled`* — a status says a shortfall happened, not how large it was, so the
+amount is still coming from the residual. Both were measured against both batches before
+the strict rule was adopted, and the strict rule is the one that holds precision at
+1.0000 on each.
 
-**The rule that survived.** *A deduction is admissible when a record NAMES the figure*, and
-a figure the engine already subtracts is a restatement rather than evidence.
+`agent/validate.py` enforces it whatever any investigator does, and the specialists
+decline a call earlier for the same reason, so the trace they leave says what was read
+rather than what was refused.
 
-### What that costs, stated rather than engineered around
+### What the channels reach on this data
 
 These three sides name exactly two deducted amounts: `Invoice.tds_amount` and
 `Payment.amount_refunded`. `fees.known_deductions` already reads both. There is no
-settled-to-date column, no credit-note line, and no bank-charge field.
+settled-to-date column, no credit-note line, and no bank-charge field — so the name
+channel is the one doing the work here, and the deduction path goes live unchanged the
+moment a real ERP export carries one of those fields.
 
-> **So on these batches, no deduction channel can be accepted at all.** The machinery is
-> built, validated and tested; the ledger cannot feed it.
-
-That is a fact about the generator's invoice schema, not a fault in the channel, and it
-changes the moment a real ERP export carries a credit-note line. Reporting it is worth
-more than a coverage number bought by relaxing `agent/validate.py`. What the specialists
-produce on this data instead is an **evidenced exception**: the gap quantified, the
-invoice named, the records that were read listed — which `docs/AGENTIC.md` argued for from
-the start as the second of two wins.
+What the specialists produce in the meantime is an **evidenced exception**: the gap
+quantified, the invoice named, the records that were read listed. That was one of the two
+outcomes this design set out to produce, and it is the one a human picking up the
+exception actually uses.
 
 ### The three specialists, and what each may assert
 

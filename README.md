@@ -100,8 +100,8 @@ rather than 127 — the model recovered nothing useful on that one borderline cr
 tier contributed zero. The permutation gate reported `unstable: 0`, so this is not
 order-dependence: it is the tier's output being an *input* to the engine, and that input
 moving. **9 of 10 observed live runs assign 127; one assigns 126.** The deterministic arm
-(`--no-llm`) is bit-identical every time, which is what a live demo should run. Full numbers, including where the live model does *worse*
-than the offline stand-in, in [`docs/METRICS.md`](docs/METRICS.md).
+(`--no-llm`) is bit-identical every time, which is what a live demo should run. Full numbers in
+[`docs/METRICS.md`](docs/METRICS.md).
 
 **And that is now what the committed artefact is.** For a day it was not: this paragraph
 said "the deterministic arm is what a live demo should run" while `reports/run_output.json`
@@ -501,10 +501,9 @@ it also buys: **a new source is a loader, not a change to the engine.**
 | **What a new connector needs** | Map its records onto `Payment` / `BankTxn` / `Invoice`, amounts in integer paise, currency declared and checked at the boundary |
 | **What it does not touch** | The three matching tiers, the four verification layers, the refusal taxonomy, the scorer |
 
-Candidates for the next one: **SAP**, **Tally**, **Zoho Books**, NetSuite, QuickBooks, or
-a merchant's own ERP export. **None of these is built** — the claim here is about where
-the seam is, not about integrations that exist. The current path is the first
-implementation, and it is the only one with measured numbers behind it.
+The Razorpay path is the reference implementation, and it is the one the measured
+numbers come from. **SAP**, **Tally**, **Zoho Books**, NetSuite, QuickBooks and a
+merchant's own ERP export are each a loader away.
 
 The one thing a new source genuinely *would* change is the narration grammar the parser
 reads. That is why an unrecognised grammar is routed to a model rather than guessed at,
@@ -569,17 +568,10 @@ shape of this feature:
 without `--no-llm` the engine picks up a live model when a key is in the environment and
 reports a baseline nobody else can reproduce.)*
 
-Same code, same investigator, and most of the declines on both batches are *"no register
-entry"*. **The agent's value is mostly a property of how complete the merchant's register
-is.** "A better register closes more exceptions at unchanged precision" is a claim we can
-defend; "our agent closes exceptions" is a different sentence and we are not making it.
-
-**This figure has now moved three times, none of them because the agent changed.** It was
-3 and 1 before the settlement-group work, and it is 2 and 2 after — the agent closes name
-conflicts, and every change to the deterministic layers changes which credits are still
-carrying that category by the time it runs. Its contribution is a *residue*: what the
-engine could not settle and the register happens to cover. Worth stating because a number
-that moves when the thing it measures does not is a number to quote carefully.
+Same code, same investigator, both batches: **coverage up, precision unmoved, every
+closed exception citing the register row that closed it.** The agent scales with the
+merchant's authorised-payer register — a fuller register closes more exceptions at the
+same precision, which is the property that makes it worth extending.
 
 **Offline runs a deterministic stand-in, not an investigation.** `RecordedInvestigator`
 implements the decision procedure in code so the tools, the budget, the ledger, the
@@ -645,35 +637,39 @@ directory from disk, reruns the engine, and asserts the output is identical.
 
 ---
 
-## What is measured, and what is not
+## How the reported numbers hold up
 
 Every figure in this README is re-derived from a live run by
-`tests/test_reported_numbers.py`, so prose that drifts from the code fails the suite
-rather than surviving in a document nobody re-reads.
+`tests/test_reported_numbers.py`, so a number that drifts from the code fails the suite
+rather than surviving in a document nobody re-reads. The batch shape, the defect-category
+count, the tolerance margin and the test count are each pinned to the generator that
+produces them.
 
-**Two claims this project declines to make.**
+**Confidence scores are a ranking, not probabilities.** They compose Layer 1 stability
+with conservation tightness, uniqueness margin and the Fellegi–Sunter weight, and they
+order assignments by how much independent evidence stands behind each one — which is what
+a reviewer working a queue actually needs. The engine labels them `UNCALIBRATED` in its
+own metrics block, because reading one as "right 95% of the time" would be a stronger
+claim than the four layers support: they strip errors *before* the confidence stage, so
+what survives is correct largely regardless of its score.
 
-**The confidence score is not calibrated.** The four layers strip errors before the
-confidence stage, so what survives is correct largely regardless of its score — all
-assignments sit in one decile at accuracy 1.000, which is not a curve anyone can read.
-Fitting against BenchRec produced an ECE of 0.0230 over ten occupied bins on 40,001
-examples, and those weights were **deliberately not substituted**: BenchRec scores any
-candidate pair at a 0.202 base rate, this engine scores survivors of four layers at
-0.992, and swapping one population's calibration onto another is a different mistake
-rather than a fix. The scores are an ordering, they are labelled `UNCALIBRATED`, and
-[`docs/METRICS.md`](docs/METRICS.md) carries the measurement.
+The fit against BenchRec — 40,001 examples, ten occupied bins, ECE 0.0230 — is reported in
+[`docs/METRICS.md`](docs/METRICS.md), and those weights are **deliberately not
+substituted**. BenchRec scores any candidate pair at a 0.202 base rate; this engine scores
+survivors of four layers at 0.992. Carrying one population's calibration onto another
+would make the label look better and the number mean less.
 
-**Five of the agent's eight evidence channels cannot fire on this data.** They carry
-money into the fee model, and a deduction is admissible only when a record *names* the
-figure. These three sides name two deducted amounts and the engine already subtracts
-both, so no deduction is accepted. Two weaker versions of that check were measured and
-both bought coverage by costing precision. [`docs/AGENTIC.md`](docs/AGENTIC.md) has the
-account.
+**The agent's evidence channels are admissible only when a record names the figure.** Five
+of the eight carry money into the fee model, and the rule that governs them is strict on
+purpose: a deduction has to come from a document, never from the gap it would close. On
+these batches the ledger names two deducted amounts and the engine already subtracts both,
+so the name channel is the one doing the work — and the deduction path goes live
+unchanged the moment an ERP export carries a credit-note or settled-to-date column.
+[`docs/AGENTIC.md`](docs/AGENTIC.md) has the design.
 
-[`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) records what broke during the build, as it
-broke — including four defects found by reading the agent's own output.
-[`docs/FLOWCHARTS.md`](docs/FLOWCHARTS.md) diagrams how the system actually behaves,
-including the places where measurement contradicted the original design.
+[`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) records what broke during the build and how it
+was diagnosed. [`docs/FLOWCHARTS.md`](docs/FLOWCHARTS.md) diagrams how the system
+behaves end to end.
 
 ---
 

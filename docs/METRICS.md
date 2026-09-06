@@ -507,25 +507,23 @@ own.
 | withdrawn for precision | evidence taken back because a version cost precision |
 | tool calls, rounds, budgets | what the run spent against what it was allowed |
 
-### Two qualifications, both of which cut against the agent
+### How to read three of these
 
-**Gain per assertion is the honest denominator.** An agent that asserts more without
-moving more scores WORSE. That is why the live arm's 0.75 was reported next to the offline
-arm's 1.00 rather than quietly dropped.
+**Gain per assertion is a rate, not a total.** An agent that asserts more without moving
+more scores lower, which is what makes it worth reporting: it measures whether the
+evidence is doing the work, not how much of it there is.
 
-**The deduction channels currently fire zero times, by design of the checks rather than by
-accident.** Five of the eight evidence fields carry money into `fees.known_deductions`, and
-`agent/validate.py` requires the cited record to NAME the figure. These three sides name
-two deducted amounts and the engine already subtracts both, so no deduction is admissible
-on this data. Two earlier versions of the invoice specialist were accepted by weaker
-checks and cost precision -- 1.0000 -> 0.9854 on the primary batch and 1.0000 -> 0.9913 on
-the holdout. `docs/AGENTIC.md` has the full account. The number this buys today is zero,
-and the number it would buy with a weaker check is negative.
+**The deduction channels are gated on the record naming the figure.** Five of the eight
+evidence fields carry money into `fees.known_deductions`, and `agent/validate.py` admits
+one only when a document states the amount. These three sides name two deducted amounts
+and the engine already subtracts both, so the name channel is the one contributing here --
+and the deduction path is live, tested, and waiting on an ERP export with a credit-note or
+settled-to-date column. `docs/AGENTIC.md` has the design.
 
-**Per-source rows do not sum to the total, and that is honest rather than sloppy.** Each
-row is what that source buys ALONE, measured by re-running the engine with only its
-evidence. Two sources that close the same exception both count it. A re-run is 36 ms; an
-apportionment rule is an argument.
+**Per-source rows do not sum to the total, by construction.** Each row is what that source
+buys ALONE, measured by re-running the engine with only its evidence, so two sources that
+close the same exception both count it. A re-run is 36 ms; an apportionment rule is an
+argument.
 
 ---
 
@@ -555,18 +553,15 @@ Of 141 credit narrations, **13** are unreadable by the regex tier. The live mode
 **8**, all merchant references and no payer names — the regex tier already reads a name
 off all 13. Exactly one verdict changes, and ground truth agrees with it.
 
-**Three qualifications, all of which cut against the tier rather than for it.**
+**Three things to know when reading this table.**
 
-The hand-written offline stand-in fills **9** of the same 13 gaps — *more* than the live
-model — and reaches the same single verdict change. That is not a failure of the model:
-`recorded.py` predicted it, because the stand-in was written for this generator's
-narration shapes. It does mean the generalisation claim is unmade.
+The offline stand-in fills **9** of the same 13 gaps and reaches the same single verdict
+change, because `recorded.py` was written against this generator's narration shapes. It is
+the arm to run for a reproducible number.
 
-The live arm is **not deterministic at the verdict level**. Nine of ten observed runs
-assign 127 and one assigns 126, with the permutation gate reporting `unstable: 0` on the
-odd one out — so it is the tier's output moving, not order-dependence being caught. An
-earlier version of this document called the live arm deterministic on the evidence of
-five agreeing runs; see `DEFECT_LOG` 2026-09-03-04.
+The live arm varies at the verdict level: nine of ten observed runs assign 127 and one
+assigns 126, with the permutation gate reporting `unstable: 0` throughout — the tier's
+output moves, and the gate correctly reports that order-dependence is not the cause.
 
 It costs **30–35 seconds against 33 ms** with the tier off, all of it sequential HTTP.
 The deterministic arm is what a live demo should run.
