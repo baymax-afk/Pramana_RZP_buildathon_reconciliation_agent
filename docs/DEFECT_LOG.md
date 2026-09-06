@@ -2552,3 +2552,96 @@ with this object that this check would not see**, and whether the invariant can 
 over the object rather than over the symptom.
 
 The invariant here was available from the start: two files, one builder, same shape.
+
+---
+
+## 2026-09-06-01 — A recorded field that was always `False`, hidden by a `getattr` default
+
+**Timestamp:** 2026-09-06, while fixing the explain transcript's narration step
+
+**What broke:** Nothing visibly. The transcript's `parse` step could not say whether the
+narration had been read by the pattern rules or by the LLM tier — and this project reports
+tier provenance everywhere else. Investigating why it did not turned up the reason.
+
+**Diagnosis:** `match.py` recorded provenance with
+
+```python
+r.parsed_by_llm = bool(getattr(parsed, "llm_model", ""))
+```
+
+`ParsedNarration` has no `llm_model` attribute. It has `parsed_by`, a string that is
+`"regex"` or `"regex+<model>"`. So the `getattr` default was returned on every call and
+the field was `False` for its entire life, on every run, live tier or not.
+
+Two things kept it hidden, and both are worth naming. **`getattr` with a default cannot
+fail** — a misspelled attribute is indistinguishable from an absent one, and the code
+reads as defensive rather than broken. And **nothing rendered the field**, so there was no
+output in which the constant `False` would have looked wrong. A wrong value nobody
+displays is invisible for as long as nobody displays it.
+
+Found by grepping for `llm_model` across the tree while writing the step that would have
+displayed it, and getting exactly one hit: the line that reads it.
+
+**Fix:** The record carries `parsed_by`, the string the parser actually sets, and the
+transcript reports it. The general form is now a test: every attribute `match.py` pulls
+off a `ParsedNarration` — plain access and `getattr` with a default alike — must exist on
+the dataclass, so a rename breaks a test instead of quietly zeroing a column.
+
+**Cost:** ~15 minutes, all of it after the fact. The field had been wrong since it was
+added.
+
+**The lesson.** *A defaulted lookup is an assertion you have decided not to make.*
+`getattr(x, "name", default)` is right when absence is a real, expected state and wrong
+when it is a typo you would want to hear about. This one was reaching for a field that had
+been renamed, and the default turned a `AttributeError` at the first run into a silent
+constant for the life of the feature.
+
+---
+
+## 2026-09-06-02 — Two agent evidence checks that bought coverage and paid in precision
+
+**Timestamp:** 2026-09-06, extending the agent from one evidence channel to eight
+
+**What broke:** `test_the_agent_never_costs_precision` failed: match rate 89.69% → 91.75%,
+precision **1.0000 → 0.9854**. Four payments of coverage bought with two wrong postings.
+
+**Diagnosis:** The new `InvoiceInvestigator` handled `no_subset_fits` by asking the engine
+for the residual on the refused candidate and asserting it as a short payment against the
+invoice. Every step was individually defensible — it read the exception, read the pool,
+used the matcher's own arithmetic, cited an invoice that existed — and the composite was
+circular. *A figure taken from the gap will always close the gap.* This is
+`docs/AGENTIC.md`'s fourth prohibition, "explain your way past a refusal", arriving as
+arithmetic rather than as prose, which is why it did not look like it.
+
+**First fix, and it was not enough.** Require the ledger to corroborate: assert a shortfall
+only against an invoice the ledger marks `part_settled`. Principled, and the primary batch
+went green — which is the part worth recording. **The holdout caught what the primary batch
+had stopped showing:** precision 1.0000 → 0.9913, one wrong posting, the same mechanism
+wearing a corroborating flag. A status says a shortfall *happened*; it does not say how
+large it was, so the amount was still coming from the residual.
+
+**Fix:** A deduction is admissible only when a record **names the figure**, and a figure
+the engine already subtracts is a restatement rather than evidence. Enforced in
+`agent/validate.py`, so it holds whatever any investigator does, with the investigators
+declining a call earlier for the same reason.
+
+**The consequence, reported rather than engineered around.** These three sides name exactly
+two deducted amounts — `Invoice.tds_amount` and `Payment.amount_refunded` — and
+`fees.known_deductions` already reads both. So **no deduction channel can be accepted on
+either batch.** The machinery is built, validated and tested; the ledger cannot feed it.
+That is a fact about the generator's invoice schema, not a fault in the channel, and it
+changes the moment a real ERP export carries a credit-note line.
+
+**Cost:** ~50 minutes across the two rounds.
+
+**Two lessons, and the second is the one that generalises.**
+
+*Evidence derived from the thing it explains is not evidence.* The tell is that the fix
+always works: a quantity computed from the residual closes the residual by construction,
+on every credit, including the ones where it is wrong.
+
+*A test passing on one batch after a fix is not the fix being right.* The first correction
+made the primary batch green while leaving the mechanism intact, and only the second batch
+— a different distribution, generated from a different seed — showed it was still there.
+The holdout exists for generalisation claims about the engine; it turned out to be the
+thing that caught a defect in the agent.

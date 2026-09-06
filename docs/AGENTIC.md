@@ -68,8 +68,7 @@ what is asserted about names.
 
 ---
 
-## What shipped second: eight channels, three specialists, and a rule that cost two
-## attempts to find
+## What shipped second: eight channels, three specialists, and a rule it took two attempts to find
 
 The first version had one evidence channel (`authorised_payer_for`), one investigator, and
 no routing. It worked, and its ceiling was structural: the channel enters Layer 3 as a

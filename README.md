@@ -588,9 +588,38 @@ path because that path was written for it; a live model chooses its own. Every a
 figure prints `investigator=recorded` beside it so a recorded run is never mistaken for a
 live one.
 
-The UI is a single page: exceptions ranked by rupees at risk, each expanding to show
-why the engine declined, what to do next, and — for ambiguous credits — every candidate
-it refused to choose between.
+The UI is a single page with four views over one read-only API.
+
+**Reconciled** and **Exceptions** are curated: one row per settlement, largest first,
+each expanding into the plain sentence, the evidence links and the paise-level transcript
+behind the verdict. A reconciled row names the bank the money arrived through, the date
+and the counterparty — the statement has no bank column, so the institution is derived
+from the IFSC prefix of the transaction reference and every row carries a note saying so.
+
+**All transactions** is the whole statement on one axis — every bank line, credit and
+debit — filtered by `GET /api/transactions`:
+
+```
+direction   all | credit | debit
+status      assigned | refused | unmatched | reversed   (comma-separated)
+customer    substring of a customer name or an invoice number
+bank        substring of the bank name or the transaction reference
+category     refusal category                            (comma-separated)
+```
+
+The filters combine, clear in one action, and live in the address bar, so
+`#/transactions?bank=ICICI&status=refused` is a link you can send someone. Filtering is
+server-side deliberately: a client that filters locally has to hold the whole statement to
+answer a question about part of it, and has to reimplement `status` to do it — a second
+opinion about what the engine decided.
+
+**Worklist** groups the exceptions by desk, soonest deadline first. It shows the three
+desks a finance team can work; `Engineering — the engine contradicted itself` and
+`Configuration — the search gave up` are a matcher defect and a setting respectively, and
+neither is a task an AP analyst can pick up. They are still routed, still counted and
+still in the payload for metrics and audit — what changed is that they are not presented
+as finance work, and where they hold anything the board says so in a line rather than
+letting the totals quietly disagree.
 
 Directly under the totals it qualifies sits a **"money out" panel**. The at-risk figure
 counts refused *credits*, so a merchant reading "₹800 at risk" while ₹1,66,732 left the
@@ -613,13 +642,6 @@ pytest tests/
 
 640 tests, including the end-to-end isolation test — which deletes the ground-truth
 directory from disk, reruns the engine, and asserts the output is identical.
-
-The percentages in the build order below are **what each block achieved when it landed**,
-not current figures. The current ones are in `docs/METRICS.md`, and
-`tests/test_reported_numbers.py` re-derives them from a live run so they cannot go stale
-in prose.
-
-*Full command reference lands with the engine — see the build order below.*
 
 ---
 

@@ -586,6 +586,68 @@ having solved either.
 
 ---
 
+## The serving layer, and the two decisions inside it
+
+Everything above is the engine. `recon/report/` is the last stop inside the package, and
+it carries one rule: **the payload contains no ground truth.** What a merchant sees is
+exactly what the engine could justify without an answer key. Scoring lives in `scorer/`,
+outside the isolation boundary, and is attached separately.
+
+Two decisions in that layer are worth stating, because both could reasonably have gone the
+other way.
+
+### One flat transaction list, built on the server
+
+The payload described every bank line four times — in `assignments`, `settlement_groups`,
+`exceptions` and `debits.rows` — each shaped for the section of the page that renders it.
+None could answer the question an analyst opens with, which is not *what did the engine
+decide* but *show me the money for this customer, in this direction, whatever it decided.*
+
+Stitching those four together in the browser was the obvious fix and the wrong one: it
+makes the client a second opinion about what `assigned` means, and it only works while the
+whole statement fits in a tab. So `report/transactions.py` stitches once, from the same
+objects the four blocks are built from, and `GET /api/transactions` filters over it.
+`status` is a projection of the engine's own verdicts, never a recomputation — a test
+asserts every row traces back to the `MatchOutput` that produced it, and that every line
+appears exactly once.
+
+**One number there is deliberately larger than its neighbour.** Exposure summed over the
+transaction list exceeds `totals.rupees_at_risk` by exactly the unexplained debits, because
+`totals` counts refused *credits* — the right denominator for a match rate — while the flat
+list covers both halves of the statement. Both are correct about different questions, so
+both are reported and a test pins the gap rather than reconciling it away.
+
+### The bank is derived, and says so
+
+An Indian bank statement export has no institution column: the account holder knows which
+bank sent them their own statement, so the file does not repeat it per line. The
+institution is still recoverable, because `ref_no` is UTR-shaped — an IFSC bank code
+followed by a numeric run.
+
+`report/banks.py` does that lookup, and every value it returns carries a `provenance`
+saying it was DERIVED. A page that prints "ICICI Bank" beside a settlement is making a
+claim, and the honest version is *"ICICI Bank, read off the transaction reference"* — the
+distinction matters on exactly the lines where it is wrong, because a correspondent bank's
+UTR names the correspondent rather than the originator. An unrecognised code renders as the
+four characters themselves rather than a guess, and a line with no readable reference gets
+no bank at all instead of a placeholder that would sort and filter as though it were one.
+
+### Desks, and the two that are not finance work
+
+`report/routing.py` turns the refusal taxonomy into a worklist: every category reaches a
+named desk with an owner and an SLA, and materiality (PCAOB AS 2315 — the same line Layer 4
+uses) halves the clock without moving the desk.
+
+Two of the five desks carry `internal=True`. `order_dependent_assignment` is a defect in the
+matcher and `pool_exceeded` is a setting; neither is work an accounts-receivable team can
+pick up, and putting them on the board asks someone to triage work they cannot do while
+diluting a board whose entire value is that everything on it is actionable. They are still
+routed, still counted, and still in the payload — the flag is read by the presentation
+layer, and the split totals are computed in the same pass that builds the rows so a client
+never has to re-sum a filtered board.
+
+---
+
 ## Out of scope
 
 Deliberately excluded, and not partially built: cash-flow forecasting; settlement

@@ -45,10 +45,29 @@ graph TB
     API --> UI["React triage UI"]
     UPLOAD["Invoice upload"] -->|replaces INPUT only| DISK
 
+    subgraph AGENT["Agent — inside the isolation boundary, no verdict"]
+        INV["Investigators<br/>payment · bank · invoice"]
+        VAL["validate.py<br/>admissible? never decides"]
+        LEDGER[["evidence ledger<br/>append-only"]]
+    end
+
+    ENGINE -->|refusals only| INV
+    INV -->|proposals| VAL
+    VAL -->|accepted| LEDGER
+    LEDGER -->|evidence=...| ENGINE
+
     style TRUTH fill:#fde7e7,stroke:#c0392b,stroke-width:3px
     style ENGINE fill:#eef4fb,stroke:#1f5c9e,stroke-width:2px
     style SCORER fill:#f3f0fa,stroke:#6a3e93,stroke-width:2px
+    style AGENT fill:#fdf5e7,stroke:#8a5300,stroke-width:2px
 ```
+
+**Why the agent's only outward arrow goes back into the engine.** It has no edge to
+`REPORT`, to `JSON` or to the UI, and that is the whole containment: an investigator
+gathers evidence, the ledger records what the boundary accepts, and `match_once` runs
+again over the same three sides plus that evidence and reaches its own verdict — which is
+still a refusal for most of them. Nothing patches a `MatchOutput`. `--null-agent`
+investigates nothing and reproduces the baseline byte for byte, and the suite asserts it.
 
 **Why the arrow from `_truth` goes only to the scorer.** Enforced three ways: the
 engine's input type carries no paths, an import-time audit hook raises if anything under
