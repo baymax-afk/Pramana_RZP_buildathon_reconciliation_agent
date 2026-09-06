@@ -272,3 +272,146 @@ def test_no_model_is_consulted_to_build_an_explanation(explained):
             f"computation; sourcing any part of it from a model would mean the "
             f"explanation could disagree with the decision."
         )
+
+
+# --------------------------------------------------------------------------
+# The narration step, and the two ways it said nothing
+#
+# The transcript's `parse` step carried the constant headline "Read the narration." --
+# which is verbatim the UI's own label for that step (`STAGE_LABEL.parse` in App.jsx),
+# so the row rendered as "READ THE NARRATION -- Read the narration." Every other step's
+# headline carries its finding: the bank line names the amount and the date, the pool
+# names how many candidates survived, a tier names what it concluded. This one restated
+# its title and put the only real content in the detail line underneath.
+#
+# Underneath it was a second, quieter fault. The record's `parsed_by_llm` was assigned
+# from `getattr(parsed, "llm_model", "")`, and `ParsedNarration` has no `llm_model`
+# attribute -- so the getattr default swallowed the mistake and the field was ALWAYS
+# False, for as long as it existed. Nothing rendered it, which is why nobody noticed.
+# In a project that reports which tier produced what everywhere else, the step that
+# reads the narration could not say whether a model had read it.
+# --------------------------------------------------------------------------
+def _parse_step(explanation) -> dict:
+    step = next(s for s in explanation.as_dict()["transcript"] if s["stage"] == "parse")
+    return step
+
+
+def test_the_narration_step_does_not_restate_its_own_title(explained):
+    """
+    The failure was invisible to every other test because the string was well-formed
+    English that happened to carry no information. Pinned against the UI's label rather
+    than against a literal, so renaming the step on either side cannot re-open it.
+    """
+    from pathlib import Path
+    import re
+
+    jsx = (Path(__file__).resolve().parents[1] / "ui" / "src" / "App.jsx").read_text(
+        encoding="utf-8"
+    )
+    label = re.search(r"^\s*parse:\s*\"([^\"]+)\"", jsx, re.M)
+    assert label, "the UI no longer labels the parse stage; update this test with it"
+    label = label.group(1).rstrip(".").casefold()
+
+    _, _, _, explanations = explained
+    for explanation in explanations.values():
+        headline = _parse_step(explanation)["headline"].rstrip(".").casefold()
+        assert headline != label, (
+            f"the narration step's headline is its own title again ({headline!r}); a "
+            f"row that reads 'READ THE NARRATION -- Read the narration' has told the "
+            f"reader nothing"
+        )
+
+
+def test_the_narration_step_says_what_it_read(explained):
+    _, _, _, explanations = explained
+    for explanation in explanations.values():
+        step = _parse_step(explanation)
+        headline, detail = step["headline"], step["detail"]
+        if headline.startswith("Nothing usable"):
+            assert "could be read" in detail
+            continue
+        # "Read n of 3 fields: ..." -- and the count has to match the fields it lists.
+        m = __import__("re").match(r"Read (\d) of 3 fields: (.+)\.$", headline)
+        assert m, f"unexpected narration headline: {headline!r}"
+        n, listed = int(m.group(1)), m.group(2)
+        assert 1 <= n <= 3
+        assert len(listed.replace(" and ", ", ").split(", ")) == n, (
+            f"the headline claims {n} fields and names a different number: {headline!r}"
+        )
+        assert detail.startswith("Extracted "), detail
+
+
+def test_the_narration_step_names_which_fields_were_missing(explained):
+    """
+    Which field is ABSENT is usually the more useful half: a settlement batch carrying
+    no merchant reference is the shape that falls through to the amount tiers, and a
+    reader working out why should not have to infer it from a phrase not being there.
+    """
+    fields = ("payer name", "merchant reference", "transaction count")
+    _, _, _, explanations = explained
+    for explanation in explanations.values():
+        step = _parse_step(explanation)
+        named = {f for f in fields if f in step["headline"]}
+        for field in fields:
+            if field in named:
+                continue
+            assert field in step["detail"], (
+                f"{field!r} was neither read nor reported as unread: {step['detail']!r}"
+            )
+
+
+def test_the_narration_step_says_who_read_it(explained):
+    _, _, _, explanations = explained
+    for explanation in explanations.values():
+        detail = _parse_step(explanation)["detail"]
+        assert "pattern rules" in detail, (
+            "the step does not say which tier read the narration. This project reports "
+            "tier provenance everywhere else, and the LLM tier fills these exact fields"
+        )
+
+
+def test_the_recorder_reads_only_fields_the_parser_actually_has():
+    """
+    The general form of the `llm_model` bug, and the reason it survived.
+
+    `getattr(parsed, "...", default)` on a misspelled or removed attribute returns the
+    default forever and raises nothing. Any field the recorder pulls off a
+    `ParsedNarration` must exist on the dataclass, so a rename breaks a test instead of
+    quietly zeroing a column of the transcript.
+    """
+    import ast
+    import inspect
+
+    from recon.engine import match as match_mod
+    from recon.engine.normalize import ParsedNarration
+
+    real = set(ParsedNarration.__dataclass_fields__) | {
+        name for name in dir(ParsedNarration) if not name.startswith("_")
+    }
+    tree = ast.parse(inspect.getsource(match_mod))
+    for node in ast.walk(tree):
+        # `parsed.<attr>`
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "parsed"
+        ):
+            assert node.attr in real, (
+                f"match.py reads parsed.{node.attr}, which ParsedNarration does not have"
+            )
+        # `getattr(parsed, "<attr>", ...)` -- the shape that hid this for months
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "getattr"
+            and node.args
+            and isinstance(node.args[0], ast.Name)
+            and node.args[0].id == "parsed"
+            and len(node.args) > 1
+            and isinstance(node.args[1], ast.Constant)
+        ):
+            assert node.args[1].value in real, (
+                f"match.py getattrs parsed.{node.args[1].value!r} with a default, and "
+                f"ParsedNarration has no such attribute -- the default will be returned "
+                f"forever and nothing will raise"
+            )

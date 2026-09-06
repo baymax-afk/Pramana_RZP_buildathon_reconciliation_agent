@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-05T10:24:15.463863+00:00",
+  "generated_at": "2026-09-05T10:48:46.194571+00:00",
   "seed": 20260905,
   "density": 6,
   "llm_tier": "disabled",
@@ -47,8 +47,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME RETAIL PVT LT', reference 'INV-2026-1002'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'ACME RETAIL PVT LT' and merchant reference 'INV-2026-1002'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -157,7 +157,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Nothing usable in the narration.",
-          "detail": "No payer name, reference or transaction count could be read from the text.",
+          "detail": "No payer name, merchant reference or transaction count could be read from the text. The credit is decided on amount and date alone. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -273,7 +273,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Nothing usable in the narration.",
-          "detail": "No payer name, reference or transaction count could be read from the text.",
+          "detail": "No payer name, merchant reference or transaction count could be read from the text. The credit is decided on amount and date alone. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -389,7 +389,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Nothing usable in the narration.",
-          "detail": "No payer name, reference or transaction count could be read from the text.",
+          "detail": "No payer name, merchant reference or transaction count could be read from the text. The credit is decided on amount and date alone. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -505,7 +505,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Nothing usable in the narration.",
-          "detail": "No payer name, reference or transaction count could be read from the text.",
+          "detail": "No payer name, merchant reference or transaction count could be read from the text. The credit is decided on amount and date alone. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -615,7 +615,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Nothing usable in the narration.",
-          "detail": "No payer name, reference or transaction count could be read from the text.",
+          "detail": "No payer name, merchant reference or transaction count could be read from the text. The credit is decided on amount and date alone. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -725,7 +725,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Nothing usable in the narration.",
-          "detail": "No payer name, reference or transaction count could be read from the text.",
+          "detail": "No payer name, merchant reference or transaction count could be read from the text. The credit is decided on amount and date alone. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -841,7 +841,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Nothing usable in the narration.",
-          "detail": "No payer name, reference or transaction count could be read from the text.",
+          "detail": "No payer name, merchant reference or transaction count could be read from the text. The credit is decided on amount and date alone. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -957,7 +957,7 @@
           "seq": 2,
           "stage": "parse",
           "headline": "Nothing usable in the narration.",
-          "detail": "No payer name, reference or transaction count could be read from the text.",
+          "detail": "No payer name, merchant reference or transaction count could be read from the text. The credit is decided on amount and date alone. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1066,8 +1066,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'LOTUS PAPER MILLS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'LOTUS PAPER MILLS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1176,8 +1176,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'QUANTUM INSTRUMENT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'QUANTUM INSTRUMENT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1292,8 +1292,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1408,8 +1408,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNRISE TEXTILES', reference 'INV-2026-1005'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'SUNRISE TEXTILES' and merchant reference 'INV-2026-1005'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1517,8 +1517,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1633,8 +1633,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1749,8 +1749,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'BHARAT TRADERS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'BHARAT TRADERS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1865,8 +1865,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'LOTUS PAPER MILLS', reference 'INV-2026-1013'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'LOTUS PAPER MILLS' and merchant reference 'INV-2026-1013'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -1974,8 +1974,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'KAVERI AGRO'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -2126,8 +2126,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 4 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 4 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -2303,8 +2303,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'NOVA CHEMICALS IND', reference 'INV-2026-1020'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'NOVA CHEMICALS IND' and merchant reference 'INV-2026-1020'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -2412,8 +2412,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNRISE TEXTILES'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SUNRISE TEXTILES'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -2528,8 +2528,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'PINNACLE STEEL TRA', reference 'INV-2026-1027'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'PINNACLE STEEL TRA' and merchant reference 'INV-2026-1027'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -2637,8 +2637,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'HARBOUR MARINE SUP', reference 'INV-2026-1025'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'HARBOUR MARINE SUP' and merchant reference 'INV-2026-1025'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -2770,8 +2770,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 3 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 3 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -2929,8 +2929,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIAN LOG', reference 'INV-2026-1031'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'MERIDIAN LOG' and merchant reference 'INV-2026-1031'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -3050,8 +3050,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 2 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 2 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -3191,8 +3191,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNRISE TEXTILES', reference 'INV-2026-1030'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'SUNRISE TEXTILES' and merchant reference 'INV-2026-1030'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -3300,8 +3300,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'KAVERI AGRO'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -3416,8 +3416,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'VERTEX ENGINEERIN'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'VERTEX ENGINEERIN'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -3525,8 +3525,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'NOVA CHEMICALS IND'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'NOVA CHEMICALS IND'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -3689,8 +3689,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 5 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 5 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -3884,8 +3884,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO EXPORT', reference 'INV-2026-1043'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'KAVERI AGRO EXPORT' and merchant reference 'INV-2026-1043'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -3993,8 +3993,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4109,8 +4109,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'LOTUS PAPER MILLS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'LOTUS PAPER MILLS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4218,8 +4218,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME RETAIL', reference 'INV-2026-1040'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'ACME RETAIL' and merchant reference 'INV-2026-1040'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4327,8 +4327,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO EXPORT', reference 'INV-2026-1041'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'KAVERI AGRO EXPORT' and merchant reference 'INV-2026-1041'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4436,8 +4436,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4552,8 +4552,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'DECCAN PHARMA DIST', reference 'INV-2026-1049'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'DECCAN PHARMA DIST' and merchant reference 'INV-2026-1049'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4661,8 +4661,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4777,8 +4777,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'LOTUS PAPER MILLS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'LOTUS PAPER MILLS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4893,8 +4893,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'NOVA CHEMICALS IND', reference 'INV-2026-1057'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'NOVA CHEMICALS IND' and merchant reference 'INV-2026-1057'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -4988,8 +4988,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME INDUSTRIAL SU'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ACME INDUSTRIAL SU'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -5104,8 +5104,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME RETAIL PVT LT', reference 'INV-2026-1054'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'ACME RETAIL PVT LT' and merchant reference 'INV-2026-1054'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -5213,8 +5213,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'BHARATI TRAD'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'BHARATI TRAD'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -5329,8 +5329,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNLINE TEXTILES'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SUNLINE TEXTILES'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -5445,8 +5445,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO EXPORT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'KAVERI AGRO EXPORT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -5561,8 +5561,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'HARBOUR MARINE SUP', reference 'INV-2026-1061'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'HARBOUR MARINE SUP' and merchant reference 'INV-2026-1061'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -5670,8 +5670,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'DECCAN PHARMA DIST'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'DECCAN PHARMA DIST'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -5786,8 +5786,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'HARBOUR MARINE SUP'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'HARBOUR MARINE SUP'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -5902,8 +5902,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'GREENFIELD ORGANIC'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'GREENFIELD ORGANIC'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -6018,8 +6018,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'HARBOUR MARINE SUP'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'HARBOUR MARINE SUP'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -6134,8 +6134,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ORCHID FOODS PVT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ORCHID FOODS PVT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -6243,8 +6243,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -6407,8 +6407,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 5 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 5 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -6602,8 +6602,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO EXPORT', reference 'INV-2026-1075'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'KAVERI AGRO EXPORT' and merchant reference 'INV-2026-1075'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -6711,8 +6711,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'GREENFIELD ORGANIC', reference 'INV-2026-1072'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'GREENFIELD ORGANIC' and merchant reference 'INV-2026-1072'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -6820,8 +6820,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'DECCAN PHARM', reference 'INV-2026-1071'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'DECCAN PHARM' and merchant reference 'INV-2026-1071'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -6929,8 +6929,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNRISETEXTILESL'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SUNRISETEXTILESL'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7045,8 +7045,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIAN LOGISTICS', reference 'INV-2026-1070'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'MERIDIAN LOGISTICS' and merchant reference 'INV-2026-1070'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7154,8 +7154,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'NOVA CHEMICALS IND', reference 'INV-2026-1080'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'NOVA CHEMICALS IND' and merchant reference 'INV-2026-1080'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7249,8 +7249,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7365,8 +7365,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'GREENFIELD ORGANIC', reference 'INV-2026-1079'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'GREENFIELD ORGANIC' and merchant reference 'INV-2026-1079'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7474,8 +7474,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7590,8 +7590,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ORCHIDFOODSPVT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ORCHIDFOODSPVT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7706,8 +7706,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'HARBOUR MARI'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'HARBOUR MARI'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7822,8 +7822,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'LOTUS PAPER MILLS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'LOTUS PAPER MILLS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -7938,8 +7938,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIANLOGISTICS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'MERIDIANLOGISTICS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -8048,8 +8048,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME INDUSTRIAL SU'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ACME INDUSTRIAL SU'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -8194,8 +8194,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 4 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 4 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -8371,8 +8371,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SILVERLINE PACKAGI', reference 'INV-2026-1091'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'SILVERLINE PACKAGI' and merchant reference 'INV-2026-1091'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -8516,8 +8516,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 4 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 4 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -8693,8 +8693,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'BHARAT TRADERS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'BHARAT TRADERS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -8809,8 +8809,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNRISE TEXTILES'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SUNRISE TEXTILES'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -8925,8 +8925,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -9041,8 +9041,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -9169,8 +9169,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 2 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 2 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -9322,8 +9322,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 2 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 2 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -9449,8 +9449,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME INDUSTRIAL SU'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ACME INDUSTRIAL SU'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -9565,8 +9565,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIAN LOGISTICS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'MERIDIAN LOGISTICS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -9717,8 +9717,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 4 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 4 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -9906,8 +9906,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 2 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 2 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -10059,8 +10059,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 2 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 2 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -10236,8 +10236,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 4 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 4 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -10407,8 +10407,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ORCHID FOODS PVT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ORCHID FOODS PVT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -10517,8 +10517,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME RETAIL PVT LT', reference 'INV-2026-1119'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'ACME RETAIL PVT LT' and merchant reference 'INV-2026-1119'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -10626,8 +10626,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO EXPORT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'KAVERI AGRO EXPORT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -10742,8 +10742,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'BHARAT TRADERS', reference 'INV-2026-1117'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'BHARAT TRADERS' and merchant reference 'INV-2026-1117'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -10851,8 +10851,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -10960,8 +10960,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIAN LOGISTICS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'MERIDIAN LOGISTICS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -11076,8 +11076,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIAN LOGISTICS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'MERIDIAN LOGISTICS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -11186,8 +11186,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIAN LOGISTICS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'MERIDIAN LOGISTICS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -11296,8 +11296,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'NOVA CHEMICALS IND'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'NOVA CHEMICALS IND'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -11412,8 +11412,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ORCHID FOODS', reference 'INV-2026-1126'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'ORCHID FOODS' and merchant reference 'INV-2026-1126'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -11521,8 +11521,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNLINE TEXTILES', reference 'INV-2026-1123'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'SUNLINE TEXTILES' and merchant reference 'INV-2026-1123'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -11630,8 +11630,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME INDUSTRIAL SU', reference 'INV-2026-1129'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'ACME INDUSTRIAL SU' and merchant reference 'INV-2026-1129'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -11739,8 +11739,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNRISE TEXTILES', reference 'INV-2026-1132'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'SUNRISE TEXTILES' and merchant reference 'INV-2026-1132'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -11884,8 +11884,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 4 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 4 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -12061,8 +12061,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME RETAIL', reference 'INV-2026-1137'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'ACME RETAIL' and merchant reference 'INV-2026-1137'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -12170,8 +12170,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'BHARATI TRADERS LL', reference 'INV-2026-1133'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'BHARATI TRADERS LL' and merchant reference 'INV-2026-1133'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -12297,8 +12297,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 3 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 3 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -12450,8 +12450,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO EXPORT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'KAVERI AGRO EXPORT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -12566,8 +12566,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'QUANTUM INSTRUMENT', reference 'INV-2026-1139'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'QUANTUM INSTRUMENT' and merchant reference 'INV-2026-1139'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -12675,8 +12675,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -12791,8 +12791,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME INDUSTRIAL SU'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ACME INDUSTRIAL SU'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -12919,8 +12919,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 2 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 2 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -13060,8 +13060,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME INDUSTRIAL SU'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ACME INDUSTRIAL SU'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -13169,8 +13169,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'BHARATI TRADERS LL'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'BHARATI TRADERS LL'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -13278,8 +13278,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNRISE TEXTILES'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SUNRISE TEXTILES'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -13394,8 +13394,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -13510,8 +13510,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'GREENFIELD ORGANIC', reference 'INV-2026-1147'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'GREENFIELD ORGANIC' and merchant reference 'INV-2026-1147'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -13619,8 +13619,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'PINNACLE STEEL TRA'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'PINNACLE STEEL TRA'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -13729,8 +13729,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -13875,8 +13875,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 4 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 4 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -14052,8 +14052,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'VERTEX ENGINEERIN'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'VERTEX ENGINEERIN'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -14168,8 +14168,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'NOVA CHEMICALS IND', reference 'INV-2026-1156'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'NOVA CHEMICALS IND' and merchant reference 'INV-2026-1156'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -14271,8 +14271,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -14381,8 +14381,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNRISE TEXTILES'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SUNRISE TEXTILES'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -14515,8 +14515,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 3 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 3 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -14668,8 +14668,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO EXPORT', reference 'INV-2026-1163'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'KAVERI AGRO EXPORT' and merchant reference 'INV-2026-1163'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -14777,8 +14777,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'LOTUS PAPER MILLS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'LOTUS PAPER MILLS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -14917,8 +14917,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 3 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 3 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15076,8 +15076,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15186,8 +15186,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15296,8 +15296,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'DECCAN PHARMA DIST'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'DECCAN PHARMA DIST'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15412,8 +15412,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'QUANTUM INSTRUMENT', reference 'INV-2026-1165'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'QUANTUM INSTRUMENT' and merchant reference 'INV-2026-1165'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15521,8 +15521,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'VERTEX ENGINEERIN'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'VERTEX ENGINEERIN'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15637,8 +15637,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIAN LOGISTICS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'MERIDIAN LOGISTICS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15753,8 +15753,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SILVERLINE PACKAGI'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SILVERLINE PACKAGI'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15862,8 +15862,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'MERIDIAN LOGISTICS'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'MERIDIAN LOGISTICS'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -15978,8 +15978,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'QUANTUM INSTRUMENT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'QUANTUM INSTRUMENT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -16094,8 +16094,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'HARBOUR MARINE SUP', reference 'INV-2026-1171'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'HARBOUR MARINE SUP' and merchant reference 'INV-2026-1171'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -16227,8 +16227,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 3 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 3 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -16380,8 +16380,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME INDUSTRIAL SU'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ACME INDUSTRIAL SU'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -16490,8 +16490,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'LOTUS PAPER MILLS', reference 'INV-2026-1176'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'LOTUS PAPER MILLS' and merchant reference 'INV-2026-1176'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -16599,8 +16599,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ACME RETAIL PVT LT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ACME RETAIL PVT LT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -16715,8 +16715,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNLINE TEXTILES'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SUNLINE TEXTILES'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -16831,8 +16831,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'KAVERI AGRO EXPORT', reference 'INV-2026-1178'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'KAVERI AGRO EXPORT' and merchant reference 'INV-2026-1178'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -16940,8 +16940,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'GREENFIELD ORGANIC', reference 'INV-2026-1179'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'GREENFIELD ORGANIC' and merchant reference 'INV-2026-1179'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -17035,8 +17035,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 1 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 1 transaction. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -17151,8 +17151,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SUNLINE TEXTILES'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'SUNLINE TEXTILES'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -17267,8 +17267,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'ORCHID FOODS PVT'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'ORCHID FOODS PVT'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -17401,8 +17401,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted a stated count of 3 transaction(s).",
+          "headline": "Read 1 of 3 fields: transaction count.",
+          "detail": "Extracted a stated count of 3 transactions. No payer name or merchant reference could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -17554,8 +17554,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'SILVERLINE PACKAGI', reference 'INV-2026-1187'.",
+          "headline": "Read 2 of 3 fields: payer name and merchant reference.",
+          "detail": "Extracted payer 'SILVERLINE PACKAGI' and merchant reference 'INV-2026-1187'. No transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -17663,8 +17663,8 @@
         {
           "seq": 2,
           "stage": "parse",
-          "headline": "Read the narration.",
-          "detail": "Extracted payer 'GREENFIELD ORGANIC'.",
+          "headline": "Read 1 of 3 fields: payer name.",
+          "detail": "Extracted payer 'GREENFIELD ORGANIC'. No merchant reference or transaction count could be read from the text. Read by the pattern rules alone.",
           "evidence": []
         },
         {
@@ -17995,7 +17995,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T22:24:15+00:00",
+        "due_at": "2026-09-05T22:48:46+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it.",
         "internal": false
@@ -18030,7 +18030,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-06T10:24:15+00:00",
+        "due_at": "2026-09-06T10:48:46+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing.",
         "internal": false
@@ -18065,7 +18065,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T22:24:15+00:00",
+        "due_at": "2026-09-05T22:48:46+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it.",
         "internal": false
@@ -18100,7 +18100,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T22:24:15+00:00",
+        "due_at": "2026-09-05T22:48:46+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it.",
         "internal": false
@@ -18135,7 +18135,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-06T10:24:15+00:00",
+        "due_at": "2026-09-06T10:48:46+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing.",
         "internal": false
@@ -18170,7 +18170,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-06T10:24:15+00:00",
+        "due_at": "2026-09-06T10:48:46+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing.",
         "internal": false
@@ -18205,7 +18205,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T22:24:15+00:00",
+        "due_at": "2026-09-05T22:48:46+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it.",
         "internal": false
@@ -18240,7 +18240,7 @@
         "owner": "Collections / AR",
         "action": "Confirm the payer is authorised to settle for this customer, then post or reassign.",
         "sla_hours": 12,
-        "due_at": "2026-09-05T22:24:15+00:00",
+        "due_at": "2026-09-05T22:48:46+00:00",
         "material": true,
         "rationale": "The money reconciles exactly and only the NAME disagrees. Someone with the customer relationship resolves this; nobody needs to touch the ledger to answer it.",
         "internal": false
@@ -18275,7 +18275,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 24,
-        "due_at": "2026-09-06T10:24:15+00:00",
+        "due_at": "2026-09-06T10:48:46+00:00",
         "material": true,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing.",
         "internal": false
@@ -18310,7 +18310,7 @@
         "owner": "Reconciliation lead",
         "action": "Trace the missing leg: an unrecorded payment, a refund, or a deduction not on the invoice.",
         "sla_hours": 48,
-        "due_at": "2026-09-07T10:24:15+00:00",
+        "due_at": "2026-09-07T10:48:46+00:00",
         "material": false,
         "rationale": "The engine searched the window exhaustively and nothing adds up to this credit. That is a finding about the books, not a limit of the search, and it is the only queue where the answer may be that a record is missing.",
         "internal": false
@@ -18357,7 +18357,7 @@
         "owner": "Treasury analyst",
         "action": "Obtain the remittance advice and confirm which payments this credit covers.",
         "sla_hours": 8,
-        "due_at": "2026-09-05T18:24:15+00:00",
+        "due_at": "2026-09-05T18:48:46+00:00",
         "material": false,
         "rationale": "The engine found more than one arithmetically valid answer and refused to choose. A remittance advice settles it in one lookup, so this is the fastest queue on the board.",
         "internal": false
@@ -26310,5 +26310,5 @@
     "status": "verified",
     "note": ""
   },
-  "throughput_records_per_s": 994
+  "throughput_records_per_s": 774
 }

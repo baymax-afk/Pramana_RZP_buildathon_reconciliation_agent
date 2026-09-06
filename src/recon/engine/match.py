@@ -509,7 +509,7 @@ def match_once(
                 r.parsed_payer = parsed.payer_name
                 r.parsed_ref = parsed.merchant_ref
                 r.parsed_txn_count = parsed.txn_count
-                r.parsed_by_llm = bool(getattr(parsed, "llm_model", ""))
+                r.parsed_by = parsed.parsed_by
 
             if verdict == "assign":
                 cand = cands[0]

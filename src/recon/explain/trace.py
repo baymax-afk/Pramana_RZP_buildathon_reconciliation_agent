@@ -72,10 +72,18 @@ class CreditRecord:
     claimed_at_decision: int = 0
 
     # What the narration parser read, and who read it.
+    #
+    # `parsed_by` is the string `ParsedNarration` carries -- "regex", or
+    # "regex+<model>" when the LLM tier filled a gap. It replaces a `parsed_by_llm`
+    # bool that was ALWAYS FALSE: it was assigned from
+    # `getattr(parsed, "llm_model", "")`, and `ParsedNarration` has no `llm_model`
+    # attribute, so the getattr default swallowed the mistake and the field recorded
+    # nothing for as long as it existed. Nothing rendered it, which is why nobody
+    # noticed -- and this project reports which tier produced what everywhere else.
     parsed_payer: str | None = None
     parsed_ref: str | None = None
     parsed_txn_count: int | None = None
-    parsed_by_llm: bool = False
+    parsed_by: str = "regex"
 
     attempts: list[TierAttempt] = field(default_factory=list)
 

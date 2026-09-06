@@ -42,6 +42,24 @@ def plural(n: int, one: str, many: str = "") -> str:
     return f"{n} {one}" if n == 1 else f"{n} {many or one + 's'}"
 
 
+def _join(items, conj: str = "and") -> str:
+    """
+    `['a', 'b', 'c']` -> `'a, b and c'`. One item is itself; none is the empty string.
+
+    `conj` because a NEGATED list takes "or": "no payer name and merchant reference
+    could be read" says something different from what is meant, and reads as an error
+    to the operator this text is written for. A list rendered with bare commas reads as
+    a fragment mid-sentence, and these strings are read by a person rather than parsed
+    by anything.
+    """
+    items = list(items)
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    return f"{', '.join(items[:-1])} {conj} {items[-1]}"
+
+
 def rupees(paise: int | None) -> str:
     if paise is None:
         return "-"
@@ -327,19 +345,53 @@ class Explainer:
             f"{rec.ref_no or '(none)'}.",
             [self.txn_ref(rec.bank_txn_id)],
         )
-        read = []
+        # The narration parser looks for exactly three things, so "n of 3" is a real
+        # denominator rather than a flourish -- and which one is MISSING is usually the
+        # more useful half. A settlement batch with no merchant reference is the shape
+        # that falls through to the amount tiers, and a reader working out why should
+        # not have to infer it from the absence of a phrase.
+        #
+        # This headline used to be the constant string "Read the narration.", which is
+        # the UI's own label for the step (`STAGE_LABEL.parse` in App.jsx), so the row
+        # rendered as "READ THE NARRATION -- Read the narration." Every other step's
+        # headline carries its finding: the bank line names the amount and the date, the
+        # pool names how many candidates survived. This one named nothing.
+        found, values = [], []
         if rec.parsed_payer:
-            read.append(f"payer {rec.parsed_payer!r}")
+            found.append("payer name")
+            values.append(f"payer {rec.parsed_payer!r}")
         if rec.parsed_ref:
-            read.append(f"reference {rec.parsed_ref!r}")
+            found.append("merchant reference")
+            values.append(f"merchant reference {rec.parsed_ref!r}")
         if rec.parsed_txn_count is not None:
-            read.append(f"a stated count of {rec.parsed_txn_count} transaction(s)")
-        add(
-            "parse",
-            "Read the narration." if read else "Nothing usable in the narration.",
-            ("Extracted " + ", ".join(read) + ".") if read else
-            "No payer name, reference or transaction count could be read from the text.",
+            found.append("transaction count")
+            values.append(
+                f"a stated count of {plural(rec.parsed_txn_count, 'transaction')}"
+            )
+        missing = [f for f in ("payer name", "merchant reference", "transaction count")
+                   if f not in found]
+
+        if found:
+            headline = f"Read {len(found)} of 3 fields: {_join(found)}."
+            detail = f"Extracted {_join(values)}."
+            if missing:
+                detail += f" No {_join(missing, 'or')} could be read from the text."
+        else:
+            headline = "Nothing usable in the narration."
+            detail = (
+                "No payer name, merchant reference or transaction count could be read "
+                "from the text. The credit is decided on amount and date alone."
+            )
+        # Who read it. `ParsedNarration.parsed_by` is "regex", or "regex+<model>" when
+        # the LLM tier filled a gap the pattern rules left -- the tier can only ADD to
+        # what the regex found, never overwrite it, and saying so here is where a reader
+        # meets the claim rather than in a document they have not opened.
+        detail += (
+            " Read by the pattern rules alone."
+            if rec.parsed_by == "regex"
+            else f" Gaps the pattern rules left were filled by {rec.parsed_by!r}."
         )
+        add("parse", headline, detail)
         add(
             "pool",
             f"Narrowed to {rec.pool_size} candidate payment(s).",
