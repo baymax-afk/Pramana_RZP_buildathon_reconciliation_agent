@@ -370,7 +370,7 @@ dl.mini-facts dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
 
 /* ---- reachable ceiling ----
  *
- * REVIEW.md section 8 item 6. The bar is the argument in one glance: the shortfall the
+ * the 2026-09-03 audit §8 item 6. The bar is the argument in one glance: the shortfall the
  * engine owns is the middle segment, and it is meant to look small next to the segment
  * that was never available to anything. Colours carry meaning, so each segment is also
  * named in the facts list beneath -- the bar is a summary of the numbers, never the

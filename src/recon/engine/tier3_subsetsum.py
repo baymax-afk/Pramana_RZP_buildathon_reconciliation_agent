@@ -72,7 +72,7 @@ class SearchResult:
     # refusal that said "no subset fits" carried no candidate at all, on six of fifteen
     # exceptions including the largest. Naming the subset turns the same refusal into
     # "these three payments come to Rs 37.00 less than this credit", which is a bank
-    # charge or a short-payment to go and look for. See REVIEW.md P1-3.
+    # charge or a short-payment to go and look for. See the 2026-09-03 audit, finding P1-3.
     best_miss_ids: tuple[str, ...] = ()
     # The closest subset the search could REACH, recorded whatever the distance.
     #
@@ -376,7 +376,7 @@ def _decompose(
         # reading "4 payments, +3700p" is self-describing rather than misleading, and it
         # is the difference between an exception a person can work and one they can only
         # escalate. Six of fifteen refusals carried nothing at all before this, including
-        # the largest at Rs 45,673. See REVIEW.md P1-3.
+        # the largest at Rs 45,673. See the 2026-09-03 audit, finding P1-3.
         # `best_miss_ids` when the search found a genuine near-rival, and otherwise the
         # closest subset it could reach at all. The fallback is what stops the largest
         # exception in the batch from arriving empty-handed: see SearchResult.nearest_ids

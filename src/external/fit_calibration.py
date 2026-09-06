@@ -31,7 +31,6 @@ import argparse
 import json
 import math
 from dataclasses import dataclass
-from pathlib import Path
 
 import config as cfg
 from recon.engine import confidence as conf
@@ -284,7 +283,11 @@ def reliability(examples: list[Example], weights: dict[str, float], bins: int = 
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
-CALIBRATION_FILE = Path(cfg.ROOT) / "calibration.json"
+# Written beside the other generated artefacts rather than in the repository root. It is
+# the output of an optional one-off fit and is read by nothing at runtime -- the fitted
+# weights were deliberately NOT substituted into the engine, which is the finding -- so
+# it is a report, and the root is for things a reader needs on arrival.
+CALIBRATION_FILE = cfg.REPORTS / "calibration.json"
 
 
 def main(argv=None) -> int:

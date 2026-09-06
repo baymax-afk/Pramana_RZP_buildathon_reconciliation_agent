@@ -120,7 +120,7 @@ def _load_dotenv() -> list[str]:
     Load `.env` into the environment, without overriding anything already set.
 
     **Nothing read this file until now.** `.gitignore` describes it as "Secrets. The LLM
-    tier and the Razorpay MCP both read from here", `OUTSTANDING_TASKS.md` instructed the
+    tier and the Razorpay MCP both read from here", the outstanding-work log instructed the
     reader to put `ANTHROPIC_API_KEY` and `ANTHROPIC_WORKSPACE_ID` in it, and
     `recon.llm.select()` then read `os.environ` and found nothing -- so it silently chose
     the offline stand-in and every reported run said `llm=recorded`.

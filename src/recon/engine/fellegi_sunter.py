@@ -47,7 +47,7 @@ fitted values were NOT written in, because `m` is a property of a data source's 
 semantics rather than a constant of reconciliation, and this project's narrations do carry
 clean quoted invoice numbers. What the measurement licenses is the disclosure:
 the prior is stated, its source is named, and it is now known not to generalise.
-`docs/OUTSTANDING_TASKS.md` W1.
+the calibration note in docs/METRICS.md.
 """
 
 from __future__ import annotations

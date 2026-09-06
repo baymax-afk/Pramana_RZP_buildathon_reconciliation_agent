@@ -216,7 +216,7 @@ def test_target_of_zero_finds_nothing_and_does_not_hang():
 
 
 # --------------------------------------------------------------------------
-# The near miss (REVIEW.md P1-3)
+# The near miss (the 2026-09-03 audit, finding P1-3)
 # --------------------------------------------------------------------------
 def test_the_search_names_the_subset_that_came_closest():
     """

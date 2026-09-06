@@ -1,7 +1,7 @@
 """
 The CLI must report where it used to abort, and the install must be what it claims.
 
-Two failure shapes, both from REVIEW_2026-09-02:
+Two failure shapes, both from the 2026-09-02 code review:
 
   * An assertion about a DECORATIVE batch could kill a run whose numbers were already
     computed (R5), and one bad arm out of twenty could discard the nineteen others (R6).
@@ -105,7 +105,7 @@ def _with_forced_unsatisfiable(argv: list[str]) -> subprocess.CompletedProcess:
     the UI serve -- and stripping its verification block on the way past. The docstring
     above promised the tree survived a KILLED run; the tree did not survive a SUCCESSFUL
     one. Running the test suite was, reliably, how the demo lost its verification
-    section. See REVIEW.md P0-1 and P1-5.
+    section. See the 2026-09-03 audit, finding P0-1 and P1-5.
     """
     import os
     import tempfile

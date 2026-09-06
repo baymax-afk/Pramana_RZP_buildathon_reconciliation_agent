@@ -14,7 +14,7 @@ anything is posted.
 **What this does NOT amount to, and an earlier version of this file claimed it did.**
 This docstring used to say the LLM "structurally cannot" express a matching preference,
 because there is "nowhere to put one". That is too strong, and the project's own audit
-falsified it -- see `REVIEW.md` section 5. `merchant_ref` is free text that
+falsified it -- see the 2026-09-03 audit §5. `merchant_ref` is free text that
 `ReferenceIndex` resolves against invoice numbers, invoice numbers index to payments, and
 tier 1 outranks every other tier in `match._TIER_RANK`. So a model that emits a plausible
 `INV-2026-xxxx` selects a payment at one hop, and promotes that match to the top of the

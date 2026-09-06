@@ -1,7 +1,7 @@
 """
 Which evidence SOURCE closed an exception.
 
-`REVIEW.md` section 8's post-buildathon list opens with this: *"Not 'our AI matched more'
+the 2026-09-03 audit §8's post-buildathon list opens with this: *"Not 'our AI matched more'
 but 'this evidence source closed N exceptions at unchanged precision.'"* The difference
 is not presentational. The first is a claim about a vendor; the second is a claim about a
 dataset, and only the second tells a controller whether to license the dataset.

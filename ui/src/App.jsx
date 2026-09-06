@@ -473,7 +473,7 @@ function Verification({ block }) {
   // An absent claim must LOOK absent. This used to `return null` when both were empty,
   // so a run produced without --verify rendered no Verification section at all -- the
   // project's central claim vanished from the page silently, and nothing looked wrong
-  // until someone asked where the verification had gone. See REVIEW.md P0-1.
+  // until someone asked where the verification had gone. See the 2026-09-03 audit, finding P0-1.
   if (status === "not_run" || (!relations.length && !gate)) {
     return (
       <section className="verification not-run">
@@ -923,7 +923,7 @@ function MatchBody({ row }) {
 // --------------------------------------------------------------------------
 // The reachable ceiling
 //
-// REVIEW.md section 8, item 6. A match rate of 88.66% invites comparison against 100%,
+// the 2026-09-03 audit §8, item 6. A match rate of 88.66% invites comparison against 100%,
 // and 100% is not on offer: some captured payments never settled, so no bank credit
 // exists to match them, and others belong to a relation the engine does not model and
 // are refused correctly. Ground truth says 91.24% is the ceiling, which makes the gap
@@ -1116,7 +1116,7 @@ function Ceiling() {
 // --------------------------------------------------------------------------
 // The worklist: the refusal taxonomy as a routing table
 //
-// REVIEW.md section 8's second product item. An AP team does not buy a match rate, it
+// the 2026-09-03 audit §8's second product item. An AP team does not buy a match rate, it
 // buys a smaller worklist with a shape it can staff. Nine named refusal categories, each
 // carrying the reason the engine declined, go to different desks with different
 // turnaround times -- because "two subsets fit this credit" is answerable in minutes

@@ -33,7 +33,7 @@ survived four verification layers, where the base rate is 0.992. A logistic fitt
 construction, so substituting it would replace an honestly labelled unfitted score with a
 confidently wrong one. Calibrating this score for its own population needs labelled data
 from that population -- a merchant's reconciled history, not a public benchmark.
-`docs/OUTSTANDING_TASKS.md` W1 carries the measurement and the reasoning.
+the calibration note in docs/METRICS.md carries the measurement and the reasoning.
 
 Fitting against this run's own ground truth remains out of the question in any case: it
 would breach the isolation boundary and make the calibration claim circular.

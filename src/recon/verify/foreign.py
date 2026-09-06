@@ -1,7 +1,7 @@
 """
 Verification-as-a-service: point the four layers at SOMEONE ELSE'S matches.
 
-`REVIEW.md` section 8 makes the case, and it turns on an observation from the README:
+the 2026-09-03 audit §8 makes the case, and it turns on an observation from the README:
 reconciliation vendors publish coverage and never precision, because publishing precision
 requires ground truth *and* a refusal path, and most products have neither. The four
 layers in this repository do not depend on Pramana's matcher. They are properties of a

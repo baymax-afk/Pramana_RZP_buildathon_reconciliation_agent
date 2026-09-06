@@ -455,7 +455,7 @@ imply otherwise.
 > **SUPERSEDED — the table above is kept as the finding that prompted the fix.** It was
 > true when written, and what it identified is exactly what got fixed: the batch was too
 > clean for the refusal machinery to be visible at the reported density. Seven further
-> defect categories were added in response (`OUTSTANDING_TASKS` O6), and the same three
+> defect categories were added in response (the outstanding-work log O6), and the same three
 > arms at the same seed now read:
 >
 > | | ppw=6 | ppw=12 | ppw=24 |
@@ -577,7 +577,7 @@ post a match whose arithmetic fails — `fees.fits` still gates tier 1. It is *n
 that a model cannot influence the answer: `merchant_ref` is free text that resolves
 through `ReferenceIndex` to an invoice number and thence to a payment at one hop, and
 tier 1 outranks every other tier in the evidence order. Measured, the live tier moves +1
-assignment and reclassifies 9 credits from tier 2 to tier 1. See `REVIEW.md` §5 and the
+assignment and reclassifies 9 credits from tier 2 to tier 1. See the 2026-09-03 audit §5 and the
 docstring in `recon/llm/interface.py`.
 
 **The reported run does not use the live tier.** `run.py match` selects the deterministic

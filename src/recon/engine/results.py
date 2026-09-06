@@ -90,7 +90,7 @@ class Candidate:
     fifteen exceptions carried nothing at all -- including the largest, at Rs 45,673 --
     and "no combination accounts for this credit" is a fact an operator can do nothing
     with, where "these four come to Rs 37.00 less than it" is a bank charge to go and
-    find. See REVIEW.md P1-3.
+    find. See the 2026-09-03 audit, finding P1-3.
     """
 
     payment_ids: tuple[str, ...]

@@ -171,7 +171,7 @@ def deduction_paise(field: EvidenceField, value: str, amount_paise: int | None) 
 # Shapes a value must never have. Used to REJECT, not to find: see
 # EvidenceProposal.validate.
 #
-# The first four are record identifiers, and `REVIEW.md` section 5 is why they are here
+# The first four are record identifiers, and the 2026-09-03 audit §5 is why they are here
 # rather than left to the absence of an id field -- an invoice number is a payment
 # identifier with one hop of indirection, so "carries no payment id" is not the same as
 # "cannot name one".
@@ -217,7 +217,7 @@ class EvidenceProposal:
     level up where it matters more, because an investigator sees far more of the batch
     than a narration parser does.
 
-    That argument needed strengthening here, and the audit is why. `REVIEW.md` §5 showed
+    That argument needed strengthening here, and an external audit is why. It showed
     the narration tier's boundary claim was one hop from false: a `merchant_ref` reaches
     a payment id through `ReferenceIndex`, and tier 1 outranks everything in
     `evidence_key`, so a plausible invoice number selects a payment and wins contested
@@ -279,9 +279,11 @@ class EvidenceProposal:
                 raise ValueError(
                     f"value {value!r} looks like a record identifier. An identifier "
                     f"would let the agent name a specific record, which is the one "
-                    f"thing the trust boundary exists to prevent (see REVIEW.md "
-                    f"section 5). Cite the record in `source_ref` instead, where it is "
-                    f"checked rather than weighed."
+                    f"thing the trust boundary exists to prevent -- an invoice number "
+                    f"resolves to a payment in one hop, so a value that merely LOOKS "
+                    f"like one can select a record without ever carrying its id. Cite "
+                    f"the record in `source_ref` instead, where it is checked rather "
+                    f"than weighed."
                 )
         if value.casefold().replace(" ", "_") in _VERDICT_WORDS:
             raise ValueError(

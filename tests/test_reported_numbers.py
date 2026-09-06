@@ -16,7 +16,7 @@ been found by reading rather than by failing:
 Each was fixed by hand and could rot again the same afternoon. This file makes that a
 test failure instead.
 
-**What is and is not checked.** `DEFECT_LOG.md` and `REVIEW_2026-09-02.md` are HISTORICAL
+**What is and is not checked.** `DEFECT_LOG.md` and the 2026-09-02 code review are HISTORICAL
 records -- their numbers are correct as of the moment they were written, the log is
 explicitly append-only, and updating them would destroy the thing they are for. They are
 deliberately excluded. Only the documents that describe the system *as it is now* are
@@ -220,7 +220,7 @@ def test_the_published_density_sweep_matches_a_live_run():
 
 
 # --------------------------------------------------------------------------
-# The committed artefact (REVIEW.md P0-1)
+# The committed artefact (the 2026-09-03 audit, finding P0-1)
 #
 # `reports/run_output.json` is what the API serves and the UI renders. It shipped with
 # `verification: {relations: [], permutation_gate: null}` because the test suite itself
@@ -611,7 +611,7 @@ def test_the_served_artefact_is_the_reproducible_arm():
     """
     The check that was missing when the served run silently changed by itself.
 
-    `README.md`, `METRICS.md` and `OUTSTANDING_TASKS.md` all say the deterministic arm
+    `README.md`, `METRICS.md` and the outstanding-work log all say the deterministic arm
     (`--no-llm`) is what the demo should run, because the live tier's output is an INPUT
     to the engine and it moves: 9 of 10 observed live runs assign 127 and one assigns
     126. The artefact went on being generated with the live tier anyway, and regenerating
@@ -832,7 +832,7 @@ def test_no_document_advertises_a_decision_mechanism_the_matcher_does_not_use():
         "be updated deliberately alongside it"
     )
 
-    # DEFECT_LOG and OUTSTANDING_TASKS are append-only records of what WAS claimed and
+    # DEFECT_LOG is an append-only record of what WAS claimed and
     # are meant to keep the old wording. Everything a reader is pointed at must not.
     claims = re.compile(
         r"two[- ]threshold (band|rule|decision)|band .{0,40}populates the exception",

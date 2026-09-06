@@ -720,7 +720,7 @@ def generate(
             # worse than no label. A third-party payer whose narration is also messy is
             # perfectly realistic -- the two defects are independent -- so the fix is to
             # honour the payer in both branches rather than to suppress one.
-            # REVIEW_2026-09-02 R3.
+            # the 2026-09-02 code review, finding R3.
             payer = third_party or cust
             if rng.random() < 0.18:
                 nar = defects.messy_narration(
@@ -1353,7 +1353,7 @@ def _protect_ambiguity_window(
     # candidate window widens to 6 while this scan stays at 5: an interloper at lag 6 is
     # neither detected nor relocated, the post-condition below misses it for the same
     # reason, and the centrepiece ambiguity guarantee fails with nothing raising.
-    # REVIEW_2026-09-02 R9.
+    # the 2026-09-02 code review, finding R9.
     lookback = cfg.LOOKBACK_DAYS + cfg.AMBIGUITY_GUARD_MARGIN_DAYS
 
     # Each payment's OWN settling credit, so a shift can be checked against it rather
@@ -1640,7 +1640,7 @@ def assert_truth_is_satisfiable(batch: GeneratedBatch) -> int:
         count disagrees with the decomposition that fits. So a link marked `assign` over
         k payments on a credit narrated with a different count is unsatisfiable at any
         tolerance -- a third shape, added to this check because it held only by
-        construction and nothing asserted it (REVIEW_2026-09-02 R10).
+        construction and nothing asserted it (the 2026-09-02 code review, finding R10).
 
     Both produce an automatic false negative that looks like an engine failure. The
     engine refuses -- correctly, on the evidence it was given -- and the scorer records a

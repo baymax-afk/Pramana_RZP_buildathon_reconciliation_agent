@@ -4,7 +4,7 @@ B1-B3: the tool surface, the ledger, and what the agent structurally cannot do.
 The audit's sharpest finding was that "carries no payment id" is not the same as
 "cannot name one": `merchant_ref` reaches a payment through `ReferenceIndex`, and tier 1
 outranks everything in `evidence_key`, so a plausible invoice number selects a payment
-and wins contested money (`REVIEW.md` section 5). This surface is much wider than the
+and wins contested money (the 2026-09-03 audit §5). This surface is much wider than the
 narration tier's, so the same mistake here would be much worse. These tests are written
 against that specific failure mode rather than against the general principle.
 """
@@ -158,7 +158,16 @@ def test_the_agent_cannot_name_a_record_even_indirectly(box, value):
     )
     assert receipt.accepted is False
     assert "identifier" in receipt.error
-    assert "REVIEW.md" in receipt.error
+    # The error has to say WHY, not merely that it refused. It used to cite an audit
+    # document by filename; the reasoning now travels in the message itself, which is
+    # the only place a model reading the rejection will look.
+    assert "one hop" in receipt.error, (
+        "the rejection no longer explains that an identifier selects a record "
+        "indirectly, which is the whole reason the shape is refused"
+    )
+    assert "source_ref" in receipt.error, (
+        "the rejection does not tell the agent where a record id IS allowed to go"
+    )
 
 
 def test_an_invented_evidence_channel_is_refused_loudly(box):

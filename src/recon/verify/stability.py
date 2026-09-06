@@ -205,7 +205,7 @@ def _run_passes(
         # materialised before the path was even chosen -- K-1 full copies of every
         # payment, bank txn and invoice tuple -- and then thrown away on the parallel
         # path, which re-derives its own shuffles from (i, base_seed) in the workers.
-        # Pure waste in the function added to make this fast. REVIEW_2026-09-02 R12.
+        # Pure waste in the function added to make this fast. The 2026-09-02 code review, finding R12.
         return [
             match_once(
                 inputs if i == 0 else inputs.shuffled(random.Random(base_seed + i)),

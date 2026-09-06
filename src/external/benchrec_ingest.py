@@ -229,7 +229,7 @@ def fit_m_probabilities(pairs: list[BenchRecPair]) -> dict[str, float]:
 
     Returned rather than written into `config.py` for exactly that reason: `m` is a
     property of a data source's reference semantics, not a constant. See
-    `docs/OUTSTANDING_TASKS.md` W1 for what this does and does not settle.
+    the calibration note in docs/METRICS.md for what this does and does not settle.
     """
     matches = [p for p in pairs if p.is_match]
     if not matches:

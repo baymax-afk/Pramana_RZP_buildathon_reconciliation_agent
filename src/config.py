@@ -265,7 +265,7 @@ AMBIGUITY_GUARD_MARGIN_DAYS = 0
 # block documented the wrong thing and PERMUTATION_PARALLEL carried no rationale at all.
 # A reader following "Set False" would have set the density constant to False, which
 # argparse then accepts as compare-density 0. This file's header states that every
-# constant here carries its documented reason. REVIEW_2026-09-02 R13.
+# constant here carries its documented reason. The 2026-09-02 code review, finding R13.
 PERMUTATION_PARALLEL = True
 PERMUTATION_MAX_WORKERS = 4
 

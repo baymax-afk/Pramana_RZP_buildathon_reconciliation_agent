@@ -1,7 +1,7 @@
 """
 The refusal taxonomy as a routing table.
 
-`REVIEW.md` section 8's second post-buildathon item, and the argument for it is that an
+the 2026-09-03 audit §8's second post-buildathon item, and the argument for it is that an
 AP team does not buy a match rate — it buys a smaller worklist with a shape it can staff.
 Ten vague "unmatched" rows go to one person in whatever order they appear. Nine named
 categories, each carrying the layer that objected, go to different desks with different

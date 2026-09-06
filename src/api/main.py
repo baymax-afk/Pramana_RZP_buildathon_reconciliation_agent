@@ -344,7 +344,7 @@ def get_scorecard() -> dict:
     state, not a failure -- but it must LOOK absent on the page. The alternative is the
     defect this project already shipped once: `App.jsx` returned `null` for an empty
     verification block, so the central claim rendered as nothing and nobody noticed
-    until it was asked for. See REVIEW.md P0-1. An absent claim must look absent.
+    until it was asked for. See the 2026-09-03 audit, finding P0-1. An absent claim must look absent.
     """
     global _SCORECARD_CACHE
     try:

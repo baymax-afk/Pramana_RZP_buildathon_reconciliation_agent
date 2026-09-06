@@ -193,7 +193,7 @@ def test_non_finite_amounts_are_rejected_though_they_are_valid_decimals(text):
 
 
 # --------------------------------------------------------------------------
-# Balance continuity (REVIEW.md P1-4)
+# Balance continuity (the 2026-09-03 audit, finding P1-4)
 #
 # The `balance` column was read and never verified. A statement missing a row -- or
 # carrying one twice -- loaded cleanly and reconciled cleanly, because every OTHER number
@@ -324,7 +324,7 @@ def test_the_reported_batches_both_reconcile():
 
 def test_a_blank_credit_is_zero_but_a_blank_balance_is_an_error(tmp_path):
     """
-    Blank-means-zero has to be per-column (REVIEW.md P2-1).
+    Blank-means-zero has to be per-column (the 2026-09-03 audit, finding P2-1).
 
     A blank `credit` on a debit row is how every bank writes a statement, so zero is
     correct and refusing it would reject valid exports. A blank `balance` is a MISSING

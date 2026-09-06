@@ -1,7 +1,6 @@
 # Pramana
 
 **A reconciliation engine that verifies its own output**
-Razorpay Buildathon 2026 — Track 04, AI Finance Controller
 
 > *pramāṇa* — the term in Indian epistemology for a **means of valid knowledge**: not a
 > belief, but the thing that justifies holding one. The name states the argument rather
@@ -102,7 +101,7 @@ tier contributed zero. The permutation gate reported `unstable: 0`, so this is n
 order-dependence: it is the tier's output being an *input* to the engine, and that input
 moving. **9 of 10 observed live runs assign 127; one assigns 126.** The deterministic arm
 (`--no-llm`) is bit-identical every time, which is what a live demo should run. Full numbers, including where the live model does *worse*
-than the offline stand-in, in [`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) W2.
+than the offline stand-in, in [`docs/METRICS.md`](docs/METRICS.md).
 
 **And that is now what the committed artefact is.** For a day it was not: this paragraph
 said "the deterministic arm is what a live demo should run" while `reports/run_output.json`
@@ -159,8 +158,8 @@ assertion (0.75 against 1.00) while reaching the same headline. Both are reporte
 Evidence is asserted, never applied: proposals enter an append-only ledger, the
 deterministic engine re-runs, and it reaches its own verdict — still a refusal for most
 of them. `EvidenceProposal` carries no payment id, and its value is rejected if it merely
-*looks* like one, because [`REVIEW.md`](REVIEW.md) §5 showed that a free-text field one
-hop from an identifier is a way to name a record. Money never travels in that field at
+*looks* like one: an invoice number resolves to a payment in one hop, so a free-text
+field one hop from an identifier is a way to name a record. Money never travels in that field at
 all: amounts go in a separate integer the validation layer checks against the ledger.
 
 **A newly-assigned credit at or above materiality is held for a human.** Not because the
@@ -419,9 +418,6 @@ uvicorn api.main:app --port 8000            # read-only; leave it running
 cd ui && npm install && npm run dev         # http://localhost:5173
 ```
 
-Demoing it? [`docs/DEMO.md`](docs/DEMO.md) is a six-minute run-sheet: open on the money
-reconciled, one concrete before/after, the stability proof, then what it refused.
-
 The data is committed, so `python run.py generate` is optional — run it only to rebuild
 the batch from its seed. The UI proxies `/api` to port 8000, so **the API has to be
 running before the page will show anything**; if it is not, the page now says so and
@@ -627,46 +623,35 @@ in prose.
 
 ---
 
-## Status
+## What is measured, and what is not
 
-Built against a ~30 hour budget, solo. Build order is fixed and the verification
-layers are never cut; if the schedule slips, the UI degrades to a static table.
+Every figure in this README is re-derived from a live run by
+`tests/test_reported_numbers.py`, so prose that drifts from the code fails the suite
+rather than surviving in a document nobody re-reads.
 
-- [x] **Block 0** — repo skeleton, frozen config, architecture and metrics docs
-- [x] **Block 1** — real payment capture: 24 R1 payments (18 captured), 12 R2 orders
-- [x] **Block 2** — generator, ground truth, nine defects, ambiguity case *(sixteen now)*
-- [x] **Block 3** — matching engine, tiers 1–2 *(76.6% coverage at the time)*
-- [x] **Block 4** — scorer, metrics harness, isolation test  ← **metrics block lands here**
-- [x] **Block 5** — metamorphic harness + runtime permutation gate (MR1–MR6 all pass)
-- [x] **Block 6** — bounded subset-sum + Layer 2 uniqueness and refusal *(86.1% at the time)*
-- [x] **Block 7** — Layer 3 Fellegi–Sunter (contradiction veto, unsupervised `u`)
-- [x] **Block 8** — Layer 4 materiality (AS 2315) + composite confidence
-- [x] **Block 8b** — BenchRec fitted 2026-09-04: ECE 0.0230 over 10/10 bins, n=40,001.
-      Weights and `m` priors **deliberately not substituted** — BenchRec scores any
-      candidate pair (base rate 0.202), this engine scores survivors of four layers
-      (0.992). Engine weights stay UNCALIBRATED and labelled so; see
-      [`OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) W1
-- [x] **Block 9** — LLM tier — changes reasons, and now one decision; see `DEFECT_LOG` 2026-09-03-01
-- [x] **Block 10** — FastAPI + React exception triage UI
+**Two claims this project declines to make.**
+
+**The confidence score is not calibrated.** The four layers strip errors before the
+confidence stage, so what survives is correct largely regardless of its score — all
+assignments sit in one decile at accuracy 1.000, which is not a curve anyone can read.
+Fitting against BenchRec produced an ECE of 0.0230 over ten occupied bins on 40,001
+examples, and those weights were **deliberately not substituted**: BenchRec scores any
+candidate pair at a 0.202 base rate, this engine scores survivors of four layers at
+0.992, and swapping one population's calibration onto another is a different mistake
+rather than a fix. The scores are an ordering, they are labelled `UNCALIBRATED`, and
+[`docs/METRICS.md`](docs/METRICS.md) carries the measurement.
+
+**Five of the agent's eight evidence channels cannot fire on this data.** They carry
+money into the fee model, and a deduction is admissible only when a record *names* the
+figure. These three sides name two deducted amounts and the engine already subtracts
+both, so no deduction is accepted. Two weaker versions of that check were measured and
+both bought coverage by costing precision. [`docs/AGENTIC.md`](docs/AGENTIC.md) has the
+account.
 
 [`docs/DEFECT_LOG.md`](docs/DEFECT_LOG.md) records what broke during the build, as it
-broke. [`docs/FLOWCHARTS.md`](docs/FLOWCHARTS.md) diagrams how the system actually
-behaves — including the places where measurement contradicted the original design.
-[`docs/OUTSTANDING_TASKS.md`](docs/OUTSTANDING_TASKS.md) lists what is knowingly
-incomplete, including one claim the project deliberately **withholds** because the
-evidence does not support it.
-
-**The second withheld claim is now measured.** `python run.py llm-compare` ran against
-live `claude-sonnet-5`: the tier contributes **+0.52pp coverage and one additional
-correct assignment, with precision unmoved at 100.00%**. The more interesting result is
-that across five runs the model filled 6–8 of 13 unreadable narrations — a 46–62% spread
-— and produced **identical verdicts every time**. Model variance does not reach the
-money, which is what the trust boundary was built to guarantee and is now measured rather
-than asserted. See [`METRICS.md`](docs/METRICS.md).
-[`docs/AGENTIC.md`](docs/AGENTIC.md) is a design note on where agency can safely live in
-a system like this — the short answer being everywhere except the verdict, and the
-argument being that the trust boundary is what *permits* autonomy rather than what
-limits it.
+broke — including four defects found by reading the agent's own output.
+[`docs/FLOWCHARTS.md`](docs/FLOWCHARTS.md) diagrams how the system actually behaves,
+including the places where measurement contradicted the original design.
 
 ---
 

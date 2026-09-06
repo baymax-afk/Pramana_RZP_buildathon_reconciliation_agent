@@ -3,7 +3,7 @@ Phase C: the shifted held-out set, and the discipline that makes it worth anythi
 
 **Why a shifted set rather than a fresh seed.** The density sweep already reports five
 held-out seeds at precision 1.0000, so another sample from the same distribution answers
-a question nobody was asking. The open one -- and the third of the three `REVIEW.md` said
+a question nobody was asking. The open one -- and the third of the three the 2026-09-03 audit said
 a judge would ask -- is whether the engine has overfitted to its own generator.
 
 **The measured result, and it is the one that was wanted.** Coverage falls and

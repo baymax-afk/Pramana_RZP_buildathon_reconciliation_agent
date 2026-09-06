@@ -12,7 +12,7 @@ Keeping them apart costs an endpoint and buys the thing the separation is for: t
 artefacts on screen, one produced blind and one produced with the answer key, and no
 question about which is which.
 
-**What this file exists to publish.** `REVIEW.md` section 8 item 6 -- the reachable
+**What this file exists to publish.** the 2026-09-03 audit §8 item 6 -- the reachable
 ceiling. The engine's match rate is 88.66%, and a reader with no further information
 compares that to 100%. It should be compared to 91.24%, because ground truth says the
 rest of the batch cannot be matched by anything: those payments never settled, or they

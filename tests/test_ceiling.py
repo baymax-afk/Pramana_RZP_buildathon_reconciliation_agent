@@ -1,7 +1,7 @@
 """
 The reachable ceiling, and the artefact boundary that carries it.
 
-`REVIEW.md` section 8 item 6 asked for the ceiling on the page, and the reason it was
+the 2026-09-03 audit §8 item 6 asked for the ceiling on the page, and the reason it was
 worth asking for is that a match rate with no ceiling beside it invites comparison
 against 100%. 100% is not on offer: of 22 unmatched captured payments, 17 are unreachable
 by construction -- they never settled, or they belong to a relation this engine does not

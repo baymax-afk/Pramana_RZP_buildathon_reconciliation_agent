@@ -1,7 +1,7 @@
 """
 The refusal taxonomy as a routing table: nine categories, nine queues, nine SLAs.
 
-**Why this is the product and not a nicety.** `REVIEW.md` section 8 makes the argument:
+**Why this is the product and not a nicety.** the 2026-09-03 audit §8 makes the argument:
 an AP team does not buy a match rate, it buys a smaller worklist with a shape it can
 staff. Ten vague "unmatched" rows go to one person who works them in whatever order they
 appear. Nine NAMED refusal categories, each with the reason the engine declined, go to

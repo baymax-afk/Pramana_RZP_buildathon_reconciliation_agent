@@ -8,7 +8,7 @@ approach written honestly: for each credit, take the single payment in the settl
 window whose expected net amount is closest, and post it. Always assign. Never refuse.
 
 That is not a caricature. It is what a coverage-maximising matcher does, and it is the
-shape of the submission `REVIEW.md` section 8 predicts most of this track will be: an
+shape of the submission the 2026-09-03 audit §8 predicts most of this track will be: an
 LLM handed two CSVs and asked to output matches, reporting a match rate with no precision
 and no refusal path. The point of auditing it is not that it loses -- of course it loses,
 it was written to always answer -- but that **the audit finds the specific claims that do

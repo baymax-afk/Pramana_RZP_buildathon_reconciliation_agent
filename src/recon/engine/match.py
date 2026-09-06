@@ -497,7 +497,7 @@ def match_once(
             # is a second API call per assigned credit, multiplied by up to MAX_ROUNDS
             # fixpoint rounds and again by the K=8 permutation passes. Nothing in the
             # path memoises, so the cost was real rather than theoretical.
-            # REVIEW_2026-09-02 R11.
+            # the 2026-09-02 code review, finding R11.
             facts = _facts_for(evidence, txn.id)
             verdict, cands, cat, reason, uniq, parsed = _verdict_for(
                 txn, payments, by_id, index, claimed, invoices_by_no, u_est, llm,

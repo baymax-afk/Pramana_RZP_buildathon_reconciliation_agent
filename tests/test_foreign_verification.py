@@ -1,7 +1,7 @@
 """
 Verification-as-a-service: the four layers pointed at somebody else's matches.
 
-`REVIEW.md` section 8's third post-buildathon item, and the one it calls a wedge. The
+the 2026-09-03 audit §8's third post-buildathon item, and the one it calls a wedge. The
 argument comes from the README's own observation: reconciliation vendors publish coverage
 and never precision, because precision needs ground truth *and* a refusal path. The four
 layers here are properties of a CLAIM -- "this credit is these payments" -- not of this

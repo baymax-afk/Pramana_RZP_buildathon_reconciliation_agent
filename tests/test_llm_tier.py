@@ -260,7 +260,7 @@ def test_explanations_are_operator_facing_not_engine_internals():
 
 def test_each_narration_is_parsed_once_per_credit_per_round():
     """
-    REGRESSION, REVIEW_2026-09-02 R11. `_verdict_for` parsed the narration and discarded
+    REGRESSION, the 2026-09-02 code review, finding R11. `_verdict_for` parsed the narration and discarded
     the result; the assign branch then parsed it AGAIN to feed `fs.evidence_for`.
     Nothing in that path memoises, so with a live ClaudeTier every assigned credit cost
     two API calls -- multiplied by up to MAX_ROUNDS fixpoint rounds and again by the K=8

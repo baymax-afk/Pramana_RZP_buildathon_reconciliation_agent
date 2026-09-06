@@ -56,7 +56,7 @@ scores *worse*, which is why the live arm's 0.75 is reported next to the offline
 ### What it cannot do, structurally
 
 `EvidenceProposal` carries no payment id, no candidate, no score and no verdict — and,
-learning from `REVIEW.md` §5, that is not left as an absence. The value is rejected if it
+learning from the 2026-09-03 audit §5, that is not left as an absence. The value is rejected if it
 matches the shape of a payment id, order id, bank transaction id or UTR, because the
 audit showed a free-text field one hop from a record identifier is a way to name a
 record. The field itself is an enum, so a channel the engine never agreed to weigh is
@@ -254,7 +254,7 @@ project, it is an abandonment of its argument.
 preference even in principle" was too strong: `merchant_ref` reaches a payment at one hop
 through `ReferenceIndex`, and tier 1 outranks every other tier. The absence of a
 payment-id field bounds what a model can say, not everything it can affect — see
-`REVIEW.md` §5. The design below is unchanged by the correction, because it never relied
+the 2026-09-03 audit §5. The design below is unchanged by the correction, because it never relied
 on the stronger claim: `EvidenceProposal` validates its value against the shape of every
 identifier in the batch precisely so that one hop is closed.)*
 

@@ -477,7 +477,7 @@ def _verification_block(relations, ensemble) -> dict:
 
     Empty containers cannot distinguish "we checked and found nothing" from "we never
     checked". A status can, and every consumer is now obliged to handle it.
-    See REVIEW.md P0-1.
+    See the 2026-09-03 audit, finding P0-1.
     """
     block: dict = {
         "relations": [],

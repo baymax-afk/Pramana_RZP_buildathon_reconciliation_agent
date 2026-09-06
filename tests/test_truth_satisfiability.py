@@ -195,7 +195,7 @@ def test_loading_without_a_seed_adopts_the_batchs_own(tmp_path):
 
 def test_reported_seed_and_density_come_from_the_batch_not_the_flags(tmp_path):
     """
-    REGRESSION, REVIEW_2026-09-02 R1. `match --seed X` does not regenerate: it loads
+    REGRESSION, the 2026-09-02 code review, finding R1. `match --seed X` does not regenerate: it loads
     whatever is on disk. The manifest guard was added to stop the headline naming a seed
     that did not produce its numbers, and it closed only the loud path.
 
@@ -214,7 +214,7 @@ def test_reported_seed_and_density_come_from_the_batch_not_the_flags(tmp_path):
 
 def test_naming_the_default_seed_explicitly_is_still_checked(tmp_path):
     """
-    REGRESSION, REVIEW_2026-09-02 R2. The guard read `seed != cfg.SEED_PRIMARY`, but
+    REGRESSION, the 2026-09-02 code review, finding R2. The guard read `seed != cfg.SEED_PRIMARY`, but
     argparse DEFAULTS --seed to that value -- so an explicit `--seed 20260905` was
     indistinguishable from no flag at all and skipped the check entirely, silently
     relabelling the run. Only a sentinel can tell "not passed" from "passed, and happens
@@ -229,7 +229,7 @@ def test_naming_the_default_seed_explicitly_is_still_checked(tmp_path):
 
 def test_a_density_mismatch_is_reported_too(tmp_path):
     """
-    REGRESSION, REVIEW_2026-09-02 R2. `payments_per_window` was overwritten with NO
+    REGRESSION, the 2026-09-02 code review, finding R2. `payments_per_window` was overwritten with NO
     check at all, so a density mismatch was never reported under any invocation.
     """
     from loaders import load_inputs
@@ -274,7 +274,7 @@ def test_a_batch_with_no_manifest_falls_back_to_config_defaults(tmp_path):
 
 def test_the_ambiguity_guard_scans_exactly_the_engines_window(monkeypatch):
     """
-    REGRESSION, REVIEW_2026-09-02 R9. `_protect_ambiguity_window` recomputed its scan as
+    REGRESSION, the 2026-09-02 code review, finding R9. `_protect_ambiguity_window` recomputed its scan as
     `SETTLEMENT_WINDOW_DAYS + 2` under a comment claiming to be "deliberately wider than
     the engine's rule". It was EQUAL to `cfg.LOOKBACK_DAYS`, so the stated margin was
     zero -- and worse, it would have fallen BEHIND the engine the moment
@@ -324,7 +324,7 @@ def test_every_sweep_seed_is_still_constructible(seed):
 
 def test_a_narration_count_that_contradicts_the_link_is_caught(batch):
     """
-    REGRESSION, REVIEW_2026-09-02 R10. `narration_count_conflict` became a hard refusal
+    REGRESSION, the 2026-09-02 code review, finding R10. `narration_count_conflict` became a hard refusal
     channel, which makes a third shape of unreachable link: `assign` over k payments on
     a credit narrating a different count. It held only by construction, and nothing
     asserted it -- the same position `partial_payment` was in when recall sat at 0/5.
